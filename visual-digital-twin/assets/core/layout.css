@@ -1,0 +1,249 @@
+/* ============================================================
+   Digital Twin Screen — Core Layout & Design Tokens
+   暗色科技基准色板 / 大屏栅格 / 面板与组件样式
+   所有间距基于 4px，动画时长 <= 300ms
+   ============================================================ */
+:root{
+  /* —— 背景层 —— */
+  --bg-0:#030711; --bg-1:#06101f; --bg-2:#0a1a33;
+  /* —— 主色（Ocean / Tech） —— */
+  --cy:#22d3ee; --blue:#3b82f6; --violet:#a855f7; --teal:#2dd4bf;
+  --cyan-soft:#7dd3fc; --blue-deep:#1e3a8a;
+  /* —— 状态色 —— */
+  --ok:#34d399; --warn:#fbbf24; --err:#fb7185; --run:#60a5fa;
+  /* —— 文本 —— */
+  --t1:#e6f4ff; --t2:#93b8dc; --t3:#557ba4;
+  /* —— 线框与面板 —— */
+  --line:rgba(34,211,238,.20); --line-soft:rgba(34,211,238,.10);
+  --panel-bg:linear-gradient(158deg, rgba(11,29,56,.78) 0%, rgba(6,15,32,.66) 100%);
+  --panel-bd:1px solid rgba(34,211,238,.16);
+  --shadow:0 8px 32px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  /* —— 字体 —— */
+  --font:"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  --font-num:"DIN Alternate","Bahnschrift SemiBold","Impact","HarmonyOS Sans",var(--font);
+  /* —— 节奏 —— */
+  --r:4px; --pad:12px; --dur:220ms; --ease:cubic-bezier(.16,1,.3,1);
+  --h-header:74px; --h-footer:42px; --w-col:23vw;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg-0); color:var(--t1); font-family:var(--font);
+  font-size:14px; line-height:1.45; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-thumb{background:rgba(34,211,238,.28);border-radius:2px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ============================ 布局 ============================ */
+.dt-app{
+  position:relative; height:100vh; width:100vw; display:grid;
+  grid-template-columns:var(--w-col) 1fr var(--w-col);
+  grid-template-rows:var(--h-header) 1fr var(--h-footer);
+  grid-template-areas:"hd hd hd" "cl st cr" "ft ft ft";
+  gap:10px; padding:0 12px 10px; z-index:1;
+}
+
+/* ============================ 背景层 ============================ */
+.dt-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%,#0a1c3a 0%,#050c1b 55%,#02050d 100%)}
+.dt-bg-grid{position:absolute;inset:-50%;
+  background-image:linear-gradient(rgba(34,211,238,.045) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(34,211,238,.045) 1px,transparent 1px);
+  background-size:48px 48px; transform:perspective(600px) rotateX(58deg) scale(1.6);
+  opacity:.55; animation:dt-grid 24s linear infinite}
+@keyframes dt-grid{to{background-position:0 48px,48px 0}}
+.dt-bg-glow{position:absolute;width:44vw;height:44vw;border-radius:50%;filter:blur(90px);opacity:.30}
+.dt-bg-glow-a{left:-10vw;top:-8vw;background:radial-gradient(circle,#0ea5e9,transparent 65%);
+  animation:dt-float 16s var(--ease) infinite alternate}
+.dt-bg-glow-b{right:-12vw;bottom:-14vw;background:radial-gradient(circle,#7c3aed,transparent 65%);
+  animation:dt-float 21s var(--ease) infinite alternate-reverse}
+@keyframes dt-float{to{transform:translate3d(4vw,3vw,0) scale(1.15)}}
+.dt-bg-scan{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,transparent 0%,rgba(34,211,238,.055) 48%,transparent 52%);
+  background-size:100% 200%; animation:dt-scan 7s linear infinite; opacity:.7}
+@keyframes dt-scan{from{background-position:0 -100%}to{background-position:0 100%}}
+
+/* ============================ 头部 ============================ */
+.dt-header{grid-area:hd;display:flex;align-items:center;justify-content:space-between;
+  padding-top:10px;position:relative}
+.dt-header::after{content:"";position:absolute;left:0;right:0;bottom:2px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(34,211,238,.55) 22%,rgba(126,217,255,.75) 50%,rgba(34,211,238,.55) 78%,transparent)}
+.dt-header-side{display:flex;gap:8px;align-items:center;flex:1}
+.dt-header-right{justify-content:flex-end}
+.dt-chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;
+  font-size:12px;color:var(--t2);background:rgba(11,29,56,.6);border:1px solid var(--line);
+  border-radius:13px;letter-spacing:.5px;white-space:nowrap}
+.dt-chip-dim{color:var(--t3)}
+.dt-chip-live em{width:6px;height:6px;border-radius:50%;background:var(--ok);
+  box-shadow:0 0 8px var(--ok);animation:dt-blink 1.6s ease-in-out infinite}
+@keyframes dt-blink{50%{opacity:.25}}
+.dt-header-title{text-align:center;flex:0 0 auto}
+.dt-header-title h1{font-size:clamp(18px,1.65vw,30px);font-weight:700;letter-spacing:5px;
+  background:linear-gradient(180deg,#ffffff 10%,#9be8ff 55%,#38bdf8 100%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 2px 10px rgba(34,211,238,.45))}
+.dt-header-title p{margin-top:2px;font-size:11px;color:var(--t3);letter-spacing:2px}
+.dt-title-deco{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:5px}
+.dt-title-deco i{width:38px;height:1px;background:linear-gradient(90deg,transparent,var(--cy))}
+.dt-title-deco i:last-child{background:linear-gradient(270deg,transparent,var(--cy))}
+.dt-title-deco b{width:6px;height:6px;transform:rotate(45deg);
+  background:var(--cy);box-shadow:0 0 8px var(--cy)}
+
+/* ============================ 侧栏 ============================ */
+.dt-col{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:hidden}
+.dt-col-left{grid-area:cl}.dt-col-right{grid-area:cr}
+
+/* ============================ 面板 ============================ */
+.dt-panel{position:relative;background:var(--panel-bg);border:var(--panel-bd);
+  border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(8px);
+  display:flex;flex-direction:column;min-height:0;flex:1 1 0;
+  animation:dt-in .5s var(--ease) both}
+@keyframes dt-in{from{opacity:0;transform:translateY(10px)}}
+.dt-panel::before,.dt-panel::after{content:"";position:absolute;width:9px;height:9px;pointer-events:none}
+.dt-panel::before{left:-1px;top:-1px;border-left:2px solid var(--cy);border-top:2px solid var(--cy)}
+.dt-panel::after{right:-1px;bottom:-1px;border-right:2px solid var(--cy);border-bottom:2px solid var(--cy)}
+.dt-ph{display:flex;align-items:center;gap:8px;padding:9px var(--pad) 8px;flex:0 0 auto;
+  border-bottom:1px solid var(--line-soft)}
+.dt-ph::before{content:"";width:3px;height:13px;border-radius:2px;
+  background:linear-gradient(180deg,var(--cyan-soft),var(--blue));box-shadow:0 0 8px rgba(34,211,238,.6)}
+.dt-ph h3{font-size:14px;font-weight:600;letter-spacing:1.5px;color:#d8ecff}
+.dt-ph small{margin-left:auto;font-size:11px;color:var(--t3);letter-spacing:.5px}
+.dt-pb{padding:var(--pad);flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+
+/* ============================ KPI ============================ */
+.dt-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.dt-kpi{position:relative;padding:9px 10px;border-radius:var(--r);overflow:hidden;
+  background:linear-gradient(135deg,rgba(34,211,238,.10),rgba(59,130,246,.03));
+  border:1px solid var(--line-soft);transition:transform var(--dur) var(--ease)}
+.dt-kpi:hover{transform:translateY(-2px);border-color:rgba(34,211,238,.4)}
+.dt-kpi::after{content:"";position:absolute;right:-14px;top:-14px;width:38px;height:38px;
+  border-radius:50%;background:radial-gradient(circle,rgba(34,211,238,.28),transparent 70%)}
+.dt-kpi-label{font-size:11px;color:var(--t3);letter-spacing:.5px}
+.dt-kpi-val{font-family:var(--font-num);font-size:24px;line-height:1.15;font-weight:700;
+  color:#fff;text-shadow:0 0 14px rgba(34,211,238,.55)}
+.dt-kpi-unit{font-size:11px;color:var(--t2);margin-left:3px;font-family:var(--font)}
+.dt-kpi-trend{font-size:11px;margin-left:4px;font-family:var(--font-num)}
+.up{color:var(--err)}.down{color:var(--ok)}
+
+/* ============================ 列表 / 排行 ============================ */
+.dt-list{display:flex;flex-direction:column;gap:7px;overflow:auto;flex:1 1 auto}
+.dt-li{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--t2);
+  padding:5px 6px;border-radius:3px;cursor:pointer;transition:background var(--dur) var(--ease)}
+.dt-li:hover{background:rgba(34,211,238,.10);color:var(--t1)}
+.dt-li-no{counter-reset:none;width:18px;height:18px;flex:0 0 18px;display:grid;place-items:center;
+  font-family:var(--font-num);font-size:11px;color:#04121f;font-weight:700;
+  background:linear-gradient(135deg,var(--cyan-soft),var(--cy));border-radius:2px}
+.dt-li:nth-child(n+4) .dt-li-no{background:rgba(34,211,238,.22);color:var(--cyan-soft)}
+.dt-li-name{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dt-li-val{flex:0 0 auto;font-family:var(--font-num);color:#d7ecff;font-size:13px}
+.dt-bar{height:4px;border-radius:2px;background:rgba(34,211,238,.12);overflow:hidden;margin-top:4px}
+.dt-bar i{display:block;height:100%;border-radius:2px;
+  background:linear-gradient(90deg,var(--blue),var(--cy));box-shadow:0 0 8px rgba(34,211,238,.6);
+  transition:width .8s var(--ease)}
+
+/* ============================ 告警 ============================ */
+.dt-alarm{display:flex;align-items:center;gap:8px;padding:6px 8px;margin-bottom:6px;
+  border-radius:3px;border-left:2px solid var(--err);font-size:12px;
+  background:linear-gradient(90deg,rgba(251,113,133,.14),transparent 70%);animation:dt-in .35s var(--ease) both}
+.dt-alarm.warn{border-left-color:var(--warn);background:linear-gradient(90deg,rgba(251,191,36,.12),transparent 70%)}
+.dt-alarm.info{border-left-color:var(--run);background:linear-gradient(90deg,rgba(96,165,250,.12),transparent 70%)}
+.dt-alarm time{margin-left:auto;font-family:var(--font-num);color:var(--t3);font-size:11px;flex:0 0 auto}
+.dt-alarm b{color:#ffe6ea;font-weight:600}
+.dt-alarm.warn b{color:#ffeccc}.dt-alarm.info b{color:#dbeafe}
+
+/* ============================ 开关 / 图例 ============================ */
+.dt-sw{display:flex;align-items:center;gap:9px;padding:6px 4px;font-size:12px;color:var(--t2);cursor:pointer}
+.dt-sw input{display:none}
+.dt-sw-track{position:relative;width:32px;height:16px;flex:0 0 32px;border-radius:9px;
+  background:rgba(34,211,238,.14);border:1px solid var(--line);transition:all var(--dur) var(--ease)}
+.dt-sw-track::after{content:"";position:absolute;left:1px;top:1px;width:12px;height:12px;border-radius:50%;
+  background:var(--t3);transition:all var(--dur) var(--ease)}
+.dt-sw input:checked + .dt-sw-track{background:rgba(34,211,238,.28);border-color:var(--cy)}
+.dt-sw input:checked + .dt-sw-track::after{left:17px;background:var(--cy);box-shadow:0 0 8px var(--cy)}
+.dt-sw:hover{color:var(--t1)}
+.dt-legend-box{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;color:var(--t2)}
+.dt-legend-item{display:flex;align-items:center;gap:5px}
+.dt-legend-item i{width:8px;height:8px;border-radius:2px;box-shadow:0 0 7px currentColor;background:currentColor}
+
+/* ============================ 舞台 ============================ */
+.dt-stage{grid-area:st;position:relative;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--line-soft);background:linear-gradient(180deg,rgba(4,10,22,.55),rgba(3,7,16,.2))}
+.dt-stage canvas{display:block;width:100%;height:100%}
+.dt-stage::after{content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 90px rgba(3,10,24,.85)}
+.dt-corner{position:absolute;width:22px;height:22px;pointer-events:none;opacity:.85}
+.dt-corner::before,.dt-corner::after{content:"";position:absolute;background:var(--cy);box-shadow:0 0 8px var(--cy)}
+.dt-corner::before{width:100%;height:1.5px}.dt-corner::after{height:100%;width:1.5px}
+.dt-corner.tl{left:6px;top:6px}.dt-corner.tr{right:6px;top:6px;transform:scaleX(-1)}
+.dt-corner.bl{left:6px;bottom:6px;transform:scaleY(-1)}.dt-corner.br{right:6px;bottom:6px;transform:scale(-1)}
+
+.dt-toolbar{position:absolute;right:10px;top:10px;display:flex;gap:6px;z-index:5}
+.dt-tbtn{padding:4px 10px;font-size:11px;letter-spacing:1px;color:var(--t2);border-radius:3px;
+  background:rgba(9,22,44,.72);border:1px solid var(--line);backdrop-filter:blur(4px);
+  transition:all var(--dur) var(--ease)}
+.dt-tbtn:hover{color:#fff;border-color:var(--cy);background:rgba(14,45,80,.9);
+  box-shadow:0 0 12px rgba(34,211,238,.35)}
+.dt-tbtn.on{color:#04121f;background:linear-gradient(135deg,var(--cyan-soft),var(--cy));border-color:transparent;font-weight:600}
+
+.dt-tooltip{position:absolute;z-index:20;pointer-events:none;opacity:0;transform:translate(-50%,-118%);
+  min-width:130px;padding:8px 11px;border-radius:var(--r);font-size:12px;
+  background:rgba(6,18,38,.94);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.6);
+  backdrop-filter:blur(6px);transition:opacity .16s ease}
+.dt-tooltip.show{opacity:1}
+.dt-tooltip h5{font-size:13px;color:#fff;margin-bottom:5px;letter-spacing:.6px}
+.dt-tooltip div{display:flex;justify-content:space-between;gap:14px;color:var(--t2);line-height:1.7}
+.dt-tooltip div b{font-family:var(--font-num);color:var(--cyan-soft);font-weight:600}
+
+.dt-legend{position:absolute;left:10px;bottom:10px;z-index:5;display:flex;flex-direction:column;gap:5px;
+  padding:8px 11px;border-radius:var(--r);background:rgba(6,16,34,.6);border:1px solid var(--line-soft);
+  backdrop-filter:blur(6px);font-size:11px;color:var(--t2)}
+.dt-stage-tips{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:6;
+  padding:5px 12px;border-radius:12px;font-size:11px;letter-spacing:1px;color:var(--cyan-soft);
+  background:rgba(9,22,44,.7);border:1px solid var(--line);opacity:0;transition:opacity var(--dur) var(--ease)}
+.dt-stage-tips.show{opacity:1}
+
+.dt-loading{position:absolute;inset:0;z-index:30;display:grid;place-items:center;gap:10px;
+  grid-auto-flow:row;font-size:13px;letter-spacing:2px;color:var(--cyan-soft);
+  background:rgba(3,8,18,.86);transition:opacity .4s var(--ease)}
+.dt-loading.hide{opacity:0;pointer-events:none}
+.dt-loading span{display:block;width:34px;height:34px;margin:0 auto 10px;border-radius:50%;
+  border:2px solid rgba(34,211,238,.18);border-top-color:var(--cy);animation:dt-spin .9s linear infinite}
+@keyframes dt-spin{to{transform:rotate(360deg)}}
+.dt-offline-badge{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:6;
+  padding:4px 10px;border-radius:10px;font-size:11px;color:var(--warn);
+  background:rgba(9,22,44,.8);border:1px solid rgba(251,191,36,.4)}
+
+/* ============================ 页脚滚动 ============================ */
+.dt-footer{grid-area:ft;display:flex;align-items:center;gap:12px;padding:0 6px;
+  border-top:1px solid var(--line-soft);overflow:hidden}
+.dt-footer-label{flex:0 0 auto;font-size:12px;letter-spacing:1px;color:var(--cy);
+  padding:2px 9px;border:1px solid var(--line);border-radius:10px;background:rgba(11,29,56,.6)}
+.dt-marquee{flex:1 1 auto;overflow:hidden;height:100%;position:relative}
+.dt-marquee-inner{display:flex;gap:26px;align-items:center;height:100%;white-space:nowrap;
+  will-change:transform;animation:dt-mq 38s linear infinite}
+.dt-marquee:hover .dt-marquee-inner{animation-play-state:paused}
+@keyframes dt-mq{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.dt-marquee-item{font-size:12px;color:var(--t2)}
+.dt-marquee-item b{color:#ffd9e1}
+
+/* ============================ 通用 ============================ */
+.dt-canvas-wrap{position:relative;flex:1 1 auto;min-height:80px}
+.dt-flex-row{display:flex;gap:10px;align-items:center}
+.dt-hint{font-size:11px;color:var(--t3);letter-spacing:.5px;margin-top:6px}
+.dt-empty{padding:14px;text-align:center;color:var(--t3);font-size:12px}
+
+/* ============================ 响应式 ============================ */
+@media (max-width:1400px){:root{--w-col:26vw}}
+@media (max-width:1100px){
+  .dt-app{grid-template-columns:1fr;grid-template-rows:var(--h-header) 46vh auto auto var(--h-footer);
+    grid-template-areas:"hd" "st" "cl" "cr" "ft";overflow:auto;height:auto;min-height:100vh}
+  .dt-col{overflow:visible}
+  .dt-kpis{grid-template-columns:repeat(2,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}

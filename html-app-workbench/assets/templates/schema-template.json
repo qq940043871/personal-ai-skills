@@ -1,0 +1,30 @@
+{
+  "$comment": "工作台建表 schema 模板：复制本文件到工作目录后按需求修改 table 与 fields。同一份定义驱动三处：① 原型表单与校验（WorkbenchDB.init 的入参）② localStorage 存储 ③ 阶段四生成 CREATE TABLE SQL。auto 字段（id/created_at）由数据层自动生成，不进表单。",
+  "$sqlTypeMapping": {
+    "string": "TEXT",
+    "text": "TEXT",
+    "number": "REAL",
+    "boolean": "INTEGER (0/1)",
+    "enum": "TEXT (CHECK 约束可选)",
+    "date": "TEXT (YYYY-MM-DD)",
+    "datetime": "TEXT (ISO 8601)"
+  },
+  "$sqlExample": "CREATE TABLE records (id TEXT PRIMARY KEY, title TEXT NOT NULL, category TEXT NOT NULL, amount REAL DEFAULT 1, done INTEGER DEFAULT 0, date TEXT NOT NULL, note TEXT, created_at TEXT NOT NULL);",
+  "table": "records",
+  "display": "记录",
+  "fields": [
+    { "name": "id", "type": "string", "auto": "id", "required": true, "$note": "主键，前端生成" },
+    { "name": "title", "type": "string", "required": true, "maxLength": 50, "label": "标题", "placeholder": "今天做了什么" },
+    { "name": "category", "type": "enum", "required": true, "options": ["学习", "运动", "阅读", "家务"], "label": "分类" },
+    { "name": "amount", "type": "number", "required": false, "default": 1, "min": 0, "label": "数量" },
+    { "name": "done", "type": "boolean", "required": false, "default": false, "label": "完成" },
+    { "name": "date", "type": "date", "required": true, "label": "日期", "$note": "默认当天，表单用 type=date" },
+    { "name": "note", "type": "text", "required": false, "maxLength": 500, "label": "备注" },
+    { "name": "created_at", "type": "datetime", "auto": "now", "required": true, "$note": "创建时间，自动生成" }
+  ],
+  "seed": [
+    { "title": "读完一章书", "category": "阅读", "amount": 1, "done": true, "date": "2026-08-24", "note": "示例数据，可删" },
+    { "title": "跳绳 200 个", "category": "运动", "amount": 200, "done": false, "date": "2026-08-24" }
+  ],
+  "$seedNote": "seed 仅在表为空时自动灌入（见 sdk-init.js 的 init）；date 建议由页面在渲染前替换为当天，避免示例数据停在写作日期。"
+}

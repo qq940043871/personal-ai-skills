@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>组件依赖图 · Component Diagram</title>
+<!--
+  ============================================================================
+  组件依赖图骨架（单文件 · 零 CDN · 纯内联 CSS + 原生 JS）
+  ============================================================================
+  这是「组件 / 服务依赖」图：分区边界框（.zone）里放组件卡（.comp），
+  组件之间用依赖箭头连接。适合画 C4 Container / 服务依赖 / 模块依赖。
+
+  改法只有两步，绝不手写坐标：
+    ① 改内容：.zone 里增删 .comp，卡片必须给 data-cid="唯一id" 与配色类 c-*
+    ② 改拓扑：底部 DEPS 数组 —— {from:'起点id', to:'终点id', kind:'类型', label:'可选文字'}
+
+  连线由脚本读组件实际位置自动路由（右出左进用肘形，水平重叠时上下出进），
+  增删组件、改文案都不会错位。
+
+  kind 可选值：
+    sync  实线蓝   同步调用（默认）
+    async 虚线青   异步 / 事件 / 消息
+    dep   点线灰   弱依赖 / 数据依赖
+  ============================================================================
+-->
+<style>
+:root{
+  --ink:#1F2937; --ink2:#4B5563; --ink3:#8A93A0;
+  --line:#E3E7EE; --paper:#FFFFFF; --canvas:#F1F4F9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  color:var(--ink); padding:22px 26px 26px; -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  width:1740px; margin:0 auto; background:var(--paper);
+  border-radius:16px; padding:30px 30px 22px;
+  box-shadow:0 10px 34px rgba(23,42,77,.10), 0 2px 8px rgba(23,42,77,.05);
+}
+
+/* ---------- 头部 ---------- */
+.hd{border-bottom:1.6px solid var(--line); padding-bottom:15px; margin-bottom:24px;}
+.hd h1{font-size:25px; margin:0 0 8px; letter-spacing:.4px; font-weight:800;}
+.hd .sub{font-size:13px; color:var(--ink2); margin:0; line-height:1.6;}
+.hd .sub b{color:#2C6FBE; font-weight:800;}
+.hd .legend{display:flex; flex-wrap:wrap; gap:9px 20px; margin-top:14px;}
+.lg{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink2); font-weight:600;}
+.lg .sw{width:26px; height:0; border-top-width:2px; border-top-style:solid;}
+.lg .sw.dash{border-top-style:dashed;}
+.lg .sw.dot{border-top-style:dotted;}
+
+/* ---------- 画布 ---------- */
+.canvas{position:relative; display:flex; flex-direction:column; gap:26px;}
+svg.edges{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; overflow:visible; z-index:2;
+}
+.elabel{
+  font-size:10.5px; font-weight:800; fill:#4B5563; font-family:inherit;
+  paint-order:stroke; stroke:#FFFFFF; stroke-width:3.5px; stroke-linejoin:round;
+}
+
+/* ---------- 分区边界框 ---------- */
+/* ⚠️ 分区框不要设 z-index —— 一旦设了就会创建层叠上下文，把内部的 .comp
+   锁死在这一层里：连线要么被分区背景吃掉、要么反过来盖住卡片。
+   正确层级：分区背景(auto) < 连线(2) < 组件卡(3)。 */
+.zone{
+  position:relative;
+  border:1.6px dashed var(--gc,#9AA3AF); background:var(--gbg,#F7F8FA);
+  border-radius:14px; padding:14px 16px 28px;   /* 底部留宽，给绕行通道 */
+}
+.zone > h2{
+  display:flex; align-items:center; gap:8px;
+  font-size:12.5px; font-weight:800; color:var(--gc,#6B7280);
+  margin:0 0 12px; letter-spacing:.4px;
+}
+.zone > h2::before{content:''; width:9px; height:9px; border-radius:3px; background:var(--gc,#9AA3AF);}
+.zone > h2 small{font-size:10.5px; font-weight:700; color:var(--ink3); letter-spacing:0;}
+
+/* 组件间距必须够宽：相邻两张卡之间的连线只有 gap - 5px 长。
+   gap 12px 时实测线长只有 7px —— 比 9px 的箭头还短，等于没有线。
+   判据：可见线长 < 30px 就等于没画。 */
+.row{display:flex; gap:34px;}
+.row + .row{margin-top:12px;}
+
+/* ---------- 组件卡 ---------- */
+.comp{
+  position:relative; z-index:3; flex:1 1 0; min-width:0;
+  border:1.6px solid var(--c,#C9D2DE); background:var(--cbg,#FBFCFE);
+  border-radius:10px; padding:10px 11px 11px;
+}
+.comp h4{font-size:12.5px; font-weight:800; color:var(--c,#374151); margin:0; letter-spacing:.2px;}
+.comp .ct{font-size:10.5px; color:var(--ink3); margin-top:4px; font-weight:700;}
+.comp .cd{font-size:11px; color:var(--ink2); margin-top:6px; line-height:1.6;}
+
+/* ---------- 组件配色类（务必与正文引用一一对应） ---------- */
+.c-blue  {--c:#2C6FBE; --cbg:#F3F8FE;}
+.c-teal  {--c:#2E9E8F; --cbg:#F1FAF8;}
+.c-purple{--c:#7C5CBF; --cbg:#F8F5FE;}
+.c-amber {--c:#C98A1F; --cbg:#FEFAF0;}
+.c-coral {--c:#D16B65; --cbg:#FEF7F6;}
+.c-gold  {--c:#C2803A; --cbg:#FDF8F0;}
+.c-sky   {--c:#4AA3D8; --cbg:#F2F9FD;}
+.c-red   {--c:#C0504D; --cbg:#FDF3F2;}
+.c-grey  {--c:#8A93A0; --cbg:#F7F8FA;}
+
+/* ---------- 页脚注 ---------- */
+.notes{border-top:1.6px solid var(--line); margin-top:22px; padding-top:14px;}
+.notes p{font-size:11.5px; color:var(--ink2); margin:0 0 7px; line-height:1.72;}
+.notes p:last-child{margin-bottom:0;}
+.notes p b{color:#2C6FBE;}
+.notes .no{
+  display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+  border-radius:50%; background:#EAF1FB; color:#2C6FBE; font-size:10px; font-weight:800;
+  margin-right:6px; vertical-align:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="hd">
+    <h1>套保风控系统 · 组件依赖图</h1>
+    <p class="sub">
+      <b>3</b> 个分区 · <b>11</b> 个组件 · <b>12</b> 条依赖 · 交易核心置于服务区首位
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="border-color:#2C6FBE"></span>同步调用</span>
+      <span class="lg"><span class="sw dash" style="border-color:#2E9E8F"></span>异步 / 事件</span>
+      <span class="lg"><span class="sw dot" style="border-color:#8A93A0"></span>弱依赖 / 数据</span>
+    </div>
+  </div>
+
+  <div class="canvas">
+    <svg class="edges">
+      <defs>
+        <marker id="ar-sync"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2C6FBE"/></marker>
+        <marker id="ar-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E9E8F"/></marker>
+        <marker id="ar-dep"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8A93A0"/></marker>
+      </defs>
+      <g id="paths"></g>
+    </svg>
+
+    <!-- ① 分区 + 组件：每个 .comp 必须有 data-cid 与配色类 -->
+    <div class="zone" style="--gc:#7C5CBF;--gbg:#F8F5FE">
+      <h2>接入区 <small>南北向流量入口</small></h2>
+      <div class="row">
+        <div class="comp c-sky" data-cid="client"><h4>C/S 客户端</h4><div class="ct">C++ / Windows 桌面</div></div>
+        <div class="comp c-purple" data-cid="gw"><h4>微服务网关</h4><div class="ct">Spring Cloud Gateway</div></div>
+        <div class="comp c-purple" data-cid="csgw"><h4>CS 交易网关</h4><div class="ct">C/C++ / Socket 长连接</div></div>
+      </div>
+    </div>
+
+    <div class="zone" style="--gc:#C0504D;--gbg:#FEF7F6">
+      <h2>服务区 <small>业务微服务 · 异构语言</small></h2>
+      <div class="row">
+        <div class="comp c-coral" data-cid="trade"><h4>交易核心</h4><div class="ct">C 语言 · 微服务核心模块</div><div class="cd">持仓 · 委托 · 成交 · 额度强校验</div></div>
+        <div class="comp c-coral" data-cid="risk"><h4>风控服务</h4><div class="ct">Java · Spring Boot</div><div class="cd">套保方案 / 敞口阈值</div></div>
+        <div class="comp c-teal" data-cid="quote"><h4>行情服务</h4><div class="ct">Go · 高并发长连接</div><div class="cd">行情分发 / 订阅推送</div></div>
+        <div class="comp c-gold" data-cid="clear"><h4>清算结算服务</h4><div class="ct">Java · 批处理</div><div class="cd">日终对账 / 双口径账</div></div>
+      </div>
+    </div>
+
+    <div class="zone" style="--gc:#6B7280;--gbg:#F5F6F8">
+      <h2>存储区 <small>openGauss 信创 · 库内 schema 隔离</small></h2>
+      <div class="row">
+        <div class="comp c-grey" data-cid="db"><h4>openGauss 业务库</h4><div class="ct">交易库 / 业务库 / 审计库</div></div>
+        <div class="comp c-grey" data-cid="cache"><h4>Redis 集群</h4><div class="ct">行情快照 · 会话</div></div>
+        <div class="comp c-grey" data-cid="olap"><h4>ClickHouse</h4><div class="ct">行情落盘 · 分析</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><span class="no">①</span><b>交易核心对数据库的访问只能经交易库 schema</b>，写权限仅授予交易核心进程；跨语言禁止直连同库表结构。</p>
+    <p><span class="no">②</span>连线路由由脚本按组件实际位置计算，<b>增删组件或调整分区只改 HTML 与 DEPS，不需要碰任何坐标</b>。</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ② 拓扑：只声明「谁依赖谁」，坐标由脚本算
+  var DEPS = [
+    { from: 'client', to: 'gw',    kind: 'sync',  label: 'HTTP' },
+    { from: 'client', to: 'csgw',  kind: 'sync',  label: 'Socket' },
+    { from: 'gw',     to: 'trade', kind: 'sync' },
+    { from: 'csgw',   to: 'trade', kind: 'sync' },
+    { from: 'trade',  to: 'risk',  kind: 'sync',  label: '额度强校验' },
+    { from: 'trade',  to: 'quote', kind: 'async', label: '行情订阅' },
+    { from: 'trade',  to: 'clear', kind: 'sync' },
+    { from: 'trade',  to: 'db',    kind: 'dep' },
+    { from: 'risk',   to: 'db',    kind: 'dep' },
+    { from: 'clear',  to: 'db',    kind: 'dep' },
+    { from: 'clear',  to: 'olap',  kind: 'async', label: '落盘' },
+    { from: 'quote',  to: 'cache', kind: 'dep' }
+  ];
+  var COLOR = { sync: '#2C6FBE', async: '#2E9E8F', dep: '#8A93A0' };
+  var DASH  = { sync: '', async: '8 5', dep: '2 4' };
+
+  var canvas = document.querySelector('.canvas');
+  var g = document.getElementById('paths');
+  if (!canvas || !g) return;
+
+  var C = canvas.getBoundingClientRect();
+  function boxOf(id) {
+    var el = document.querySelector('[data-cid="' + id + '"]');
+    if (!el) { console.warn('DEPS 里的 id 不存在:', id); return null; }
+    var r = el.getBoundingClientRect();
+    return {
+      l: r.left - C.left, t: r.top - C.top, r: r.right - C.left, b: r.bottom - C.top,
+      w: r.width, h: r.height,
+      cx: r.left - C.left + r.width / 2, cy: r.top - C.top + r.height / 2,
+      el: el
+    };
+  }
+
+  var svgns = 'http://www.w3.org/2000/svg';
+  var drawn = 0;
+
+  // 出入边判据：按「是否同属一个分区」决定，这是最贴合阅读习惯的规则 ——
+  //   同分区（同 .zone）→ 水平连线，组件本来就在一行里；
+  //   跨分区 → 垂直连线，走分区之间的通道。
+  // 不要用「中心位移比值」（调参很玄学）或「哪个方向间隙大」：
+  // 后者会把同一行内的跨区线判成水平，在两个分区之间拉出一根看不出在连谁的竖线。
+  function autoSides(a, b) {
+    var same = a.el && b.el && a.el.closest('.zone') === b.el.closest('.zone');
+    if (same) return b.cx > a.cx ? ['r', 'l'] : ['l', 'r'];
+    return b.cy > a.cy ? ['b', 't'] : ['t', 'b'];
+  }
+  function anchorOf(box, side, back) {
+    if (side === 'r') return { x: box.r + back, y: box.cy };
+    if (side === 'l') return { x: box.l - back, y: box.cy };
+    if (side === 'b') return { x: box.cx, y: box.b + back };
+    return { x: box.cx, y: box.t - back };
+  }
+
+  // 同行跨中间组件检测：水平线会从中间的卡片身上穿过去（线在卡片下层，会被遮断）。
+  // ⚠️ 必须同时判垂直重叠 —— 只比 x 会把别的行上的组件也算成遮挡物，
+  //    结果相邻两个组件之间也被误判成「需要绕行」。
+  var ALLCOMP = Array.prototype.slice.call(document.querySelectorAll('.comp')).map(function (el) {
+    var r = el.getBoundingClientRect();
+    return { cx: r.left - C.left + r.width / 2, t: r.top - C.top, b: r.bottom - C.top };
+  });
+  function blocked(a, b) {
+    var lo = Math.min(a.cx, b.cx) + 4, hi = Math.max(a.cx, b.cx) - 4;
+    var yt = Math.min(a.t, b.t), yb = Math.max(a.b, b.b);
+    for (var i = 0; i < ALLCOMP.length; i++) {
+      var c = ALLCOMP[i];
+      if (c.cx > lo && c.cx < hi && c.t < yb && c.b > yt) return true;
+    }
+    return false;
+  }
+  var laneN = 0;   // 绕行通道序号，多条绕行线依次下移，避免叠在一起
+
+  DEPS.forEach(function (e) {
+    var a = boxOf(e.from), b = boxOf(e.to);
+    if (!a || !b) return;
+    var kind = e.kind || 'sync';
+    var d, mid;
+
+    var sides = e.side || autoSides(a, b);
+    var sOut = sides[0], sIn = sides[1];
+    var p1 = anchorOf(a, sOut, 0);
+    var p2 = anchorOf(b, sIn, 5);            // 终点往回收 5px，给箭头留位
+
+    if (sOut === 'r' || sOut === 'l') {                    // 水平出入 → 肘形
+      if (Math.abs(p2.y - p1.y) < 2) {
+        if (blocked(a, b)) {
+          // 同行中间还夹着别的组件 → 走本行下方的通道，别从卡片身上穿过去
+          var yB = Math.max(a.b, b.b) + 10 + (laneN++) * 8;
+          d = 'M' + a.cx + ',' + a.b + ' V' + yB + ' H' + b.cx + ' V' + b.b;
+          mid = { x: (a.cx + b.cx) / 2, y: yB + 11 };
+        } else {
+          d = 'M' + p1.x + ',' + p1.y + ' H' + p2.x;
+          mid = { x: (p1.x + p2.x) / 2, y: p1.y - 9 };
+        }
+      } else {
+        var mx = (p1.x + p2.x) / 2;
+        d = 'M' + p1.x + ',' + p1.y + ' H' + mx + ' V' + p2.y + ' H' + p2.x;
+        mid = { x: mx, y: (p1.y + p2.y) / 2 - 6 };
+      }
+    } else {                                               // 垂直出入 → 肘形
+      if (Math.abs(p2.x - p1.x) < 2) {
+        d = 'M' + p1.x + ',' + p1.y + ' V' + p2.y;
+        mid = { x: p1.x + 9, y: (p1.y + p2.y) / 2 };
+      } else {
+        var my = (p1.y + p2.y) / 2;
+        d = 'M' + p1.x + ',' + p1.y + ' V' + my + ' H' + p2.x + ' V' + p2.y;
+        mid = { x: (p1.x + p2.x) / 2, y: my - 6 };
+      }
+    }
+
+    var p = document.createElementNS(svgns, 'path');
+    p.setAttribute('d', d);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', COLOR[kind]);
+    p.setAttribute('stroke-width', kind === 'dep' ? '1.5' : '1.8');
+    if (DASH[kind]) p.setAttribute('stroke-dasharray', DASH[kind]);
+    p.setAttribute('marker-end', 'url(#ar-' + kind + ')');
+    g.appendChild(p);
+    drawn++;
+
+    if (e.label) {
+      var t = document.createElementNS(svgns, 'text');
+      t.setAttribute('class', 'elabel');
+      t.setAttribute('x', mid.x); t.setAttribute('y', mid.y);
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = e.label;
+      g.appendChild(t);
+    }
+  });
+
+  window.__DIAGRAM_STATS__ = {
+    type: 'component',
+    nodes: document.querySelectorAll('.comp').length,
+    edges: DEPS.length,
+    drawn: drawn
+  };
+  window.__DIAGRAM_READY__ = true;
+})();
+</script>
+</body>
+</html>

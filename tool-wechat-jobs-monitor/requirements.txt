@@ -1,0 +1,10 @@
+feedparser>=6.0.11
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+PyYAML>=6.0
+
+# 可选：自动从浏览器读 weread cookie（走 CDP 失败时的备选）
+browser-cookie3>=0.19.0
+# 可选：CDP 方式读 cookie 需要
+websocket-client>=1.7.0

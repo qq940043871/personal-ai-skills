@@ -1,0 +1,11 @@
+# 本地虚拟环境（由 bootstrap.py 自动创建，不要打包分发）
+.venv/
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+
+# 运行产物（配置/数据/报告都落在用户工作目录，正常不会出现在这里）
+config.yaml
+data/
+out/

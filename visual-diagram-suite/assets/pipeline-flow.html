@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>管道流程图 · Pipeline Flowchart</title>
+<!--
+  ============================================================================
+  管道流程图骨架（单文件 · 零 CDN · 纯内联 CSS + 原生 JS）
+  visual-diagram-suite 工具箱 · 图型：管道 / 流水线流程图
+  ============================================================================
+  改法只有两步，绝不手写坐标：
+
+    ① 改内容：阶段列 .col / 节点卡 .node[data-node="id"] 的文案与配色类
+    ② 改拓扑：底部 EDGES 数组 —— {from:'起点id', to:'终点id', kind:'类型', label:'可选文字'}
+
+  连线由脚本读节点实际位置自动路由，增删节点、改文案都不会错位。
+
+  kind 可选值：
+    main  实线蓝    主流程          （默认）
+    seq   细实线灰  同列相邻顺序
+    async 虚线青    异步 / 事件派发
+    fail  虚线红    失败 / 异常分支
+    back  虚线橙    回退 / 重试（自动走下方通道）
+
+  ⚠️ 节点配色类（k-*）必须写，漏写会静默失去边框与底色（浏览器不报错）。
+     自查：引用到的 k-* 是否都在 <style> 里有定义。
+  ============================================================================
+-->
+<style>
+:root{
+  --ink:#1F2937; --ink2:#4B5563; --ink3:#8A93A0;
+  --line:#E3E7EE; --paper:#FFFFFF; --canvas:#F1F4F9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  color:var(--ink); padding:22px 26px 26px;
+  -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  width:1740px; margin:0 auto; background:var(--paper);
+  border-radius:16px; padding:30px 30px 22px;
+  box-shadow:0 10px 34px rgba(23,42,77,.10), 0 2px 8px rgba(23,42,77,.05);
+}
+
+/* ---------- 头部 ---------- */
+.hd{border-bottom:1.6px solid var(--line); padding-bottom:15px; margin-bottom:24px;}
+.hd h1{font-size:25px; margin:0 0 8px; letter-spacing:.4px; font-weight:800;}
+.hd .sub{font-size:13px; color:var(--ink2); margin:0; line-height:1.6;}
+.hd .sub b{color:#2C6FBE; font-weight:800;}
+.hd .legend{display:flex; flex-wrap:wrap; gap:9px 20px; margin-top:14px;}
+.lg{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink2); font-weight:600;}
+.lg .sw{width:26px; height:0; border-top-width:2px; border-top-style:solid;}
+.lg .sw.dash{border-top-style:dashed;}
+.lg .pill{font-size:10px; font-weight:800; color:#fff; padding:2.5px 7px; border-radius:4px; letter-spacing:.3px;}
+
+/* ---------- 流程主区 ---------- */
+.flow{
+  position:relative;
+  display:flex; align-items:flex-start; gap:58px;
+  padding-bottom:76px;              /* 给 back 类型的下方回退通道留空间 */
+}
+.col{flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:32px;}
+.col-io{flex:0 0 136px;}
+
+/* 阶段表头 */
+.stage-head{
+  position:relative; z-index:6;
+  height:30px; display:flex; align-items:center; gap:7px; padding:0 10px;
+  border-radius:8px; font-size:12px; font-weight:800; letter-spacing:.4px;
+  background:#F3F6FB; color:#2C6FBE; border:1.4px solid #DCE6F5;
+}
+.stage-head .sno{
+  font-size:10.5px; font-weight:800; padding:1.5px 6px; border-radius:5px;
+  background:#2C6FBE; color:#fff; flex:0 0 auto;
+}
+.stage-head .snm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.stage-head.io{
+  justify-content:center; background:#F5F6F8; color:#6B7280;
+  border-color:#DDE1E7; border-style:dashed; font-size:11px;
+}
+.stage-head.io .sno{background:#6B7280;}
+
+/* ---------- 节点卡 ---------- */
+.node{
+  position:relative; z-index:6;
+  border:1.6px solid var(--c,#C9D2DE); background:var(--cbg,#FBFCFE);
+  border-radius:11px; padding:11px 12px 12px;
+}
+.node h4{
+  display:flex; align-items:center; gap:6px; margin:0;
+  font-size:13px; font-weight:800; color:var(--c,#374151); letter-spacing:.2px;
+}
+.node .dot{width:6px; height:6px; border-radius:50%; background:var(--c,#C9D2DE); flex:0 0 auto;}
+.node .nt{font-size:10.5px; color:var(--ink3); margin-top:4px; font-weight:700; letter-spacing:.2px;}
+.node .nd{font-size:11.5px; color:var(--ink2); margin:7px 0 0; line-height:1.62;}
+
+/* 输入 / 输出端点：胶囊虚线卡 */
+.node.n-io{border-style:dashed; border-radius:999px; text-align:center; padding:13px 8px;}
+.node.n-io h4{justify-content:center; font-size:12.5px;}
+.node.n-io .nd{font-size:10.5px; line-height:1.55;}
+
+/* ---------- 节点配色类（务必与正文引用一一对应） ---------- */
+.k-blue  {--c:#2C6FBE; --cbg:#F3F8FE;}
+.k-teal  {--c:#2E9E8F; --cbg:#F1FAF8;}
+.k-purple{--c:#7C5CBF; --cbg:#F8F5FE;}
+.k-amber {--c:#C98A1F; --cbg:#FEFAF0;}
+.k-coral {--c:#D16B65; --cbg:#FEF7F6;}
+.k-gold  {--c:#C2803A; --cbg:#FDF8F0;}
+.k-sky   {--c:#4AA3D8; --cbg:#F2F9FD;}
+.k-red   {--c:#C0504D; --cbg:#FDF3F2;}
+.k-grey  {--c:#8A93A0; --cbg:#F7F8FA;}
+
+/* ---------- 连线画布 ---------- */
+svg.edges{
+  position:absolute; inset:0; width:100%; height:100%;
+  pointer-events:none; overflow:visible; z-index:1;
+}
+.elabel{
+  font-size:10.5px; font-weight:800; fill:#4B5563; font-family:inherit;
+  paint-order:stroke; stroke:#FFFFFF; stroke-width:3.5px; stroke-linejoin:round;
+}
+
+/* ---------- 页脚注 ---------- */
+.notes{border-top:1.6px solid var(--line); margin-top:2px; padding-top:14px;}
+.notes p{font-size:11.5px; color:var(--ink2); margin:0 0 7px; line-height:1.72;}
+.notes p:last-child{margin-bottom:0;}
+.notes p b{color:#2C6FBE;}
+.notes .no{
+  display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+  border-radius:50%; background:#EAF1FB; color:#2C6FBE; font-size:10px; font-weight:800;
+  margin-right:6px; vertical-align:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="hd">
+    <h1>内容自动化发布管道</h1>
+    <p class="sub">
+      <b>5</b> 个阶段 · <b>12</b> 个节点 · <b>13</b> 条流转 · <b>1</b> 条回退路径 · 日峰值 1.2 万条
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="border-color:#2C6FBE"></span>主流程</span>
+      <span class="lg"><span class="sw" style="border-color:#9AA3AF"></span>同阶段顺序</span>
+      <span class="lg"><span class="sw dash" style="border-color:#2E9E8F"></span>异步派发</span>
+      <span class="lg"><span class="sw dash" style="border-color:#C2803A"></span>回退 / 重试</span>
+    </div>
+  </div>
+
+  <div class="flow" id="flow">
+
+    <!-- ===================== 输入 ===================== -->
+    <div class="col col-io">
+      <div class="stage-head io"><span class="sno">IN</span></div>
+      <div class="node n-io k-grey" data-node="src">
+        <h4><i class="dot"></i>外部触发</h4>
+        <p class="nd">Cron 定时<br>Webhook<br>人工提交</p>
+      </div>
+    </div>
+
+    <!-- ===================== 阶段一 · 采集 ===================== -->
+    <div class="col">
+      <div class="stage-head"><span class="sno">S1</span><span class="snm">采集</span></div>
+      <div class="node k-blue" data-node="s1a">
+        <h4><i class="dot"></i>源站采集</h4>
+        <div class="nt">RSS 监听 · API 轮询</div>
+        <p class="nd">按订阅源拉取增量<br>失败自动退避重试</p>
+      </div>
+      <div class="node k-blue" data-node="s1b">
+        <h4><i class="dot"></i>去重入库</h4>
+        <div class="nt">指纹比对</div>
+        <p class="nd">正文指纹去重<br>写入待处理队列</p>
+      </div>
+    </div>
+
+    <!-- ===================== 阶段二 · 处理 ===================== -->
+    <div class="col">
+      <div class="stage-head"><span class="sno">S2</span><span class="snm">处理</span></div>
+      <div class="node k-purple" data-node="s2a">
+        <h4><i class="dot"></i>正文清洗</h4>
+        <div class="nt">结构化解析</div>
+        <p class="nd">剥离广告与导航<br>提取正文 · 分段</p>
+      </div>
+      <div class="node k-purple" data-node="s2b">
+        <h4><i class="dot"></i>归一化</h4>
+        <div class="nt">字段对齐</div>
+        <p class="nd">统一字段与语种<br>输出标准载荷</p>
+      </div>
+    </div>
+
+    <!-- ===================== 阶段三 · 生成（并行） ===================== -->
+    <div class="col">
+      <div class="stage-head"><span class="sno">S3</span><span class="snm">生成</span></div>
+      <div class="node k-teal" data-node="s3a">
+        <h4><i class="dot"></i>文案生成</h4>
+        <div class="nt">LLM 多节点流水线</div>
+        <p class="nd">五段式结构长文<br>自动配选题与标题</p>
+      </div>
+      <div class="node k-teal" data-node="s3b">
+        <h4><i class="dot"></i>配图生成</h4>
+        <div class="nt">文生图 · 异步任务</div>
+        <p class="nd">按主题出封面图<br>轮询任务状态回填</p>
+      </div>
+    </div>
+
+    <!-- ===================== 阶段四 · 审核 ===================== -->
+    <div class="col">
+      <div class="stage-head"><span class="sno">S4</span><span class="snm">审核</span></div>
+      <div class="node k-amber" data-node="s4a">
+        <h4><i class="dot"></i>合规校验</h4>
+        <div class="nt">自动门禁</div>
+        <p class="nd">敏感词与事实核对<br>不通过直接拦截</p>
+      </div>
+      <div class="node k-amber" data-node="s4b">
+        <h4><i class="dot"></i>人工复核</h4>
+        <div class="nt">编辑终审</div>
+        <p class="nd">通过则进入发布<br>驳回则回到生成</p>
+      </div>
+    </div>
+
+    <!-- ===================== 阶段五 · 发布 ===================== -->
+    <div class="col">
+      <div class="stage-head"><span class="sno">S5</span><span class="snm">发布</span></div>
+      <div class="node k-coral" data-node="s5a">
+        <h4><i class="dot"></i>多平台分发</h4>
+        <div class="nt">公众号 · 抖音 · 站内</div>
+        <p class="nd">按渠道适配排版<br>回传发布链接</p>
+      </div>
+      <div class="node k-coral" data-node="s5b">
+        <h4><i class="dot"></i>归档入库</h4>
+        <div class="nt">资料库 · 版本留痕</div>
+        <p class="nd">落库并记录版本<br>供后续检索复用</p>
+      </div>
+    </div>
+
+    <!-- ===================== 输出 ===================== -->
+    <div class="col col-io">
+      <div class="stage-head io"><span class="sno">OUT</span></div>
+      <div class="node n-io k-grey" data-node="sink">
+        <h4><i class="dot"></i>交付产出</h4>
+        <p class="nd">已发布内容<br>+ 归档资产</p>
+      </div>
+    </div>
+
+    <!-- 连线画布：坐标由脚本填充 -->
+    <svg class="edges" id="edges">
+      <defs>
+        <marker id="ar-main" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 Z" fill="#2C6FBE"/>
+        </marker>
+        <marker id="ar-seq" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="5.5" markerHeight="5.5"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 Z" fill="#9AA3AF"/>
+        </marker>
+        <marker id="ar-async" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 Z" fill="#2E9E8F"/>
+        </marker>
+        <marker id="ar-fail" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 Z" fill="#C0504D"/>
+        </marker>
+        <marker id="ar-back" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 Z" fill="#C2803A"/>
+        </marker>
+      </defs>
+      <g id="egrp"></g>
+    </svg>
+
+  </div>
+
+  <div class="notes">
+    <p><span class="no">1</span><b>并行与汇合：</b>S3 的「文案生成」与「配图生成」同时开跑，两条线在 S4「合规校验」处汇合——配图是异步任务，用虚线表达它不阻塞主线程。</p>
+    <p><span class="no">2</span><b>回退路径：</b>「人工复核」驳回后回到 S3 重新生成，走图中橙色下方通道，避免与主流程线交叉。</p>
+    <p><span class="no">3</span><b>幂等约束：</b>每个节点以「批次号 + 节点名」为幂等键，重复投递不产生重复产出。</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ==========================================================================
+     拓扑声明 —— 这里是唯一需要维护的地方
+     只写「谁连谁 + 什么类型」，坐标由下面的引擎自动算。
+     ========================================================================== */
+  var EDGES = [
+    { from: 'src',  to: 's1a',  kind: 'main' },
+    { from: 's1a',  to: 's1b',  kind: 'seq'  },
+    { from: 's1b',  to: 's2a',  kind: 'main', label: '原始内容' },
+    { from: 's2a',  to: 's2b',  kind: 'seq'  },
+    { from: 's2b',  to: 's3a',  kind: 'main' },
+    { from: 's2b',  to: 's3b',  kind: 'async', label: '异步派发' },
+    { from: 's3a',  to: 's4a',  kind: 'main' },
+    { from: 's3b',  to: 's4a',  kind: 'main', label: '汇合' },
+    { from: 's4a',  to: 's4b',  kind: 'seq'  },
+    { from: 's4b',  to: 's5a',  kind: 'main' },
+    { from: 's4b',  to: 's3a',  kind: 'back', label: '驳回重生成' },
+    { from: 's5a',  to: 's5b',  kind: 'seq'  },
+    { from: 's5b',  to: 'sink', kind: 'main' }
+  ];
+
+  /* 边的视觉定义：颜色 / 线宽 / 虚线节奏 / 箭头 */
+  var KIND = {
+    main:  { stroke: '#2C6FBE', w: 2.0, dash: '',    mk: 'ar-main'  },
+    seq:   { stroke: '#9AA3AF', w: 1.6, dash: '',    mk: 'ar-seq'   },
+    async: { stroke: '#2E9E8F', w: 1.8, dash: '7 5', mk: 'ar-async' },
+    fail:  { stroke: '#C0504D', w: 1.8, dash: '7 5', mk: 'ar-fail'  },
+    back:  { stroke: '#C2803A', w: 1.8, dash: '5 4', mk: 'ar-back'  }
+  };
+
+  var NS  = 'http://www.w3.org/2000/svg';
+  var GAP = 4;    // 端点与节点边框之间的留白，避免箭头压住卡片
+  var RAD = 12;   // 折线圆角半径
+
+  var flow = document.getElementById('flow');
+  var grp  = document.getElementById('egrp');
+  if (!flow || !grp) return;
+
+  var cache = {};
+  var FLOOR = 0;    // 所有节点底边的最大 y：回退通道从它下方走，保证不压卡片
+  var backN = 0;    // 回退线序号，多条时依次错开
+
+  /* ---------- 取节点在 .flow 坐标系中的矩形 ---------- */
+  function rectOf(id) {
+    var el = cache[id];
+    if (!el) return null;
+    var r = el.getBoundingClientRect(), f = flow.getBoundingClientRect();
+    var x = r.left - f.left, y = r.top - f.top;
+    return {
+      x: x, y: y, w: r.width, h: r.height,
+      cx: x + r.width / 2, cy: y + r.height / 2,
+      r: x + r.width, b: y + r.height
+    };
+  }
+
+  /* ---------- 圆角折线：pts 为折点序列，拐角用二次贝塞尔倒圆 ---------- */
+  function roundPath(pts, rad) {
+    if (pts.length < 2) return '';
+    var d = 'M' + pts[0].x + ' ' + pts[0].y;
+    for (var i = 1; i < pts.length - 1; i++) {
+      var p = pts[i], a = pts[i - 1], n = pts[i + 1];
+      var v1x = a.x - p.x, v1y = a.y - p.y;
+      var v2x = n.x - p.x, v2y = n.y - p.y;
+      var l1 = Math.hypot(v1x, v1y) || 1, l2 = Math.hypot(v2x, v2y) || 1;
+      var rr = Math.min(rad, l1 / 2, l2 / 2);
+      var sx = p.x + v1x / l1 * rr, sy = p.y + v1y / l1 * rr;
+      var ex = p.x + v2x / l2 * rr, ey = p.y + v2y / l2 * rr;
+      d += ' L' + sx + ' ' + sy + ' Q' + p.x + ' ' + p.y + ' ' + ex + ' ' + ey;
+    }
+    var last = pts[pts.length - 1];
+    return d + ' L' + last.x + ' ' + last.y;
+  }
+
+  /* ---------- 路由：根据两节点的相对位置选走线方式 ---------- */
+  function route(a, b, kind) {
+
+    // ① 回退：起终点都走卡片侧边，中间走最底部的公共通道
+    // 为什么不从底边直连：同列若还有别的卡片，竖段会从那张卡片背后穿过，
+    // 露出来的箭头看着像是从它冒出来的，语义就错了。
+    if (kind === 'back') {
+      var ch = FLOOR + 26 + (backN++) * 22;   // 多条回退线依次错开
+      var ax = a.x - 20;                      // 源：从左侧出去
+      var lx = b.x - 20;                      // 靶：从左侧进来
+      var ey = b.y + b.h * 0.74;              // 进靶点放在左下 3/4 处，避开主线进入点
+      return {
+        d: roundPath([
+          { x: a.x - GAP, y: a.cy },
+          { x: ax,        y: a.cy },
+          { x: ax,        y: ch   },
+          { x: lx,        y: ch   },
+          { x: lx,        y: ey   },
+          { x: b.x - GAP, y: ey   }
+        ], 10)
+      };
+    }
+
+    // ② x 区间重叠 ⇒ 视为同一列（垂直走向）
+    var overlapX = !(b.x > a.r + 2 || b.r < a.x - 2);
+    if (overlapX) {
+      var down = b.cy > a.cy;
+      var p1 = down ? { x: a.cx, y: a.b + GAP } : { x: a.cx, y: a.y - GAP };
+      var p2 = down ? { x: b.cx, y: b.y - GAP } : { x: b.cx, y: b.b + GAP };
+      var mid = (p1.y + p2.y) / 2;
+      return { d: roundPath([p1, { x: p1.x, y: mid }, { x: p2.x, y: mid }, p2], RAD) };
+    }
+
+    // ③ 跨列 ⇒ 三次贝塞尔，分叉/汇合时自然张开成 Y 形
+    var fwd = b.cx > a.cx;
+    var s = fwd ? { x: a.r + GAP, y: a.cy } : { x: a.x - GAP, y: a.cy };
+    var e = fwd ? { x: b.x - GAP, y: b.cy } : { x: b.r + GAP, y: b.cy };
+    var k = Math.max(28, Math.abs(e.x - s.x) * 0.52);
+    return {
+      d: 'M' + s.x + ' ' + s.y +
+         ' C' + (s.x + (fwd ? k : -k)) + ' ' + s.y +
+         ' '   + (e.x + (fwd ? -k : k)) + ' ' + e.y +
+         ' '   + e.x + ' ' + e.y
+    };
+  }
+
+  /* ---------- 绘制 ---------- */
+  function draw() {
+    // 重新索引节点（增删节点后 id 会自动更新）
+    cache = {};
+    var nodes = flow.querySelectorAll('[data-node]');
+    for (var i = 0; i < nodes.length; i++) {
+      cache[nodes[i].getAttribute('data-node')] = nodes[i];
+    }
+
+    // 先算出最深处，回退通道以它为基准
+    FLOOR = 0;
+    for (var id in cache) {
+      var rr = rectOf(id);
+      if (rr && rr.b > FLOOR) FLOOR = rr.b;
+    }
+    backN = 0;
+
+    while (grp.firstChild) grp.removeChild(grp.firstChild);
+
+    var labels = [];
+
+    EDGES.forEach(function (item) {
+      var k = KIND[item.kind] || KIND.main;
+      var a = rectOf(item.from), b = rectOf(item.to);
+      if (!a || !b) {
+        console.warn('[pipeline] 找不到节点，已跳过连线：', item.from, '→', item.to);
+        return;
+      }
+
+      var r = route(a, b, item.kind);
+
+      var path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', r.d);
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', k.stroke);
+      path.setAttribute('stroke-width', k.w);
+      path.setAttribute('stroke-linecap', 'round');
+      if (k.dash) path.setAttribute('stroke-dasharray', k.dash);
+      path.setAttribute('marker-end', 'url(#' + k.mk + ')');
+      grp.appendChild(path);
+
+      // 表注延迟到所有线画完后统一追加，保证文字压在最上层
+      if (item.label) labels.push({ path: path, text: item.label });
+    });
+
+    labels.forEach(function (L) {
+      var len = L.path.getTotalLength();
+      var pt = L.path.getPointAtLength(len * 0.46);
+      var t = document.createElementNS(NS, 'text');
+      t.setAttribute('x', pt.x);
+      t.setAttribute('y', pt.y - 8);
+      t.setAttribute('text-anchor', 'middle');
+      t.setAttribute('class', 'elabel');
+      t.textContent = L.text;
+      grp.appendChild(t);
+    });
+
+    window.__PIPE_READY__ = true;
+    window.__PIPE_EDGES__ = EDGES.length;
+    // 统一标记：让工具箱的通用导出器 export_png.py 无需区分骨架类型
+    window.__DIAGRAM_READY__ = true;
+    window.__DIAGRAM_STATS__ = {
+      type: 'pipeline',
+      nodes: Object.keys(cache).length,
+      edges: EDGES.length,
+      drawn: grp.querySelectorAll('path').length
+    };
+  }
+
+  window.addEventListener('load', draw);
+  window.addEventListener('resize', draw);
+
+  // 字体真正加载完后重画一次（字体替换会改变文字宽度，进而影响节点高度）
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function () { setTimeout(draw, 60); });
+  }
+})();
+</script>
+
+</body>
+</html>

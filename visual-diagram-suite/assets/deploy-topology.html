@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>部署拓扑图 · Deployment Topology</title>
+<!--
+  ============================================================================
+  部署拓扑图骨架（单文件 · 零 CDN · 纯内联 CSS + 原生 JS）
+  ============================================================================
+  这是「部署 / 物理拓扑」图：区域（.region）> 可用区（.az）> 实例（.inst）三层嵌套，
+  外加跨区域连线（复制、容灾切换）。
+
+  改法只有两步，绝不手写坐标：
+    ① 改内容：.region / .az 里增删 .inst，实例必须给 data-cid 与配色类 c-*
+    ② 改连线：底部 LINKS 数组 —— {from, to, kind, label, side}
+
+  side 可选：不写则自动判断方向；写 ['r','l'] 表示起点右边出、终点左边进。
+  跨区域长连线建议显式指定 side，避免绕行。
+
+  kind：sync 实线蓝 / async 虚线青 / dep 点线灰
+  ============================================================================
+-->
+<style>
+:root{
+  --ink:#1F2937; --ink2:#4B5563; --ink3:#8A93A0;
+  --line:#E3E7EE; --paper:#FFFFFF; --canvas:#F1F4F9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  color:var(--ink); padding:22px 26px 26px; -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  width:1740px; margin:0 auto; background:var(--paper);
+  border-radius:16px; padding:30px 30px 22px;
+  box-shadow:0 10px 34px rgba(23,42,77,.10), 0 2px 8px rgba(23,42,77,.05);
+}
+
+/* ---------- 头部 ---------- */
+.hd{border-bottom:1.6px solid var(--line); padding-bottom:15px; margin-bottom:24px;}
+.hd h1{font-size:25px; margin:0 0 8px; letter-spacing:.4px; font-weight:800;}
+.hd .sub{font-size:13px; color:var(--ink2); margin:0; line-height:1.6;}
+.hd .sub b{color:#2C6FBE; font-weight:800;}
+.hd .legend{display:flex; flex-wrap:wrap; gap:9px 20px; margin-top:14px;}
+.lg{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink2); font-weight:600;}
+.lg .sw{width:26px; height:0; border-top-width:2px; border-top-style:solid;}
+.lg .sw.dash{border-top-style:dashed;}
+.lg .sw.dot{border-top-style:dotted;}
+
+/* ---------- 画布 ---------- */
+.canvas{position:relative; display:flex; flex-direction:column; gap:22px;}
+svg.edges{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:2;}
+.elabel{
+  font-size:10.5px; font-weight:800; fill:#4B5563; font-family:inherit;
+  paint-order:stroke; stroke:#FFFFFF; stroke-width:3.5px; stroke-linejoin:round;
+}
+
+/* ---------- 区域 / 可用区 / 实例 三层 ---------- */
+/* ⚠️ 区域框不要设 z-index —— 设了会创建层叠上下文，把内部 .inst 锁在那一层，
+   导致连线穿不过区域背景。正确层级：区域背景(auto) < 连线(2) < 实例卡(3)。 */
+.region{
+  position:relative;
+  border:1.8px solid var(--gc,#9AA3AF); background:var(--gbg,#F7F8FA);
+  border-radius:14px; padding:13px 16px 16px;
+}
+.region > h2{
+  display:flex; align-items:center; gap:9px;
+  font-size:13px; font-weight:800; color:var(--gc,#6B7280);
+  margin:0 0 12px; letter-spacing:.4px;
+}
+.region > h2 .tag{
+  font-size:10px; font-weight:800; color:#fff; background:var(--gc,#8A93A0);
+  padding:2px 8px; border-radius:5px; letter-spacing:.3px;
+}
+.region > h2 small{font-size:10.5px; font-weight:700; color:var(--ink3); letter-spacing:0;}
+
+.azs{display:flex; gap:14px;}
+.az{
+  flex:1 1 0; min-width:0;
+  border:1.4px dashed rgba(31,41,55,.16); background:rgba(255,255,255,.62);
+  border-radius:11px; padding:10px 12px 12px;
+}
+.az > h3{font-size:11.5px; font-weight:800; color:var(--ink2); margin:0 0 9px; letter-spacing:.3px;}
+.row{display:flex; gap:10px;}
+.row + .row{margin-top:10px;}
+
+.inst{
+  position:relative; z-index:3; flex:1 1 0; min-width:0;
+  border:1.6px solid var(--c,#C9D2DE); background:var(--cbg,#FBFCFE);
+  border-radius:9px; padding:8px 10px; text-align:center;
+}
+.inst .in{font-size:11.5px; font-weight:800; color:var(--c,#374151);}
+.inst .it{font-size:10px; color:var(--ink3); margin-top:3px; font-weight:700;}
+
+/* ---------- 实例配色类（务必与正文引用一一对应） ---------- */
+.c-blue  {--c:#2C6FBE; --cbg:#F3F8FE;}
+.c-teal  {--c:#2E9E8F; --cbg:#F1FAF8;}
+.c-purple{--c:#7C5CBF; --cbg:#F8F5FE;}
+.c-amber {--c:#C98A1F; --cbg:#FEFAF0;}
+.c-coral {--c:#D16B65; --cbg:#FEF7F6;}
+.c-gold  {--c:#C2803A; --cbg:#FDF8F0;}
+.c-sky   {--c:#4AA3D8; --cbg:#F2F9FD;}
+.c-red   {--c:#C0504D; --cbg:#FDF3F2;}
+.c-grey  {--c:#8A93A0; --cbg:#F7F8FA;}
+
+/* ---------- 页脚注 ---------- */
+.notes{border-top:1.6px solid var(--line); margin-top:22px; padding-top:14px;}
+.notes p{font-size:11.5px; color:var(--ink2); margin:0 0 7px; line-height:1.72;}
+.notes p:last-child{margin-bottom:0;}
+.notes p b{color:#2C6FBE;}
+.notes .no{
+  display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+  border-radius:50%; background:#EAF1FB; color:#2C6FBE; font-size:10px; font-weight:800;
+  margin-right:6px; vertical-align:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="hd">
+    <h1>两地三中心 · 部署拓扑图</h1>
+    <p class="sub">
+      <b>2</b> 个中心 · <b>3</b> 个可用区 · RPO ≤ <b>1min</b> · RTO ≤ <b>30min</b> · 全栈信创
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="border-color:#2C6FBE"></span>同步调用</span>
+      <span class="lg"><span class="sw dash" style="border-color:#2E9E8F"></span>异步 / 复制</span>
+      <span class="lg"><span class="sw dot" style="border-color:#8A93A0"></span>弱依赖 / 监控</span>
+    </div>
+  </div>
+
+  <div class="canvas">
+    <svg class="edges">
+      <defs>
+        <marker id="ar-sync"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2C6FBE"/></marker>
+        <marker id="ar-async" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2E9E8F"/></marker>
+        <marker id="ar-dep"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8A93A0"/></marker>
+      </defs>
+      <g id="paths"></g>
+    </svg>
+
+    <!-- ① 外部入口 -->
+    <div class="region" style="--gc:#8A93A0;--gbg:#F7F8FA">
+      <h2>外部入口 <small>流量接入与统一监控</small></h2>
+      <div class="azs">
+        <div class="az">
+          <h3>公网 / 专线</h3>
+          <div class="row">
+            <div class="inst c-sky" data-cid="dns"><div class="in">智能 DNS</div><div class="it">GSLB 就近解析</div></div>
+            <div class="inst c-grey" data-cid="mon"><div class="in">统一监控</div><div class="it">Prometheus / 告警</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 生产中心 -->
+    <div class="region" style="--gc:#C0504D;--gbg:#FEF7F6">
+      <h2>生产中心 · 华东 A <span class="tag">主</span> <small>承载全部交易流量</small></h2>
+      <div class="azs">
+        <div class="az">
+          <h3>可用区 A1 · 接入层</h3>
+          <div class="row">
+            <div class="inst c-blue" data-cid="lb"><div class="in">LVS + Keepalived</div><div class="it">四层负载 · VIP 漂移</div></div>
+          </div>
+          <div class="row">
+            <div class="inst c-purple" data-cid="master"><div class="in">K8s Master ×3</div><div class="it">etcd 集群</div></div>
+          </div>
+        </div>
+        <div class="az">
+          <h3>可用区 A2 · 计算与存储</h3>
+          <div class="row">
+            <div class="inst c-coral" data-cid="appA"><div class="in">交易核心 Pod ×6</div><div class="it">C 语言 · 主</div></div>
+          </div>
+          <div class="row">
+            <div class="inst c-gold" data-cid="dbA"><div class="in">openGauss 主库</div><div class="it">同步提交 · 写权限唯一</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 灾备中心 -->
+    <div class="region" style="--gc:#6B7280;--gbg:#F5F6F8">
+      <h2>灾备中心 · 华南 B <span class="tag">备</span> <small>温备 · 只读待命</small></h2>
+      <div class="azs">
+        <div class="az">
+          <h3>可用区 B1 · 计算与存储</h3>
+          <div class="row">
+            <div class="inst c-coral" data-cid="appB"><div class="in">交易核心 Pod ×3</div><div class="it">C 语言 · 待命</div></div>
+            <div class="inst c-gold" data-cid="dbB"><div class="in">openGauss 备库</div><div class="it">流复制 · 只读</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><span class="no">①</span><b>主库写权限唯一授予生产中心 A2</b>；备库只读，切换需走人工确认，避免脑裂双写。</p>
+    <p><span class="no">②</span>夜盘时段（21:00–次日 02:30）必须有值守，<b>灾备切换演练不得安排在交易时段</b>。</p>
+    <p><span class="no">③</span>统一监控 / 日志 / 审计属<b>横切能力</b>——各节点统一接入，不在拓扑图上逐条连线，否则图面会被旁路线淹没。</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ② 连线：side 不写则自动判定；跨区域长线建议显式指定
+  // 监控 / 日志这类「横切能力」不逐条连线 —— 每个节点都连一根会让图彻底糊掉，
+  // 正确做法是在页脚注里声明「各节点统一接入」，图面只留主链路。
+  var LINKS = [
+    { from: 'dns',    to: 'lb',    kind: 'sync',  label: 'VIP 解析' },
+    { from: 'lb',     to: 'appA',  kind: 'sync',  label: '七层转发' },
+    { from: 'master', to: 'appA',  kind: 'dep',   label: '调度' },
+    { from: 'dbA',    to: 'dbB',   kind: 'async', label: '异地流复制' },
+    { from: 'lb',     to: 'appB',  kind: 'async', label: '故障切换', side: ['b', 't'] }
+  ];
+  var COLOR = { sync: '#2C6FBE', async: '#2E9E8F', dep: '#8A93A0' };
+  var DASH  = { sync: '', async: '8 5', dep: '2 4' };
+
+  var canvas = document.querySelector('.canvas');
+  var g = document.getElementById('paths');
+  if (!canvas || !g) return;
+
+  var C = canvas.getBoundingClientRect();
+  function boxOf(id) {
+    var el = document.querySelector('[data-cid="' + id + '"]');
+    if (!el) { console.warn('LINKS 里的 id 不存在:', id); return null; }
+    var r = el.getBoundingClientRect();
+    return {
+      l: r.left - C.left, t: r.top - C.top, r: r.right - C.left, b: r.bottom - C.top,
+      w: r.width, h: r.height,
+      cx: r.left - C.left + r.width / 2, cy: r.top - C.top + r.height / 2,
+      el: el
+    };
+  }
+  function anchor(box, side, frac) {
+    if (side === 'r') return { x: box.r, y: box.t + box.h * frac, d: [1, 0] };
+    if (side === 'l') return { x: box.l, y: box.t + box.h * frac, d: [-1, 0] };
+    if (side === 't') return { x: box.l + box.w * frac, y: box.t,     d: [0, -1] };
+    return               { x: box.l + box.w * frac, y: box.b,     d: [0, 1] };
+  }
+  // 出入边判据：同区域（同 .region）→ 水平；跨区域 → 垂直。
+  // 用「哪个方向间隙大」会把 A1→A2 这种同区水平连线判成垂直，穿进隔壁可用区里。
+  function autoSides(a, b) {
+    var same = a.el && b.el && a.el.closest('.region') === b.el.closest('.region');
+    if (same) return b.cx > a.cx ? ['r', 'l'] : ['l', 'r'];
+    return b.cy > a.cy ? ['b', 't'] : ['t', 'b'];
+  }
+
+  var svgns = 'http://www.w3.org/2000/svg';
+
+  // 同一节点同一侧有多条出边时，锚点自动均分，避免线头叠在一起
+  var outCount = {};
+  var preparsed = LINKS.map(function (e) {
+    var a = boxOf(e.from), b = boxOf(e.to);
+    if (!a || !b) return null;
+    var sides = e.side || autoSides(a, b);
+    var key = e.from + '|' + sides[0];
+    outCount[key] = (outCount[key] || 0) + 1;
+    return { e: e, a: a, b: b, sides: sides, key: key };
+  });
+
+  var seen = {};
+  var drawn = 0;
+  preparsed.forEach(function (it) {
+    if (!it) return;
+    var e = it.e, kind = e.kind || 'sync';
+    var sOut = it.sides[0], sIn = it.sides[1];
+    var idx = (seen[it.key] = (seen[it.key] || 0) + 1);
+    var fracOut = outCount[it.key] > 1 ? idx / (outCount[it.key] + 1) : 0.5;
+
+    var p1 = anchor(it.a, sOut, fracOut);
+    var p2 = anchor(it.b, sIn, 0.5);
+    // 控制点长度自适应：写死 56 在近距离连线上会「过度伸展」，曲线先冲出去再折回来
+    var gap = (sOut === 'r' || sOut === 'l') ? Math.abs(p2.x - p1.x) : Math.abs(p2.y - p1.y);
+    var dist = Math.max(16, Math.min(56, gap * 0.45));
+    var c1 = { x: p1.x + p1.d[0] * dist, y: p1.y + p1.d[1] * dist };
+    var c2 = { x: p2.x + p2.d[0] * dist, y: p2.y + p2.d[1] * dist };
+
+    var p = document.createElementNS(svgns, 'path');
+    p.setAttribute('d', 'M' + p1.x + ',' + p1.y + ' C' + c1.x + ',' + c1.y + ' ' + c2.x + ',' + c2.y + ' ' + p2.x + ',' + p2.y);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', COLOR[kind]);
+    p.setAttribute('stroke-width', kind === 'dep' ? '1.5' : '1.8');
+    if (DASH[kind]) p.setAttribute('stroke-dasharray', DASH[kind]);
+    p.setAttribute('marker-end', 'url(#ar-' + kind + ')');
+    g.appendChild(p);
+    drawn++;
+
+    if (e.label) {
+      // 三次贝塞尔中点
+      var mx = (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8;
+      var my = (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8;
+      var t = document.createElementNS(svgns, 'text');
+      t.setAttribute('class', 'elabel');
+      t.setAttribute('x', mx); t.setAttribute('y', my);
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = e.label;
+      g.appendChild(t);
+    }
+  });
+
+  window.__DIAGRAM_STATS__ = {
+    type: 'topology',
+    nodes: document.querySelectorAll('.inst').length,
+    edges: LINKS.length,
+    drawn: drawn
+  };
+  window.__DIAGRAM_READY__ = true;
+})();
+</script>
+</body>
+</html>

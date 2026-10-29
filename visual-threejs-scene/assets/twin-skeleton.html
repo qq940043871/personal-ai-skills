@@ -1,0 +1,3351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>数字孪生原型 · 参数化骨架</title>
+<style>
+  :root{
+    --bg:#050b14; --panel:rgba(11,24,42,.74); --panel-2:rgba(9,18,33,.92);
+    --line:rgba(0,229,255,.20); --line-2:rgba(0,229,255,.38);
+    --txt:#dbe9f7; --txt-2:#8fa8c4; --txt-3:#5d7691;
+    --cyan:#00e5ff; --blue:#3b82f6; --ok:#22d3a6; --warn:#faad14; --crit:#ff4d4f; --purple:#8b5cf6;
+    --r:10px; --shadow:0 10px 34px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,"Segoe UI",sans-serif;
+    overflow:hidden;-webkit-font-smoothing:antialiased}
+  #app{position:fixed;inset:0}
+  #stage{position:absolute;inset:0}
+  #labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+
+  /* ---------- 通用玻璃面板 + 四角装饰（ThreeUI 风格 HUD） ---------- */
+  .panel{
+    position:absolute;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:var(--shadow);
+  }
+  .panel::before,.panel::after{content:"";position:absolute;width:12px;height:12px;pointer-events:none}
+  .panel::before{left:-1px;top:-1px;border-left:2px solid var(--cyan);border-top:2px solid var(--cyan)}
+  .panel::after{right:-1px;bottom:-1px;border-right:2px solid var(--cyan);border-bottom:2px solid var(--cyan)}
+  .p-hd{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line);
+    font-size:13px;font-weight:700;letter-spacing:.5px}
+  .p-hd i{width:3px;height:13px;background:var(--cyan);border-radius:2px;box-shadow:0 0 8px var(--cyan)}
+  .p-bd{padding:10px 12px;font-size:12px}
+
+  /* ---------- 顶栏 ---------- */
+  #topbar{left:16px;right:16px;top:14px;height:56px;display:flex;align-items:center;
+    padding:0 16px;gap:16px;z-index:20}
+  #topbar h1{margin:0;font-size:18px;letter-spacing:1px;font-weight:700}
+  #topbar .sub{font-size:12px;color:var(--txt-2);margin-top:2px}
+  .chips{display:flex;gap:8px;margin-left:auto;align-items:center;flex-wrap:wrap}
+  .chip{font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--line);
+    background:rgba(0,229,255,.07);color:var(--txt-2);white-space:nowrap}
+  .chip.mock{border-color:rgba(250,173,20,.45);color:var(--warn);background:rgba(250,173,20,.10)}
+  .chip.live{border-color:rgba(34,211,166,.45);color:var(--ok);background:rgba(34,211,166,.10)}
+
+  /* ---------- 左栏：KPI + 设备清单 ---------- */
+  #left{left:16px;top:84px;width:270px;bottom:96px;display:flex;flex-direction:column;z-index:15}
+  #left .scroll{overflow:auto;padding:10px 12px;flex:1}
+  .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .kpi{background:rgba(0,229,255,.06);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .kpi .v{font-size:19px;font-weight:700;color:#fff;line-height:1.15;
+    font-variant-numeric:tabular-nums;text-shadow:0 0 14px rgba(0,229,255,.35)}
+  .kpi .v small{font-size:11px;color:var(--txt-2);margin-left:2px;font-weight:400}
+  .kpi .l{font-size:11px;color:var(--txt-2);margin-top:3px}
+  .devlist{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  .dev{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;
+    border:1px solid transparent;background:rgba(255,255,255,.02);transition:.15s}
+  .dev:hover{background:rgba(0,229,255,.10);border-color:var(--line-2)}
+  .dev.on{background:rgba(0,229,255,.16);border-color:var(--cyan)}
+  .dev .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .dev .nm{flex:1;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dev .st{font-size:11px;color:var(--txt-3)}
+
+  /* ---------- 右栏：信息弹窗 ---------- */
+  #right{right:16px;top:84px;width:296px;max-height:calc(100% - 200px);z-index:15;display:flex;flex-direction:column}
+  #right .scroll{overflow:auto;padding:10px 12px}
+  .prop{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+  .prop .k{color:var(--txt-2);font-size:12px}
+  .prop .v{font-size:12px;color:#fff;text-align:right;word-break:break-all}
+  .mt{display:flex;justify-content:space-between;padding:4px 0;font-size:12px}
+  .mt .bar{flex:1;margin:0 8px;height:6px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;align-self:center}
+  .mt .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+  .empty{color:var(--txt-3);font-size:12px;text-align:center;padding:26px 0;line-height:1.9}
+
+  /* ---------- 底栏：漫游控制 + 图例 + 性能 ---------- */
+  #bottom{left:16px;right:16px;bottom:14px;height:70px;display:flex;align-items:center;
+    padding:0 14px;gap:14px;z-index:20}
+  .btn{font-size:12px;padding:6px 14px;border-radius:6px;cursor:pointer;user-select:none;
+    border:1px solid var(--line-2);background:rgba(0,229,255,.08);color:var(--txt);transition:.15s}
+  .btn:hover{background:rgba(0,229,255,.20)}
+  .btn.on{background:var(--cyan);color:#04202b;border-color:var(--cyan);font-weight:700}
+  .btn.ghost{border-color:rgba(255,255,255,.14);background:transparent;color:var(--txt-2)}
+  .legend{display:flex;gap:14px;margin-left:auto;flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt-2)}
+  .lg i{width:9px;height:9px;border-radius:2px;display:block}
+  .perf{font-size:11px;color:var(--txt-3);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .seg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--txt-2)}
+  .seg input[type=range]{width:100px;accent-color:var(--cyan)}
+
+  /* ---------- 3D 标签 ---------- */
+  .tag{pointer-events:auto;cursor:pointer;transform:translate(-50%,-100%);
+    background:rgba(6,18,32,.86);border:1px solid var(--line-2);border-radius:5px;
+    padding:3px 8px;font-size:11px;line-height:1.35;color:#eaf6ff;white-space:nowrap;
+    box-shadow:0 3px 12px rgba(0,0,0,.55);transition:.15s}
+  .tag:hover{background:rgba(0,229,255,.24);border-color:var(--cyan);z-index:20}
+  .tag .s{font-size:9px;margin-left:5px;padding:0 4px;border-radius:3px}
+  .tag .s.ok{background:rgba(34,211,166,.18);color:var(--ok)}
+  .tag .s.warn{background:rgba(250,173,20,.18);color:var(--warn)}
+  .tag .s.crit{background:rgba(255,77,79,.20);color:var(--crit)}
+  .tag .s.off{background:rgba(255,255,255,.10);color:var(--txt-3)}
+  .tag.alarm{border-color:var(--crit);animation:bl 1.1s infinite}
+  @keyframes bl{0%,100%{box-shadow:0 0 0 rgba(255,77,79,0)}50%{box-shadow:0 0 16px rgba(255,77,79,.75)}}
+
+  /* ---------- 悬浮提示 ---------- */
+  #tip{position:absolute;z-index:60;pointer-events:none;display:none;
+    background:rgba(4,14,26,.94);border:1px solid var(--cyan);border-radius:6px;
+    padding:6px 10px;font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.6);max-width:260px}
+  #tip b{color:#fff}
+  #tip .m{color:var(--txt-2);font-size:11px}
+
+  /* ---------- 加载遮罩 ---------- */
+  #loading{position:absolute;inset:0;z-index:99;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 40%,#0a1a2f 0%,#04080f 70%)}
+  #loading .box{text-align:center;width:280px}
+  #loading .t{font-size:14px;letter-spacing:2px;color:var(--cyan)}
+  #loading .bar{margin:14px 0 8px;height:3px;background:rgba(255,255,255,.10);border-radius:2px;overflow:hidden}
+  #loading .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--blue),var(--cyan));
+    transition:width .25s}
+  #loading .p{font-size:12px;color:var(--txt-3);font-variant-numeric:tabular-nums}
+  #loading.off{opacity:0;pointer-events:none;transition:opacity .5s}
+
+  /* ---------- 屏幕自适应 ---------- */
+  @media (max-width:1440px){#left{width:238px}#right{width:262px}}
+  @media (max-width:1180px){
+    #right{display:none}
+    #left{width:214px}
+    .legend{display:none}
+  }
+  @media (max-width:900px){
+    #left{display:none}
+    #topbar h1{font-size:15px}
+  }
+  .hide{display:none !important}
+.wbtn{display:inline-flex;align-items:center;padding:3px 9px;margin-right:2px;border-radius:4px;
+  border:1px solid var(--line);color:var(--txt-2);cursor:pointer;font-size:12px;user-select:none;
+  transition:.15s}
+.wbtn:hover{color:var(--txt-1);border-color:var(--cyan)}
+.wbtn.on{background:rgba(0,229,255,.14);border-color:var(--cyan);color:var(--cyan)}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <div id="labels"></div>
+
+  <div id="topbar" class="panel">
+    <div>
+      <h1 id="ui-title">数字孪生原型</h1>
+      <div class="sub" id="ui-sub">参数化骨架 · Mock 数据</div>
+    </div>
+    <div class="chips">
+      <span class="chip" id="ui-scene">场景：—</span>
+      <span class="chip mock" id="ui-mode">数据模式：Mock</span>
+      <span class="chip" id="ui-count">资产：0</span>
+    </div>
+  </div>
+
+  <div id="left" class="panel">
+    <div class="p-hd"><i></i><span>业务指标</span></div>
+    <div class="scroll">
+      <div class="kpis" id="ui-kpis"></div>
+      <div class="p-hd" style="margin:12px -12px 8px;border-top:1px solid var(--line)">
+        <i></i><span>设备清单</span></div>
+      <div class="devlist" id="ui-devs"></div>
+    </div>
+  </div>
+
+  <div id="right" class="panel">
+    <div class="p-hd"><i></i><span>对象详情</span><span style="margin-left:auto;color:var(--txt-3);
+      font-weight:400;cursor:pointer" id="ui-close">✕</span></div>
+    <div class="scroll" id="ui-info">
+      <div class="empty">点击场景中的设备<br/>或左侧清单查看详情</div>
+    </div>
+  </div>
+
+  <div id="bottom" class="panel">
+    <span class="btn" id="btn-play">▶ 巡检漫游</span>
+    <span class="btn ghost" id="btn-reset">重置机位</span>
+    <span class="btn ghost" id="btn-fit">自动取景</span>
+    <span class="seg"><label>速度</label><input type="range" id="ui-speed" min="0.3" max="3" step="0.1" value="1" /><b id="ui-speed-v" style="color:var(--cyan);width:26px">1×</b></span>
+    <span class="btn ghost" id="btn-label">标签</span>
+    <span class="btn ghost" id="btn-alarm">告警</span>
+    <span class="btn ghost" id="btn-wire">线框</span>
+    <span class="seg"><label>时段</label>
+      <span class="wbtn on" data-w="day">白天</span><span class="wbtn" data-w="sunset">黄昏</span
+      ><span class="wbtn" data-w="night">夜晚</span><span class="wbtn" data-w="cyber">科技</span>
+    </span>
+    <div class="legend">
+      <span class="lg"><i style="background:var(--ok)"></i>正常</span>
+      <span class="lg"><i style="background:var(--warn)"></i>预警</span>
+      <span class="lg"><i style="background:var(--crit)"></i>告警</span>
+      <span class="lg"><i style="background:var(--txt-3)"></i>停用</span>
+    </div>
+    <span class="btn ghost" id="ui-tier" title="画质档位：点击循环切换（P 键同效）">画质 均衡</span>
+    <span class="perf" id="ui-perf">FPS —</span>
+  </div>
+
+  <div id="tip"></div>
+
+  <div id="loading">
+    <div class="box">
+      <div class="t">SCENE LOADING</div>
+      <div class="bar"><i id="ldbar"></i></div>
+      <div class="p" id="ldtxt">0%</div>
+    </div>
+  </div>
+</div>
+
+<script id="twin-boot">
+/* --- CDN 探测回退链：unpkg → jsdelivr → 友好报错 ---
+   引擎源码在下方 text/plain 槽（惰性），探测成功后注入 importmap，
+   再以 Blob URL 动态 import 唤醒。importmap 每文档仅允许一份，
+   故导入期失败不走换源重试，直接给出重试按钮。 */
+(function () {
+  var CDNS = [
+    'https://unpkg.com/three@0.160.0/',
+    'https://cdn.jsdelivr.net/npm/three@0.160.0/'
+  ];
+  var i = 0;
+  function fail() {
+    var box = document.querySelector('#loading .box');
+    if (!box) { alert('三维引擎加载失败：CDN 不可达'); return; }
+    box.innerHTML =
+      '<div class="t" style="color:#ff8585">三维引擎加载失败</div>' +
+      '<div style="color:#9fb4c8;font:12px/1.7 system-ui;margin:12px 0 14px">' +
+      'unpkg / jsdelivr 均不可达，请检查网络（或代理）后重试。</div>' +
+      '<button onclick="location.reload()" style="cursor:pointer;background:#1c6dd0;color:#fff;' +
+      'border:0;border-radius:4px;padding:7px 26px;font:13px system-ui">重新加载</button>';
+  }
+  function probe() {
+    if (i >= CDNS.length) { fail(); return; }
+    var base = CDNS[i];
+    var ctl = ('AbortController' in window) ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); else { i++; probe(); } }, 6000);
+    fetch(base + 'package.json', { mode: 'cors', signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        clearTimeout(timer);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        var im = document.createElement('script');
+        im.type = 'importmap';
+        im.textContent = JSON.stringify({ imports: {
+          'three': base + 'build/three.module.js',
+          'three/addons/': base + 'examples/jsm/'
+        }});
+        document.head.appendChild(im);
+        window.__TWIN_CDN__ = base;          // Draco else 分支等跟随同一 CDN
+        var src = document.getElementById('twinEngineSrc').textContent;
+        var url = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+        import(url).catch(fail);
+      })
+      .catch(function () { clearTimeout(timer); i++; probe(); });
+  }
+  probe();
+})();
+</script>
+<script type="text/plain" id="twinEngineSrc">
+import * as THREE from 'three';
+import { OrbitControls }   from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader }      from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader }     from 'three/addons/loaders/DRACOLoader.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { Sky }             from 'three/addons/objects/Sky.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+/* v0.3 写实增强：后处理链（GTAO 环境光遮蔽 / Bloom 辉光 / SMAA 抗锯齿 / OutputPass 色调映射） */
+import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass }        from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { SMAAPass }        from 'three/addons/postprocessing/SMAAPass.js';
+import { OutputPass }      from 'three/addons/postprocessing/OutputPass.js';
+import { RGBELoader }      from 'three/addons/loaders/RGBELoader.js';
+import { SSRPass }         from 'three/addons/postprocessing/SSRPass.js';
+import { ShaderPass }      from 'three/addons/postprocessing/ShaderPass.js';
+
+/* =========================================================================
+ * 1. 默认配置（一切靠它驱动；外部可用 window.__TWIN_CONFIG__ 覆盖任意片段）
+ * ========================================================================= */
+const DEFAULT_CONFIG = {
+  meta: { title: '大宗商品仓储园区 · 数字孪生', subtitle: '参数化原型 · Mock 数据', dataMode: 'mock' },
+  sceneType: 'warehouse',                 // warehouse | plant | park | bulk
+  /* 环境：preset 决定光照与天空；day/sunset 默认物理天空 shader（Sky），night/cyber 走渐变穹顶 */
+  env: {
+    preset: 'day',                        // day | sunset | night | cyber
+    sky: 'shader',                        // shader（物理天空） | hdri（实拍 HDR 天空，最逼真） | texture（sky-*.jpg） | gradient（纯渐变）
+    bgTop: '#0b2545', bgBottom: '#03080f',// cyber 风格 / 贴图缺失时的渐变兜底
+    realism: true,                        // 写实模式：弱化青色描边、关科技网格、启接触阴影
+    edgeOpacity: 0.12,                    // 写实模式下构件描边透明度（ realism=false 时用 0.35 ）
+    ground: '#0e1c2c', gridColor: '#123049', gridSize: 600, gridDivisions: 60,
+    gridOpacity: 0.06,                    // 科技网格线强度；写实风建议 <=0.2，设 0 则完全隐藏
+    groundTex: 'concrete',                // lawn | concrete | asphalt | none —— 地面贴图
+    groundTexRepeat: 8,   // 高对比裂缝类贴图（concrete/asphalt）高空 repeat>10 出斑马纹；低对比贴图（lawn）可用 24-40，按对比度定
+    haze: [0x081422, 320, 1100],          // [color, near, far]
+    exposure: 1.05, sunDirection: [120, 160, 80], sunIntensity: 2.2
+  },
+  /* 贴图：路径由 scaffold 注入（DEFAULT_TEXTURES → 内联成 data URI）。
+     留空 / 加载失败 → 自动回退程序化纯色，断网照样能跑。
+     这里不写死路径：骨架同时存在于「模块脚本」与「离线 bundle」两处，写死会让
+     同一张图被内联两遍（体积翻倍），也会在 file:// 下留下必然失败的请求。 */
+  textures: {},
+  camera: {
+    fov: 45, position: [150, 105, 175], target: [0, 8, 0],
+    autoFit: true,                        // 装配完成后按资产包围盒自动取景（配置改完不担心跑出画面）
+    minDistance: 25, maxDistance: 900, maxPolarAngle: 1.47, autoRotate: false, autoRotateSpeed: 0.35
+  },
+  performance: { maxPixelRatio: 2, shadows: true, shadowMapSize: 2048, antialias: true, cullGrid: true,
+    /* v0.3 写实后处理链：GTAO + Bloom + SMAA。全部可关，关掉即退回 v0.2 直出管线 */
+    postfx: true,                       // 总开关（false = 完全不建 composer）
+    ao: true,                           // GTAO 环境光遮蔽：墙角/设备底部/堆叠缝隙的暗角，真实感第一来源
+    aoRadius: 3.2,                      // AO 采样半径（米）：大场地 3~4，室内小场景 0.5~1
+    aoIntensity: 1.25,                  // AO 混合强度（0.6 保守 / 1.0 标准 / >1 更戏剧）
+    aoThickness: 1.5,                   // 遮挡厚度
+    bloom: true,                        // 辉光：夜景灯光/告警光柱/自发光面板
+    bloomStrength: 0.32,                // 白天要低（0.3 左右），夜景由 applyWeather 自动提到 ~0.85
+    bloomThreshold: 1.6,                // 亮度阈值：作用在 tone mapping 前的 HDR 线性域！
+                                        // 0.9 的旧默认连亮天空都在辉光（黄昏整幅白雾）；
+                                        // 1.6 只让灯光/高光发光。夜景灯光 intensity>2，依然有效
+    bloomRadius: 0.5,
+    smaa: true,                         // 后处理抗锯齿（走 composer 后 MSAA 失效，靠 SMAA 补）
+    ssr: true,                          // 屏幕空间反射（v0.5）：罐体/集装箱倒映天空与地面，金属玻璃质感关键
+    ssrIntensity: 0.55,                 // 反射强度（0.3 保守 / 0.55 标准 / 1.0 全镜面）
+    ssrMaxDistance: 120,                // 反射追踪距离（米），大场地可放大
+    ssrThickness: 0.5,
+    /* v0.11 集成显卡适配：画质档位。'auto' = 按 GPU 型号自动挑，也可显式指定档位名 */
+    quality: 'auto',                    // auto | potato | low | medium | high | ultra
+    autoQuality: true,                  // 运行时掉帧自动降档（调速器）
+    staticShadows: true,                // 静态场景：相机不动就不重画阴影图（集显最大一笔省下的开销）
+    texMaxSize: 2048,                   // 贴图上传前降采样上限（集显共享内存，2048 三通道很吃带宽）
+    detail: 1.0,                        // 细节密度倍率（0.35~1）：子位货箱 / 斜撑 / 护栏 / 树 / 粒子
+    cullDistance: 900,                  // 小物件距离剔除半径（米），超出即隐藏
+    aoScale: 1.0,                       // GTAO 内部 RT 分辨率倍率（0.5 = 半分辨率，省 4× 填充）
+    bloomScale: 1.0,                    // Bloom 金字塔基准分辨率倍率
+    particles: 1.0 },                   // 粒子/动画密度倍率
+  labels: { mode: 'css2d', show: true, showStatus: true, density: 'all' },
+  patrol: { enabled: true, duration: 48, loop: true, autoStart: false, height: 46,
+            waypoints: [[210,46,210],[210,46,-190],[-190,46,-190],[-190,46,210]] },
+  dataSource: { mode: 'mock', refreshMs: 8000, http: { assets: '', metrics: '', alerts: '' } },
+
+  // 建筑（程序化几何）
+  buildings: [
+    { id:'WH-01', type:'warehouse', name:'1号立体库', position:[0,0,-40], size:[130,20,58],
+      roof:'arch', seeThrough:true, status:'normal',
+      metrics:[{label:'库容利用率',value:'82%',pct:82},{label:'在库吨位',value:'12,480 吨'}] },
+    { id:'WH-02', type:'warehouse', name:'2号平库', position:[0,0,95], size:[130,14,44],
+      roof:'gable', seeThrough:true, status:'normal',
+      metrics:[{label:'库容利用率',value:'61%',pct:61},{label:'在库吨位',value:'7,320 吨'}] },
+    { id:'OF-01', type:'office', name:'综合办公楼', position:[-160,0,-178], size:[48,36,30],
+      floors:8, podium:2, roofUnits:4, status:'normal',
+      metrics:[{label:'入驻企业',value:'18 家'},{label:'今日访客',value:'126 人'},{label:'能耗',value:'正常'}] }
+  ],
+
+  // 设备 / 设施（type 决定程序化几何）
+  devices: [
+    { id:'RACK-A', type:'rack', name:'A区货架', position:[-31,0,-45], size:[56,15,24],
+      bays:10, levels:4, fill:0.78, status:'normal' },
+    { id:'RACK-B', type:'rack', name:'B区货架', position:[31,0,-45], size:[56,15,24],
+      bays:10, levels:4, fill:0.91, status:'warn',
+      metrics:[{label:'货位占用',value:'91%',pct:91},{label:'待出库',value:'36 托'}] },
+    { id:'YARD-01', type:'yard', name:'露天堆场', position:[-150,0,150], size:[150,70],
+      stack:'cone', rows:3, cols:6, status:'normal',
+      metrics:[{label:'堆存量',value:'28,600 吨',pct:68}] },
+    { id:'TANK-01', type:'tank', name:'1号储罐', position:[150,0,40], radius:16, height:26,
+      level:0.86, status:'normal',
+      metrics:[{label:'液位',value:'86%',pct:86},{label:'温度',value:'34 ℃'},{label:'介质',value:'乙二醇'}] },
+    { id:'TANK-02', type:'tank', name:'2号储罐', position:[190,0,40], radius:16, height:26,
+      level:0.94, status:'alarm',
+      metrics:[{label:'液位',value:'94%',pct:94},{label:'温度',value:'51 ℃'},{label:'介质',value:'乙二醇'}] },
+    { id:'PIPE-01', type:'pipeline', name:'主工艺管线', radius:0.9, flow:true, status:'normal',
+      points:[[150,1.2,16],[150,1.2,-80],[60,1.2,-80],[60,1.2,72],[0,1.2,72]] },
+    { id:'SILO-01', type:'silo', name:'中转筒仓', position:[-195,0,-30], radius:12, height:38, status:'normal' },
+    { id:'BELT-01', type:'conveyor', name:'输送廊道', position:[-60,10,40], length:120, status:'normal' },
+    { id:'CAR-01', type:'vehicle', name:'运输车 A', position:[-120,0,-8], heading:0, speed:14,
+      path:[[-120,0,-8],[140,0,-8]], status:'normal',
+      metrics:[{label:'车牌',value:'沪B·1024'},{label:'载重',value:'32 吨'},{label:'任务',value:'出库装车'}] },
+    { id:'CAR-02', type:'vehicle', name:'运输车 B', position:[100,0,-120], heading:180, speed:11,
+      path:[[100,0,-120],[-140,0,-120]], status:'normal' },
+
+    /* —— 环境配景：ambient:true → 不拾取 / 不进设备清单 / 不参与自动取景 —— */
+    { id:'LN-01', type:'lawn',    ambient:true, name:'中心绿地', position:[0,0,150], size:[210,70] },
+    { id:'LN-02', type:'lawn',    ambient:true, name:'西侧绿地', position:[-235,0,-60], size:[80,180] },
+    { id:'GR-01', type:'grove',   ambient:true, name:'西绿化带', position:[-235,0,-60], size:[56,170], count:28, seed:3 },
+    { id:'GR-02', type:'grove',   ambient:true, name:'南绿化带', position:[0,0,205],  size:[190,26], count:22, seed:9 },
+    { id:'GR-03', type:'grove',   ambient:true, name:'北绿化带', position:[220,0,-190], size:[70,90], count:16, seed:17 },
+    { id:'RD-01', type:'road',    ambient:true, name:'园区主通道', position:[0,0,20], size:[18,430] },
+    { id:'RD-02', type:'road',    ambient:true, name:'横向次通道', position:[-100,0,20], size:[14,300], rotation:90 },
+    { id:'PK-01', type:'parking', ambient:true, name:'访客停车场', position:[140,0,196], cols:8, rows:1, seed:5 },
+    { id:'LP-01', type:'lampRow', ambient:true, name:'主通道路灯', height:9,
+      points:[[10,0,-195],[10,0,195]] },
+    { id:'LP-02', type:'lampRow', ambient:true, name:'次通道路灯', height:9,
+      points:[[-100,0,-130],[-100,0,130]] }
+  ],
+
+  // 外部 GLTF 模型（url 为空或加载失败 → 自动回退到程序化占位体）
+  // 放 .glb 到 skill 的 assets/models/ 后，scaffold 会自动内联成 data URI（单文件可带走）；
+  // Draco 压缩的模型会附带内联 decoder，离线可用。多文件 .gltf+.bin 不支持内联，需先转 .glb
+  models: [
+    // { id:'GLTF-STACKER', name:'堆垛机', url:'models/stacker.glb', position:[0,0,-40],
+    //   rotation:0, scale:1, fallback:{type:'box', size:[4,14,3]}, status:'normal' }
+  ],
+
+  // 告警（可来自 dataSource）
+  alerts: [
+    { deviceId:'TANK-02', level:'critical', text:'液位超上限 94%', time:'10:24' },
+    { deviceId:'RACK-B',  level:'warning',  text:'货位占用率 91%',  time:'10:11' }
+  ],
+
+  // KPI 指标卡
+  kpis: [
+    { label:'在库总量', value:'12,480', unit:'吨' },
+    { label:'今日入库', value:'1,286',  unit:'吨' },
+    { label:'今日出库', value:'964',    unit:'吨' },
+    { label:'作业设备', value:'23',     unit:'台' },
+    { label:'在线率',   value:'96.4',   unit:'%' },
+    { label:'未处理告警', value:'2',    unit:'条' }
+  ]
+};
+
+const STATUS = {
+  normal:  { color:0x22d3a6, css:'#22d3a6', cls:'ok',   text:'正常' },
+  warn:    { color:0xfaad14, css:'#faad14', cls:'warn', text:'预警' },
+  alarm:   { color:0xff4d4f, css:'#ff4d4f', cls:'crit', text:'告警' },
+  off:     { color:0x5d7691, css:'#5d7691', cls:'off',  text:'停用' }
+};
+const st = (s) => STATUS[s] || STATUS.normal;
+
+/* 深度合并：外部配置只需给出要改的片段 */
+function deepMerge(base, patch){
+  if (!patch) return base;
+  const out = Array.isArray(base) ? base.slice() : Object.assign({}, base);
+  for (const k of Object.keys(patch)){
+    const v = patch[k];
+    if (v && typeof v === 'object' && !Array.isArray(v) && base && typeof base[k] === 'object' && !Array.isArray(base[k])){
+      out[k] = deepMerge(base[k], v);
+    } else out[k] = v;
+  }
+  return out;
+}
+const CONFIG = deepMerge(DEFAULT_CONFIG, window.__TWIN_CONFIG__ || {});
+
+/* =========================================================================
+ * 1b. v0.11 画质档位系统 —— 为集成显卡 / 软件渲染 / 移动端而生
+ * -------------------------------------------------------------------------
+ * 集显（Intel UHD/HD、Iris Xe）跑不动数字孪生，瓶颈从来不是三角面，而是：
+ *   ① 填充率：1080p 全屏连跑 SSR+GTAO+Bloom+SMAA+调色 5 个 pass，
+ *      每帧约 1 亿像素着色——集显的 EU 数量直接跪在这一项上；
+ *   ② 显存带宽：集显共享系统内存，2k 三通道贴图 + float RT 的读写是隐形杀手；
+ *   ③ 阴影 pass：百万面场景每帧还要再画一遍深度图。静态场景纯属浪费。
+ * 所以档位不是"降画质"，是按性价比倒序砍开销：
+ *   SSR > 阴影分辨率 > AO/Bloom 分辨率 > 贴图分辨率 > pixelRatio > 远处小零件
+ * 档位在 renderer 创建「之前」解析（antialias 只能在构造时决定），
+ * 运行时可再切换（除贴图分辨率外全部即时生效）。
+ * ========================================================================= */
+const QUALITY_TIERS = {
+  /* 保命档：软渲染 / 十年老集显 / 远程桌面。能出图就算赢 */
+  potato: { label:'保命', maxPixelRatio:0.75, postfx:false, ao:false, bloom:false, smaa:false, ssr:false,
+            shadows:false, shadowMapSize:512,  antialias:false, texMaxSize:512,  detail:0.30,
+            cullDistance:150, aoScale:0.5, bloomScale:0.5, staticShadows:true, particles:0.3 },
+  /* 流畅档：Intel HD 4000~620 / UHD 600~620 / 手机。目标 40fps+
+     ⚠️ 集显瓶颈是像素填充（全屏后处理 pass），不是三角面 —— 所以这里砍的是：
+       ① SSR 全关 ② Bloom 关（白天本来就没用）③ AO 降到 0.4 分辨率（省 6× 带宽，
+       但保留「墙角/设备落地的暗角」，这是塑料感与实景感的分水岭，不能全砍）
+     detail 保持 0.85：货箱子位不掉，画面饱满度与满配基本一致 */
+  low:    { label:'流畅', maxPixelRatio:1.0,  postfx:true,  ao:true,  bloom:false, smaa:true,  ssr:false,
+            shadows:true,  shadowMapSize:1024, antialias:false, texMaxSize:1024, detail:0.85,
+            cullDistance:420, aoScale:0.4, bloomScale:0.5, staticShadows:true, particles:0.8 },
+  /* 均衡档：Iris Xe / UHD 7xx / Apple GPU。目标 30~45fps，观感几乎不掉 */
+  medium: { label:'均衡', maxPixelRatio:1.25, postfx:true,  ao:true,  bloom:true,  smaa:true,  ssr:false,
+            shadows:true,  shadowMapSize:2048, antialias:false, texMaxSize:1024, detail:0.85,
+            cullDistance:460, aoScale:0.5, bloomScale:0.5, staticShadows:true, particles:0.8 },
+  /* 精细档：入门独显（MX 系列 / GTX 1650）。目标 60fps */
+  high:   { label:'精细', maxPixelRatio:1.5,  postfx:true,  ao:true,  bloom:true,  smaa:true,  ssr:false,
+            shadows:true,  shadowMapSize:2048, antialias:true,  texMaxSize:2048, detail:1.0,
+            cullDistance:700, aoScale:1.0, bloomScale:0.75, staticShadows:true, particles:1.0 },
+  /* 极致档：RTX / RX。全套开满，含 SSR 屏幕空间反射 */
+  ultra:  { label:'极致', maxPixelRatio:2,    postfx:true,  ao:true,  bloom:true,  smaa:true,  ssr:true,
+            shadows:true,  shadowMapSize:4096, antialias:true,  texMaxSize:2048, detail:1.0,
+            cullDistance:1200, aoScale:1.0, bloomScale:1.0, staticShadows:false, particles:1.0 }
+};
+const TIER_ORDER = ['potato','low','medium','high','ultra'];
+
+/* --- GPU 探测：临时 canvas 取 UNMASKED_RENDERER，用完立刻失活，不占上下文 --- */
+function detectGPU(){
+  const info = { renderer:'', vendor:'', igpu:false, software:false, mobile:false, tier:'medium' };
+  try {
+    const c = document.createElement('canvas');
+    const gl = c.getContext('webgl2') || c.getContext('webgl');
+    if (gl){
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg){
+        info.renderer = String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || '');
+        info.vendor   = String(gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL)   || '');
+      }
+      const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+    }
+  } catch(e){}
+  const R = (info.renderer + ' ' + info.vendor).toLowerCase();
+  if (/swiftshader|llvmpipe|softwarerasterizer|basic render|microsoft basic/.test(R)) info.software = true;
+  else if (/nvidia|geforce|rtx|quadro|radeon|rx [0-9]|vega|apple m[0-9]/.test(R)) info.igpu = false;
+  else if (/intel|uhd|hd graphics|iris|arc/.test(R)) info.igpu = true;
+  else if (/mali|adreno|powervr|apple a[0-9]/.test(R)){ info.igpu = true; info.mobile = true; }
+  else if (/apple gpu/.test(R)) info.igpu = true;
+
+  let t;
+  if (info.software)                       t = 'potato';
+  else if (info.mobile)                    t = 'low';
+  else if (info.igpu){
+    if (/iris|arc|uhd *7|uhd *graphics *7/.test(R)) t = 'medium';       // Iris Xe / Arc / 11 代后 UHD
+    else if (/hd graphics|uhd/.test(R))             t = 'low';          // HD 4000~620 / UHD 600~620
+    else                                            t = 'medium';
+  } else                                   t = 'high';                  // 独显
+  // 弱 CPU（≤4 线程）再降一档：集显机器上 CPU 往往是同一颗，几何提交也会拖后腿
+  const cores = navigator.hardwareConcurrency || 8;
+  if (cores <= 4 && TIER_ORDER.indexOf(t) > 0) t = TIER_ORDER[TIER_ORDER.indexOf(t) - 1];
+  info.tier = t;
+  return info;
+}
+const GPU = detectGPU();
+let CURRENT_QUALITY = 'medium';
+
+/* 静态应用：写回 CONFIG.performance（必须在 new WebGLRenderer 之前跑完） */
+function resolveQuality(pref){
+  let name = (pref && pref !== 'auto') ? pref : GPU.tier;
+  if (!QUALITY_TIERS[name]) name = 'medium';
+  return name;
+}
+function applyQualityStatic(name){
+  const tier = QUALITY_TIERS[name]; if (!tier) return;
+  CURRENT_QUALITY = name;
+  const P = CONFIG.performance;
+  for (const k of Object.keys(tier)) if (k !== 'label') P[k] = tier[k];
+  P.quality = name;
+  /* v0.11：阴影分辨率完全由档位决定。旧版写过「realism 一律 4096」，
+     那在集显上等于每帧把 2048² 深度图多画一遍 —— 档位说了算，别再偷偷抬 */
+  return P;
+}
+applyQualityStatic(resolveQuality(CONFIG.performance.quality));
+
+/* =========================================================================
+ * 2. 渲染器 / 场景 / 相机 / 灯光 / 环境
+ * ========================================================================= */
+const stage = document.getElementById('stage');
+const renderer = new THREE.WebGLRenderer({ antialias: CONFIG.performance.antialias, powerPreference:'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.performance.maxPixelRatio));
+renderer.setSize(stage.clientWidth, stage.clientHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = CONFIG.env.exposure;
+renderer.shadowMap.enabled = CONFIG.performance.shadows;
+/* v0.11：低档位换便宜的 PCF（PCFSoft 每像素多次采样，集显上阴影 pass 直接翻倍） */
+renderer.shadowMap.type = (CONFIG.performance.shadowMapSize <= 1024)
+  ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+/* v0.11：静态阴影图。数字孪生的光影 99% 时间不变，却每帧重画一遍百万面深度图——
+   关掉 autoUpdate 后只在「相机移动中每 0.2s 一次 / 停稳后补一张」刷新，肉眼无差、开销归零 */
+renderer.shadowMap.autoUpdate = !CONFIG.performance.staticShadows;
+renderer.shadowMap.needsUpdate = true;
+/* 后处理链每帧要跑多个 pass，renderer.info 默认每次 render 自动清零，
+   会导致底栏统计只剩最后一个 pass 的 1 次绘制——必须手动托管才能反映真实开销 */
+renderer.info.autoReset = false;
+stage.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(stage.clientWidth, stage.clientHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.left = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+document.getElementById('labels').appendChild(labelRenderer.domElement);
+
+const scene = new THREE.Scene();
+if (CONFIG.env.haze) scene.fog = new THREE.Fog(CONFIG.env.haze[0], CONFIG.env.haze[1], CONFIG.env.haze[2]);
+
+const camera = new THREE.PerspectiveCamera(CONFIG.camera.fov, stage.clientWidth/stage.clientHeight, 0.5, 5000);
+camera.position.fromArray(CONFIG.camera.position);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.fromArray(CONFIG.camera.target);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = CONFIG.camera.minDistance;
+controls.maxDistance = CONFIG.camera.maxDistance;
+controls.maxPolarAngle = CONFIG.camera.maxPolarAngle;
+controls.autoRotate = CONFIG.camera.autoRotate;
+controls.autoRotateSpeed = CONFIG.camera.autoRotateSpeed;
+controls.update();
+
+/* =========================================================================
+ * 2b. 写实后处理链（v0.3）：GTAO → Bloom → SMAA → OutputPass
+ *     · GTAO：屏幕空间环境光遮蔽。墙角、设备落地处、货箱缝隙、台阶交接的暗角
+ *             —— 这是"塑料感"和"实景感"的分水岭，权重高于任何贴图升级
+ *     · Bloom：夜景路灯/高杆灯/告警光柱/自发光面板的辉光
+ *     · SMAA：走 composer 后 renderer 的 MSAA 失效，用 SMAA 补几何边缘
+ *     · OutputPass：统一做 tone mapping + sRGB 输出（必须在链尾）
+ *     任何一环在软件渲染器（SwiftShader）上可能不可用 → 整体 try/catch 回退直出
+ * ========================================================================= */
+let composer = null, gtaoPass = null, bloomPass = null, smaaPass = null, ssrPass = null, gradePass = null;
+
+function setupPostFX(){
+  const P = CONFIG.performance || {};
+  if (!P.postfx || composer) return;
+  const w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
+  try {
+    composer = new EffectComposer(renderer);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, P.maxPixelRatio || 2));
+    composer.setSize(w, h);
+    composer.addPass(new RenderPass(scene, camera));
+
+    if (P.ssr){
+      /* v0.5：屏幕空间反射。SSRPass 依赖 float RT + depth 采样，
+         软件渲染器（SwiftShader）上大概率不可用 → 独立 try/catch，失败只跳过 SSR，不拖垮主链 */
+      try {
+        ssrPass = new SSRPass({ renderer, scene, camera, width: w, height: h });
+        ssrPass.opacity = (P.ssrIntensity != null) ? P.ssrIntensity : 0.55;
+        ssrPass.maxDistance = (P.ssrMaxDistance != null) ? P.ssrMaxDistance : 120;
+        ssrPass.thickness = (P.ssrThickness != null) ? P.ssrThickness : 0.5;
+        ssrPass.blur = true;
+        composer.addPass(ssrPass);
+      } catch(e){ ssrPass = null; }
+    }
+
+    if (P.ao){
+      /* v0.11：AO 分辨率倍率。GTAOPass 内部三个 RT（normal/ao/denoise，HalfFloat 占大头）
+         全按传入尺寸建，输出靠 uv 采样放大到全屏 —— 半分辨率省 4× 带宽，观感只损失一点边缘锐度。
+         ⚠️ 但 composer.setSize(w,h) 会把三个 RT 一起拉回全分辨率（resize 一次就白省），
+         所以必须把 setSize 包一层钉死缩放。这个坑不踩一次绝对想不到。 */
+      const aScale = (P.aoScale != null) ? P.aoScale : 1;
+      const aw = Math.max(1, Math.round(w * aScale)), ah = Math.max(1, Math.round(h * aScale));
+      gtaoPass = new GTAOPass(scene, camera, aw, ah);
+      const _gtaoResize = gtaoPass.setSize.bind(gtaoPass);
+      gtaoPass.setSize = (W, H) => _gtaoResize(Math.max(1, Math.round(W * aScale)),
+                                               Math.max(1, Math.round(H * aScale)));
+      // radius 是世界尺度（米）。默认 0.25 只对桌面级小场景成立；
+      // 数字孪生是几百米场地，必须按场景包围盒放大，否则 AO 等于没有
+      const r = (P.aoRadius != null) ? P.aoRadius : 2.5;
+      gtaoPass.gtaoMaterial.uniforms.radius.value = r;
+      gtaoPass.gtaoMaterial.uniforms.distanceExponent.value = 1.0;
+      gtaoPass.gtaoMaterial.uniforms.thickness.value =
+        (P.aoThickness != null) ? P.aoThickness : 1.0;
+      gtaoPass.blendIntensity = (P.aoIntensity != null) ? P.aoIntensity : 1.0;
+      gtaoPass.output = 0;                            // 0 = Default（混合后的最终 AO）
+      composer.addPass(gtaoPass);
+    }
+    if (P.bloom){
+      /* v0.11：Bloom 金字塔基准分辨率倍率。辉光本来就是模糊的，半分辨率完全看不出来，
+         但 mip 链的采样次数直接砍掉 4× */
+      const bScale = (P.bloomScale != null) ? P.bloomScale : 1;
+      const bw = Math.max(1, Math.round(w * bScale)), bh = Math.max(1, Math.round(h * bScale));
+      bloomPass = new UnrealBloomPass(new THREE.Vector2(bw, bh),
+        (P.bloomStrength != null) ? P.bloomStrength : 0.32,
+        (P.bloomRadius != null) ? P.bloomRadius : 0.5,
+        (P.bloomThreshold != null) ? P.bloomThreshold : 0.9);
+      const _bloomResize = bloomPass.setSize.bind(bloomPass);
+      bloomPass.setSize = (W, H) => _bloomResize(Math.max(1, Math.round(W * bScale)),
+                                                 Math.max(1, Math.round(H * bScale)));
+      composer.addPass(bloomPass);
+    }
+    if (P.smaa){
+      try { smaaPass = new SMAAPass(w, h); composer.addPass(smaaPass); }
+      catch(e){ smaaPass = null; }                    // SMAA 依赖内嵌纹理数据，失败不影响主链
+    }
+    composer.addPass(new OutputPass());               // tone mapping + sRGB
+    if (P.grade !== false){                            // v0.6 电影调色：对比度/饱和度/暗角（显示空间，可控）
+      try {
+        gradePass = new ShaderPass({
+          uniforms: {
+            tDiffuse: { value: null },
+            uContrast:   { value: (P.gradeContrast != null) ? P.gradeContrast : 1.05 },
+            uSaturation: { value: (P.gradeSaturation != null) ? P.gradeSaturation : 1.03 },
+            uVignette:   { value: (P.gradeVignette != null) ? P.gradeVignette : 0.18 }
+          },
+          vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+          fragmentShader: `
+            uniform sampler2D tDiffuse;
+            uniform float uContrast; uniform float uSaturation; uniform float uVignette;
+            varying vec2 vUv;
+            void main(){
+              vec4 c = texture2D(tDiffuse, vUv);
+              c.rgb = (c.rgb - 0.5) * uContrast + 0.5;
+              float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
+              c.rgb = mix(vec3(l), c.rgb, uSaturation);
+              vec2 uv = vUv - 0.5;
+              c.rgb *= 1.0 - uVignette * smoothstep(0.35, 0.95, length(uv));
+              gl_FragColor = c;
+            }`
+        });
+        composer.addPass(gradePass);                   // 链尾：电影调色
+      } catch(e){ gradePass = null; }
+    }
+  } catch(e){
+    // 软件渲染 / 老设备 / 显存不足：整链废弃，退回 v0.2 的直出管线，页面照常可用
+    console.warn('[twin] 后处理链不可用，回退直出渲染：', e && e.message);
+    composer = null; gtaoPass = null; bloomPass = null; smaaPass = null;
+  }
+}
+function setPostFX(on){                               // 调试入口：tw.setPostFX(false)
+  if (!on && composer){
+    /* v0.11：显式释放 RT。集显上 composer 的 RT 加起来可以有几百 MB，
+       只置 null 不 dispose，显存要等 GC —— 切档来回几次就 OOM（WebGL context lost）*/
+    try {
+      for (const p of composer.passes) if (p && p.dispose) p.dispose();
+      if (composer.renderTarget1) composer.renderTarget1.dispose();
+      if (composer.renderTarget2) composer.renderTarget2.dispose();
+    } catch(e){}
+  }
+  CONFIG.performance.postfx = !!on;
+  composer = null; gtaoPass = null; bloomPass = null; smaaPass = null; ssrPass = null; gradePass = null;
+  if (on) setupPostFX();
+  return !!composer;
+}
+
+/* =========================================================================
+ * 2c. v0.11 运行时画质管理（切档 / 像素比 / 静态阴影 / 距离剔除 / 调速器）
+ * ========================================================================= */
+function syncPixelRatio(){
+  const P = CONFIG.performance;
+  const w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
+  const pr = Math.min(window.devicePixelRatio || 1, P.maxPixelRatio || 1);
+  renderer.setPixelRatio(pr);
+  renderer.setSize(w, h);
+  labelRenderer.setSize(w, h);
+  if (composer){ composer.setPixelRatio(pr); composer.setSize(w, h); }
+}
+
+/* 切档：除贴图分辨率（已解码的拉不回来）外全部即时生效 */
+function applyQualityRuntime(name, reason){
+  const tier = QUALITY_TIERS[name];
+  if (!tier) return false;
+  const P = CONFIG.performance;
+  const prev = CURRENT_QUALITY;
+  if (prev === name && !reason) return true;
+  CURRENT_QUALITY = name;
+  for (const k of Object.keys(tier)) if (k !== 'label') P[k] = tier[k];
+  P.quality = name;
+
+  // 阴影：开关 / 类型 / 分辨率（换分辨率必须 dispose 旧 map，否则 three 复用小尺寸贴图 → 糊成一片）
+  renderer.shadowMap.enabled = !!P.shadows;
+  renderer.shadowMap.type = (P.shadowMapSize <= 1024) ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = !P.staticShadows;
+  if (typeof sun !== 'undefined' && sun){
+    sun.castShadow = !!P.shadows;
+    if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; }
+    sun.shadow.mapSize.set(P.shadowMapSize, P.shadowMapSize);
+    if (typeof SHADOW_MAP !== 'undefined') SHADOW_MAP = P.shadowMapSize;
+  }
+  renderer.shadowMap.needsUpdate = true;
+
+  // 后处理：整链重建（比逐个 pass 改参数可靠）
+  setPostFX(!!P.postfx);
+  syncPixelRatio();
+  buildCullList();
+  markShadowDirty();
+  updateQualityChip(reason || '');
+  return true;
+}
+
+/* --- 小物件距离剔除：货箱子位 / 护栏 / 斜撑 / 树 / 立柱，远处本来就只有几个像素 --- */
+const CULLABLES = [];
+function insideGLB(o){                                  // 沿父链判断是否属于外部 GLB 资产
+  let p = o;
+  while (p){ if (p.userData && p.userData.glbRoot) return true; p = p.parent; }
+  return false;
+}
+function buildCullList(){
+  CULLABLES.length = 0;
+  const P = CONFIG.performance;
+  if (!P.cullDistance) return;
+  scene.traverse(o => {
+    if (!o.isMesh || o.isInstancedMesh || !o.geometry || !o.visible) return;
+    /* ⚠️ GLB 模型的子网格绝不能剔：一个储罐拆成罐壳/法兰/爬梯十几个 mesh，
+       每个的包围球半径都不到 2m，按「小零件」规则会被整批隐藏 —— 罐体直接凭空消失
+       （v11 首版实测：1号/2号储罐只剩地上两个接触阴影圈）。 */
+    if (insideGLB(o)) return;
+    const g = o.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    const bs = g.boundingSphere;
+    if (!bs) return;
+    const sc = Math.max(o.scale.x, o.scale.y, o.scale.z) || 1;
+    const r = bs.radius * sc;
+    if (r <= 0.02 || r > 2.6) return;                    // 只剔"小零件"，大件一律不碰
+    o.updateWorldMatrix(true, false);
+    const wp = new THREE.Vector3().setFromMatrixPosition(o.matrixWorld);
+    /* 剔除距离按尺寸分档：0.5m 的纸箱 90m 外看不见，2m 的护栏 220m 外还行。
+       再乘 detail 系数（低档更激进），上限由 cullDistance 兜底 */
+    const base = (r < 0.6) ? 90 : (r < 1.2) ? 170 : 240;
+    const lim = Math.min(base * (0.55 + 0.45 * (P.detail || 1)), P.cullDistance);
+    CULLABLES.push({ o, wp, lim2: lim * lim, vis: true });
+  });
+}
+let cullFrame = 0;
+function tickCull(){
+  if (!CULLABLES.length) return;
+  if ((cullFrame++ & 3) !== 0) return;                   // 每 4 帧检查一次，摊薄开销
+  const cp = camera.position;
+  for (let i = 0; i < CULLABLES.length; i++){
+    const c = CULLABLES[i];
+    const v = cp.distanceToSquared(c.wp) < c.lim2;
+    if (v !== c.vis){ c.vis = v; c.o.visible = v; }
+  }
+}
+
+/* --- 静态阴影：只在相机移动中每 0.2s 刷一次，停稳后补一张就彻底停手 --- */
+const _shadowCam = new THREE.Vector3(), _shadowTgt = new THREE.Vector3();
+let _shadowIdle = 0, _shadowDirty = true;
+function markShadowDirty(){ _shadowDirty = true; _shadowIdle = 0; }
+function tickStaticShadow(dt){
+  const P = CONFIG.performance;
+  if (!P.shadows || !P.staticShadows) { return; }
+  const moved = camera.position.distanceToSquared(_shadowCam) > 0.02 ||
+                controls.target.distanceToSquared(_shadowTgt) > 0.02;
+  if (moved){
+    _shadowCam.copy(camera.position); _shadowTgt.copy(controls.target);
+    _shadowIdle = 0; _shadowDirty = true;
+  } else _shadowIdle += dt;
+  if (_shadowDirty || (moved && _shadowIdle === 0)) renderer.shadowMap.needsUpdate = true;
+  _shadowDirty = false;
+}
+
+/* --- 自适应调速器：真掉帧就自动降一档，别让用户自己找菜单 --- */
+const GOVERNOR = { ring: [], cooldown: 3.0, warmup: 0, drops: 0 };
+function governorTick(dt){
+  const P = CONFIG.performance;
+  if (!P.autoQuality) return;
+  GOVERNOR.warmup += dt;
+  if (GOVERNOR.warmup < 5.0) return;                     // 启动期（PMREM/贴图解码）必然卡，不判定
+  GOVERNOR.cooldown -= dt;
+  GOVERNOR.ring.push(dt);
+  if (GOVERNOR.ring.length > 90) GOVERNOR.ring.shift();
+  if (GOVERNOR.ring.length < 60 || GOVERNOR.cooldown > 0) return;
+  let s = 0; for (const v of GOVERNOR.ring) s += v;
+  const avg = s / GOVERNOR.ring.length;
+  const fps = 1 / Math.max(avg, 1e-4);
+  if (fps < 26){                                          // 低于 26fps 认为不可接受
+    /* 降级顺序：先降渲染分辨率（最线性、最不心疼），降到 0.6× 还卡才降档。
+       直接降档会让画面"啪"地掉一个档次（AO 没了/货箱变少），体验反而更差 */
+    if (P.maxPixelRatio > 0.62){
+      P.maxPixelRatio = Math.max(0.6, P.maxPixelRatio - 0.15);
+      syncPixelRatio();
+      GOVERNOR.ring.length = 0; GOVERNOR.cooldown = 3.0; GOVERNOR.drops++;
+      console.info('[twin] 掉帧：渲染分辨率降至', P.maxPixelRatio.toFixed(2), '×（实测', fps.toFixed(1), 'fps）');
+      updateQualityChip('降分辨率 ' + P.maxPixelRatio.toFixed(2) + '×');
+      return;
+    }
+    const i = TIER_ORDER.indexOf(CURRENT_QUALITY);
+    if (i > 0){
+      applyQualityRuntime(TIER_ORDER[i - 1], '掉帧自动降档');
+      GOVERNOR.ring.length = 0; GOVERNOR.cooldown = 3.5; GOVERNOR.drops++;
+      console.info('[twin] 自动降档 →', CURRENT_QUALITY, '（实测', fps.toFixed(1), 'fps）');
+    }
+  }
+}
+function updateQualityChip(extra){
+  const el = document.getElementById('ui-tier');
+  if (!el) return;
+  const t = QUALITY_TIERS[CURRENT_QUALITY];
+  el.textContent = '画质 ' + (t ? t.label : CURRENT_QUALITY) + (extra ? '（' + extra + '）' : '');
+  el.title = 'GPU：' + (GPU.renderer || '未知') + '\n点击切换档位（P 键也可）';
+}
+
+/* --- 时段预设：一次切换光照 / 雾 / 曝光 / 天空贴图 ---
+   注意：Sky 的 PMREM 环境贴图本身就提供了大量漫射光（IBL），
+   hemi/amb/fill 必须压得很低，否则阴影区被填白、对比度消失（过曝 = 一眼假）。 */
+const WEATHER = {
+  // bloom：辉光强度。白天必须低（阳光已很亮，再发光就过曝发白），夜景靠它撑灯光质感
+  // v0.3 曝光校准：sun×exposure（进入 ACES 的线性亮度尺度）应落在 1.2~2.2，
+  // 旧版 day 是 6.5×0.72=4.7，过曝 2~3 档 —— 中灰地面直接推到 0.85+，整幅泛白"雪原"
+  // v0.3 雾色校准：day/sunset 的雾原来是亮蓝白（0xc6daec），600m 场地远端整片"白纱"
+  day:    { sun:2.4,  sunColor:0xfff3e0, hemiSky:0xbcd8ff, hemiGround:0x6d7a58, hemi:0.40,
+            amb:0.16, fill:0.16, fillColor:0xbcd8ff, fog:0x8fa5b8, exposure:0.95, bloom:0.20 },
+  sunset: { sun:1.6,  sunColor:0xffb070, hemiSky:0xffb27a, hemiGround:0x3a3f52, hemi:0.08,
+            amb:0.02, fill:0.05, fillColor:0xff9a6a, fog:0xa8826a, exposure:0.7, bloom:0.22 },
+  night:  { sun:0.18, sunColor:0x9fc0ff, hemiSky:0x2a4a7a, hemiGround:0x0b1622, hemi:0.05,
+            amb:0.015, fill:0.05, fillColor:0x3f7fd6, fog:0x0a1526, exposure:0.8, bloom:0.85 },
+  cyber:  { sun:1.1,  sunColor:0xffffff, hemiSky:0x9fd4ff, hemiGround:0x0b1622, hemi:0.20,
+            amb:0.08, fill:0.16, fillColor:0x3f7fd6, fog:0x081422, exposure:0.95, bloom:0.42 }
+};
+const SKY_TEX_OF = { day:'skyDay', sunset:'skySunset', night:'skyNight', cyber:null };
+/* HDRI 时段映射 + PMREM 环境贴图缓存（PMREM 昂贵，同一天空只预滤波一次） */
+const HDRI_OF = { day:'hdriDay', sunset:'hdriSunset' };
+const HDRI_ENV = new Map();   // hdr url -> { bg: equirectTex, env: pmremTex }
+
+/* --- 贴图加载：带缓存 + 静默失败（失败即保持程序化回退，页面绝不报错） --- */
+const TEX_CACHE = new Map();
+/* scaffold 内联的补充贴图（normal/rough 由命名约定运行时推导，HTML 文本里不出现，
+   由 scaffold 注入 window.__TWIN_TEX_URI__ 映射；手动维护页面时忽略即可） */
+function texURI(u){ return (window.__TWIN_TEX_URI__ || {})[u] || u; }
+/* v0.11：贴图降采样。集显共享系统内存，2048² 三通道（albedo+normal+rough）
+   全量上传就是几十 MB 的显存 + 每帧采样带宽；1080p 下和 1024² 肉眼几乎无差。
+   canvas 缩放后直接顶替 t.image —— 此刻贴图尚未上传（首次 render 才上传），安全。 */
+function downscaleImage(img, max){
+  const w = img.width || img.naturalWidth || 0, h = img.height || img.naturalHeight || 0;
+  if (!w || !h) return img;
+  const m = Math.max(w, h);
+  if (m <= max) return img;
+  const s = max / m;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * s));
+  c.height = Math.max(1, Math.round(h * s));
+  const ctx = c.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+function loadTex(url, cb){
+  if (!url) return;
+  url = texURI(url);
+  if (TEX_CACHE.has(url)){ if (cb) cb(TEX_CACHE.get(url)); return; }
+  new THREE.TextureLoader().load(url, (t) => {
+    const cap = (CONFIG.performance && CONFIG.performance.texMaxSize) || 2048;
+    if (t.image){
+      const small = downscaleImage(t.image, cap);
+      if (small !== t.image){ t.image = small; t.needsUpdate = true; }
+    }
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.colorSpace = THREE.SRGBColorSpace;
+    // 各向异性过滤：地面/道路贴图在大视角（俯视+斜看）下极易糊成一片，
+    // 16 是主流 GPU 上限——这一行对"清晰=真实"的收益比贴图升分辨率更高
+    // v0.11：低档位降到 4，各向异性采样同样吃显存带宽（集显最缺的就是带宽）
+    const anisoCap = cap >= 2048 ? 16 : (cap >= 1024 ? 8 : 4);
+    try { t.anisotropy = Math.min(anisoCap, renderer.capabilities.getMaxAnisotropy() || 1); } catch(e){}
+    TEX_CACHE.set(url, t);
+    if (cb) cb(t);
+  }, undefined, () => {});
+}
+/* 取贴图路径（配置里没配 → 返回 null，构件自动走纯色回退） */
+const T = (k) => (CONFIG.textures || {})[k] || null;
+
+/* --- HDRI 实拍天空（Poly Haven CC0 .hdr）加载：等距柱状 → 背景 + PMREM 环境反射 --- */
+const HDR_CACHE = new Map();
+const rgbeLoader = new RGBELoader();
+function loadHDR(url, cb){
+  if (!url) return;
+  url = texURI(url);
+  if (HDR_CACHE.has(url)){ if (cb) cb(HDR_CACHE.get(url)); return; }
+  rgbeLoader.load(url, (t) => {
+    t.mapping = THREE.EquirectangularReflectionMapping;
+    /* HDR 是线性数据，不做 sRGB 转换（RGBELoader 默认即 LinearSRGBColorSpace） */
+    HDR_CACHE.set(url, t);
+    if (cb) cb(t);
+  }, undefined, () => {});
+}
+
+/* v0.6：IBL（环境反射）默认强度按天空模式自适应。
+   旧 0.15 是 Preetham 程序天空时代的防过曝值（Sky shader 太阳周边 radiance 极高，
+   0.5 会把中灰材质洗白 40%+ 亮度）；HDRI 实拍天空的 radiance 是真实有限动态范围，
+   0.15 会把天空漫反射 + 金属镜面反射一起掐死（暗部死灰、罐体哑光塑料感）。
+   HDRI 下提到 0.40，shader/贴图天空保持 0.15 不变。 */
+const IBL_DEFAULT = (CONFIG.env && CONFIG.env.sky === 'hdri') ? 0.40 : 0.15;
+
+/* 生成一个「贴图材质」：先返回纯色材质，贴图到位后自动替换（不阻塞装配）
+   命名约定：url 为 xxx.jpg 时，自动挂载同目录 xxx-normal.png / xxx-rough.jpg（存在才挂） */
+function texMat(url, rx, ry, opts){
+  const m = new THREE.MeshStandardMaterial(Object.assign({ color:0xffffff, roughness:0.9, metalness:0.05,
+    /* v0.6：IBL 默认强度。必须在这里显式给默认值 —— MeshStandardMaterial 自带
+       envMapIntensity=1（非 null），applyEnvMaps 里的 == null 判断永远不命中。
+       HDRI 实拍天空下用 IBL_DEFAULT=0.40，Preetham 程序天空保持 0.15 防过曝 */
+    envMapIntensity: IBL_DEFAULT }, opts || {}));
+  PBR_MATS.push(m);                                   // 登记：时段切换时统一刷新 envMap
+  if (skyEnvMap){ m.envMap = skyEnvMap;
+    /* v0.3：默认 0.15。物理天空 PMREM 的 radiance 极高（太阳周边尤甚），
+       0.5 的旧默认会让 IBL 反射贡献全场 40%+ 亮度，把中灰材质整片"洗白"。
+       金属/玻璃类构件用 opts.envMapIntensity 显式调高。 */
+    if (m.envMapIntensity == null) m.envMapIntensity = IBL_DEFAULT; }
+  if (!url) return m;
+  loadTex(url, (t) => {
+    const c = t.clone(); c.needsUpdate = true;
+    c.repeat.set(rx || 1, ry || rx || 1);
+    // 贴图到位后基色复位为白（或 opts.tint）：避免深色兜底色把贴图压暗；
+    // tint 让同一张贴图可派生多档色相（台阶岩层色带 / 排土场分层）
+    m.map = c; m.color.set(opts && opts.tint != null ? opts.tint : 0xffffff); m.needsUpdate = true;
+  });
+  const rep = () => { const c = m.map; return c ? [c.repeat.x, c.repeat.y] : [rx || 1, ry || rx || 1]; };
+  const nUrl = url.replace(/\.(jpg|jpeg|png)$/i, '-normal.png');
+  const rUrl = url.replace(/\.(jpg|jpeg|png)$/i, '-rough.jpg');
+  loadTex(nUrl, (t) => {                       // 法线：微观几何（混凝土麻面 / 钢板波纹 / 草地起伏）
+    const c = t.clone(); c.needsUpdate = true;
+    const [px, py] = rep(); c.repeat.set(px, py);
+    m.normalMap = c;
+    const ns = (opts && opts.normalScale != null) ? opts.normalScale : 0.9;
+    m.normalScale.set(ns, ns); m.needsUpdate = true;
+  });
+  loadTex(rUrl, (t) => {                       // 粗糙度：G 通道乘区（锈迹 / 磨光 / 脏污）
+    const c = t.clone(); c.needsUpdate = true;
+    const [px, py] = rep(); c.repeat.set(px, py);
+    m.roughnessMap = c;
+    // 贴图 G 均值约 0.5：把基准粗糙度提到 2 倍，使最终观感接近调用方语义
+    if (m.roughness != null) m.roughness = Math.min(1, m.roughness * 2);
+    m.needsUpdate = true;
+  });
+  return m;
+}
+/* 给已有材质挂贴图 */
+function withTex(mat, url, rx, ry){
+  if (!url) return mat;
+  loadTex(url, (t) => {
+    const c = t.clone(); c.needsUpdate = true;
+    c.repeat.set(rx || 1, ry || rx || 1);
+    mat.map = c; mat.needsUpdate = true;
+  });
+  return mat;
+}
+
+/* --- 渐变天空穹顶（cyber 风格 / 贴图缺失时的兜底） --- */
+function skyGradMaterial(env){
+  return new THREE.ShaderMaterial({
+    uniforms: { top:{value:new THREE.Color(env.bgTop)}, bottom:{value:new THREE.Color(env.bgBottom)} },
+    vertexShader: [
+      'varying vec3 vPos;',
+      'void main(){ vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }'
+    ].join('\n'),
+    fragmentShader: [
+      'uniform vec3 top; uniform vec3 bottom; varying vec3 vPos;',
+      'void main(){ float h = normalize(vPos).y * 0.5 + 0.5;',
+      '  gl_FragColor = vec4(mix(bottom, top, pow(clamp(h,0.0,1.0), 1.25)), 1.0); }'
+    ].join('\n'),
+    side: THREE.BackSide, depthWrite: false, fog: false
+  });
+}
+const skyMesh = new THREE.Mesh(new THREE.SphereGeometry(2400, 48, 24), skyGradMaterial(CONFIG.env));
+skyMesh.frustumCulled = false;
+scene.add(skyMesh);
+
+/* --- 环境贴图（金属/玻璃反射用，无 HDR 文件也能有质感） --- */
+const pmrem = new THREE.PMREMGenerator(renderer);
+const pmremEnv = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+/* 环境反射贴图挂在材质级 envMap 上，不设 scene.environment ——
+   scene.environment 是全局 uniform，在部分软件渲染器（SwiftShader）上会让
+   场景里其他物体（如接触阴影的透明面片）整批不渲染（实测踩坑，逐项二分定位）。
+   材质级 envMap 是每个 program 的 texture binding，无此问题。 */
+let skyEnvMap = null;
+const PBR_MATS = [];                  // 所有需要环境反射的材质（mat/texMat 创建时登记）
+function applyEnvMaps(){
+  for (const m of PBR_MATS){
+    if (!m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial) continue;
+    m.envMap = skyEnvMap;
+    /* 未显式定制的材质（含直接 new 的）压到 0.15；构造默认值 1 无法与"用户显式传 1"区分，
+       但显式传高强度的构件都 ≠ 1，故此处把 1 视为未定制是安全的 */
+    if (m.envMapIntensity == null || m.envMapIntensity === 1) m.envMapIntensity = IBL_DEFAULT;
+    m.needsUpdate = true;
+  }
+}
+
+/* --- 物理天空（Preetham 模型）：太阳方向 = 灯光方向，天空与环境反射物理一致 ---
+   sky shader 输出 HDR，配合 ACES 色调映射；night 亦可用（低 rayleigh 暗天空 + 月光补足）
+   架构：Sky mesh 只存在于专用 skyScene，由 CubeCamera 渲成 cube render target，
+   主场景只挂 scene.background（three 内部 background box，depthTest:false 且最先绘制，
+   与场景物体零交互）—— Sky mesh 若直接进主场景，其全屏 fragment 在部分软件渲染器
+   （SwiftShader）上会盖掉同帧其他不透明物体（实测踩坑：接触阴影整片消失）。 */
+const skyScene = new THREE.Scene();                 // PMREM 专用 scene：只装天空，避免把地面几何烘焙进环境贴图
+const skyDome = new Sky();
+skyDome.scale.setScalar(4000);
+skyScene.add(skyDome);
+const skyCubeRT = new THREE.WebGLCubeRenderTarget(256);
+const skyCubeCam = new THREE.CubeCamera(0.1, 100000, skyCubeRT);
+const SKY_PRESETS = {
+  day:    { turbidity: 6.0,  rayleigh: 2.2, mie: 0.005, g: 0.80 },
+  sunset: { turbidity: 9.0,  rayleigh: 3.6, mie: 0.008, g: 0.86 },
+  night:  { turbidity: 12.0, rayleigh: 0.7, mie: 0.004, g: 0.75 },
+  cyber:  { turbidity: 14.0, rayleigh: 1.4, mie: 0.006, g: 0.80 }
+};
+function sunDirVec(){ return new THREE.Vector3().fromArray(CONFIG.env.sunDirection).normalize(); }
+function applySkyPreset(p){
+  const s = SKY_PRESETS[p] || SKY_PRESETS.day, u = skyDome.material.uniforms;
+  u.turbidity.value = s.turbidity; u.rayleigh.value = s.rayleigh;
+  u.mieCoefficient.value = s.mie; u.mieDirectionalG.value = s.g;
+  /* v0.3：分时段调整"天空里的太阳"位置。Preetham 天空没有夜晚概念——
+     只要太阳在天上，rayleigh 再低夜空也是白的（实测夜景全屏泛白的根因）。
+     night 把太阳沉到地平线以下，夜间照明交给月光(低强度 DirectionalLight)
+     与人工光源；sunset 把太阳压到地平线附近，橙红浓霞。 */
+  const d = sunDirVec();
+  if (p === 'night'){
+    u.sunPosition.value.set(d.x, -Math.abs(d.y) - 60, d.z);
+  } else if (p === 'sunset'){
+    u.sunPosition.value.set(d.x, Math.max(6, d.y * 0.10), d.z);
+  } else {
+    u.sunPosition.value.copy(d);
+  }
+}
+function refreshSkyEnv(){
+  skyCubeCam.update(renderer, skyScene);            // Sky → cube RT（background 源）
+  scene.background = skyCubeRT.texture;
+  const rt = pmrem.fromScene(skyScene, 0, 0.1, 100000);   // 预滤波环境反射
+  skyEnvMap = rt.texture;
+  applyEnvMaps();
+  return rt;
+}
+
+/* --- 灯光：半球 + 主光（带阴影） + 补光 --- */
+const hemiLight = new THREE.HemisphereLight(0x9fd4ff, 0x0b1622, 0.85); scene.add(hemiLight);
+const ambLight  = new THREE.AmbientLight(0xffffff, 0.28); scene.add(ambLight);
+const sun = new THREE.DirectionalLight(0xffffff, CONFIG.env.sunIntensity);
+sun.position.fromArray(CONFIG.env.sunDirection);
+sun.castShadow = CONFIG.performance.shadows;
+/* v0.11：阴影分辨率完全交给档位（ultra=4096 / medium=2048 / low=1024 / potato=关）。
+   旧版写着「realism 一律 4096」——那是独显时代的浪漫，集显上等于每帧把自己按在地上摩擦 */
+let SHADOW_MAP = CONFIG.performance.shadowMapSize || 2048;
+sun.shadow.mapSize.set(SHADOW_MAP, SHADOW_MAP);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 900;
+sun.shadow.camera.left = -300; sun.shadow.camera.right = 300;
+sun.shadow.camera.top = 300; sun.shadow.camera.bottom = -300;
+sun.shadow.bias = -0.0002;
+sun.shadow.normalBias = 0.03;                     // 曲面（罐/筒仓）防 shadow acne
+scene.add(sun);
+const fillLight = new THREE.DirectionalLight(0x3f7fd6, 0.55);
+fillLight.position.set(-140, 90, -120);
+scene.add(fillLight);
+
+/* --- 时段切换：光照 + 雾 + 曝光 + 天空背景 一步到位 --- */
+let curWeather = CONFIG.env.preset || 'day';
+function applyWeather(p){
+  const w = WEATHER[p] || WEATHER.day;
+  curWeather = p; CONFIG.env.preset = p;
+  markShadowDirty();                                   // v0.11：换时段后静态阴影图必须重画一张
+  sun.intensity = w.sun; sun.color.setHex(w.sunColor);
+  hemiLight.intensity = w.hemi; hemiLight.color.setHex(w.hemiSky); hemiLight.groundColor.setHex(w.hemiGround);
+  ambLight.intensity = w.amb;
+  fillLight.intensity = w.fill; fillLight.color.setHex(w.fillColor);
+  renderer.toneMappingExposure = w.exposure;
+  if (bloomPass && w.bloom != null) bloomPass.strength = w.bloom;   // 夜景辉光自动加强
+  if (scene.fog) scene.fog.color.setHex(w.fog);
+  const mode = CONFIG.env.sky || 'shader';
+  if (mode === 'hdri'){                              // 实拍 HDR：背景走物理天空，envMap 用 HDRI 真实反射
+    const hurl = HDRI_OF[p] && (CONFIG.textures || {})[HDRI_OF[p]];
+    if (hurl){
+      /* 数字孪生多为俯视视角：equirect 全景的地平线以下（植被/地面）会顶进背景里，
+         看起来像"灰雾地面"。故背景仍用 Preetham skyDome（任意朝向都是天空），
+         HDRI 专职贡献 PMREM 环境反射——罐体/集装箱倒映真实天空（含云层亮度层次），
+         比 Preetham 的完美平滑天空更接近实拍。 */
+      applySkyPreset(p);
+      skyMesh.visible = false;
+      refreshSkyEnv();                               // 背景 = Preetham cube RT（俯视正确）
+      const cached = HDRI_ENV.get(hurl);
+      if (cached){
+        skyEnvMap = cached.env; applyEnvMaps();
+      } else {
+        loadHDR(hurl, (tex) => {
+          const rt = pmrem.fromEquirectangular(tex);
+          skyEnvMap = rt.texture;
+          HDRI_ENV.set(hurl, { bg: null, env: skyEnvMap });
+          applyEnvMaps();
+        });
+      }
+      return;
+    }
+    /* 该时段无 HDR（night/cyber）→ 落到下方 shader / gradient 兜底 */
+  }
+  if (mode === 'shader' && p !== 'cyber'){           // 物理天空：cube RT 背景 + PMREM 环境反射
+    applySkyPreset(p);
+    skyMesh.visible = false;
+    refreshSkyEnv();
+    return;
+  }
+  const key = SKY_TEX_OF[p], url = (mode === 'texture') && key && (CONFIG.textures || {})[key];
+  if (url){                                          // texture 模式：等距柱状全景贴图
+    loadTex(url, (t) => {
+      const tt = t.clone(); tt.needsUpdate = true;
+      tt.mapping = THREE.EquirectangularReflectionMapping;
+      scene.background = tt;
+      skyEnvMap = tt; applyEnvMaps();                // 金属/玻璃反射直接采样真实天空
+      skyMesh.visible = false;
+    });
+    return;
+  }
+  scene.background = null; skyMesh.visible = true;   // cyber / gradient 模式：渐变穹顶
+  if (skyMesh.material) skyMesh.material.dispose();
+  skyMesh.material = skyGradMaterial(CONFIG.env);
+  skyEnvMap = pmremEnv; applyEnvMaps();
+}
+
+/* --- 地面：贴图化（含法线/粗糙度）+ 可选科技网格线 --- */
+function buildGround(env){
+  const g = new THREE.Group();
+  /* 注意：texMat 在贴图加载完成后会把 color 复位成白（或 opts.tint）。
+     想让 env.ground 真正压住地面亮度，必须走 tint —— 只写 color 会被贴图覆盖掉。
+     groundTint 缺省时保持旧行为（贴图原色），不破坏既有预设。 */
+  const gOpts = { color: env.ground, roughness: 0.95, metalness: 0.04 };
+  if (env.groundTint != null) gOpts.tint = env.groundTint;
+  const groundMat = texMat((CONFIG.textures || {})[env.groundTex], env.groundTexRepeat, env.groundTexRepeat, gOpts);
+  /* env.pitHole = {x, z, rx, rz}：地面在采场开口处挖椭圆洞（Shape + hole），
+     露出坑内台阶与坡面；洞口略小于采场境界，坑壁从洞口中"长出"，不露缝。
+     有洞口时科技网格线整体关闭（否则网格会飘在洞口上方）。 */
+  const hole = env.pitHole;
+  let ground;
+  if (hole && hole.rx){
+    const half = env.gridSize / 2;
+    const sh = new THREE.Shape();
+    sh.moveTo(-half, -half); sh.lineTo(half, -half); sh.lineTo(half, half); sh.lineTo(-half, half); sh.closePath();
+    const p = new THREE.Path();
+    p.absellipse(hole.x || 0, -(hole.z || 0), hole.rx, hole.rz, 0, Math.PI * 2, true);
+    sh.holes.push(p);
+    ground = new THREE.Mesh(new THREE.ShapeGeometry(sh, 24), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+  } else {
+    ground = new THREE.Mesh(new THREE.PlaneGeometry(env.gridSize, env.gridSize), groundMat);
+    ground.rotation.x = -Math.PI / 2;
+  }
+  ground.receiveShadow = CONFIG.performance.shadows;
+  g.add(ground);
+  const op = (hole && hole.rx) ? 0 : (env.gridOpacity == null ? 0.28 : env.gridOpacity);
+  if (op > 0){
+    const grid = new THREE.GridHelper(env.gridSize, env.gridDivisions,
+      new THREE.Color(env.gridColor), new THREE.Color(env.gridColor));
+    grid.material.transparent = true; grid.material.opacity = op;
+    grid.position.y = 0.02;
+    g.add(grid);
+  }
+  return g;
+}
+const groundGroup = buildGround(CONFIG.env);
+scene.add(groundGroup);
+applyWeather(curWeather);                    // 首次应用时段（之后可由底部工具条切换）
+
+/* =========================================================================
+ * 3. 通用工具：材质 / 线框描边 / 标签 / 加载进度
+ * ========================================================================= */
+const pickables = [];      // 可拾取对象（Mesh，带 userData.assetId）
+const assets = new Map();  // id -> { cfg, object3d, label, baseMaterials[] }
+const pulsing = [];        // 需要呼吸动画的材质
+const movers = [];         // 需要逐帧移动的对象（车辆/流动管线）
+const dustSystems = [];    // 扬尘粒子源（破碎站受料口/皮带端、排土场排土线）
+/* 以下状态量在「场景装配」阶段就会被读取（applyStatus → renderDeviceList），
+   必须提前声明，否则命中 TDZ 抛 Cannot access before initialization */
+let selected = null, helper = null, tween = null;
+let alarmOn = true, wireOn = false, labelOn = CONFIG.labels.show;
+
+function mat(color, opts = {}){
+  const m = new THREE.MeshStandardMaterial(Object.assign({
+    color: new THREE.Color(color), roughness: 0.55, metalness: 0.25,
+    envMapIntensity: IBL_DEFAULT   // 同 texMat：显式默认，opts 可覆盖（金属/玻璃传更高值）
+  }, opts));
+  PBR_MATS.push(m);                                   // 登记：时段切换时统一刷新 envMap
+  if (skyEnvMap){ m.envMap = skyEnvMap;
+    /* v0.3：默认 0.15。物理天空 PMREM 的 radiance 极高（太阳周边尤甚），
+       0.5 的旧默认会让 IBL 反射贡献全场 40%+ 亮度，把中灰材质整片"洗白"。
+       金属/玻璃类构件用 opts.envMapIntensity 显式调高。 */
+    if (m.envMapIntensity == null) m.envMapIntensity = IBL_DEFAULT; }
+  return m;
+}
+/* 写实模式下描边透明度由配置决定（科技风 0.35 / 写实风默认 0.12） */
+function edgeOpacity(){
+  return CONFIG.env.realism ? (CONFIG.env.edgeOpacity == null ? 0.12 : CONFIG.env.edgeOpacity) : 0.35;
+}
+function edgesOf(mesh, color = 0x00e5ff, opacity){
+  const e = new THREE.LineSegments(
+    new THREE.EdgesGeometry(mesh.geometry, 28),
+    new THREE.LineBasicMaterial({ color, transparent:true, opacity: opacity == null ? edgeOpacity() : opacity })
+  );
+  e.position.copy(mesh.position); e.rotation.copy(mesh.rotation); e.scale.copy(mesh.scale);
+  return e;
+}
+/* 圆角盒：真实物体的棱角有微小圆角高光过渡，尖角盒的高光是一条尖线（塑料感来源） */
+function rbox(w, h, d, r, seg){
+  const rr = Math.max(0.001, Math.min(r == null ? 0.12 : r, Math.min(w, h, d) / 2 - 0.001));
+  if (!Number.isFinite(w) || !Number.isFinite(h) || !Number.isFinite(d) || !Number.isFinite(rr)){
+    console.error('[rbox] 非法尺寸参数', w, h, d, r, '→ radius', rr, new Error().stack);
+  }
+  return new RoundedBoxGeometry(w, h, d, seg || 2, rr);
+}
+/* v0.10：mergeGeometries 要求参与合并的几何体「index 全有或全无」。
+   RoundedBoxGeometry 在 segments>1 时内部 toNonIndexed()（index=null），
+   而 CylinderGeometry / BoxGeometry 原生 indexed —— 混用直接抛
+   "make sure index attribute exists among all geometries, or in none of them"。
+   统一转 non-indexed 最省心（立柱/斜撑这类小件顶点数不敏感）。
+   踩坑记录：v0.10 首次给货架加 CylinderGeometry 斜撑时炸出这条错。 */
+function mergeSafe(list){
+  const gs = list.map(g => (g && g.index) ? g.toNonIndexed() : g);
+  const m = mergeGeometries(gs);
+  if (!m) console.error('[mergeSafe] 合并失败，几何体数：', gs.length);
+  return m;
+}
+function shade(obj, cast = true){
+  obj.traverse(o => { if (o.isMesh){ o.castShadow = cast; o.receiveShadow = true; } });
+  return obj;
+}
+/* --- 接触阴影：资产底部一片径向渐变暗斑，补足「落在地上」的落地感 ---
+   动态阴影只来自太阳一个方向，背光面与物体间隙缺少暗部；contact shadow 用最便宜的方式补齐。
+   注意：用顶点色 alpha 而非黑色 alpha 贴图 —— 部分软件渲染环境（SwiftShader）下
+   canvas 渐变贴图的 alpha 通道会丢失，整片暗斑直接不可见（实测踩坑）。 */
+function contactShadow(w, d){
+  const geo = new THREE.PlaneGeometry(1, 1, 12, 12);
+  const pos = geo.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 4);
+  for (let i = 0; i < n; i++){
+    const x = pos.getX(i), y = pos.getY(i);
+    const r = Math.min(1, Math.sqrt(x * x + y * y) * 2);      // 0 中心 → 1 边缘
+    const a = Math.pow(1 - r, 1.6);
+    col[i * 4] = 0; col[i * 4 + 1] = 0; col[i * 4 + 2] = 0; col[i * 4 + 3] = a;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 4));
+  const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    transparent: true, vertexColors: true, depthWrite: false, opacity: 0.9 }));
+  m.rotation.x = -Math.PI/2;
+  m.scale.set(Math.max(2, w), Math.max(2, d), 1);
+  m.renderOrder = 3;                 // 透明类最后画：压在地面贴图之上、墙之后
+  return m;
+}
+function makeTag(cfg){
+  const el = document.createElement('div');
+  el.className = 'tag';
+  el.innerHTML = '<span>' + (cfg.name || cfg.id) + '</span>';
+  if (CONFIG.labels.showStatus){
+    const s = st(cfg.status);
+    el.innerHTML += '<span class="s ' + s.cls + '">' + s.text + '</span>';
+    if (cfg.status === 'alarm') el.classList.add('alarm');
+  }
+  el.addEventListener('click', (e) => { e.stopPropagation(); selectAsset(cfg.id, true); });
+  const o = new CSS2DObject(el);
+  o.position.set(0, cfg.tagHeight || 0, 0);
+  return o;
+}
+function attachAsset(cfg, obj, tagY){
+  const ambient = !!cfg.ambient;            // 环境配景（草坪/道路/树林/路灯）：不拾取 / 不进清单 / 不参与取景
+  obj.userData.assetId = cfg.id;
+  obj.userData.ambient = ambient;
+  assets.set(cfg.id, { cfg, object3d: obj, tagEl: null, tagObj: null, ambient });
+  obj.traverse(o => { if (o.isMesh && !o.userData.assetId) o.userData.assetId = cfg.id; });
+  if (!ambient) obj.traverse(o => { if (o.isMesh) pickables.push(o); });
+  if (CONFIG.env.realism && !ambient && !obj.userData.noCS){   // 接触阴影：补足落地感
+    const b0 = new THREE.Box3().setFromObject(obj);
+    if (!b0.isEmpty()){
+      const cs = contactShadow(b0.max.x - b0.min.x, b0.max.z - b0.min.z);
+      cs.position.set((b0.min.x + b0.max.x)/2 - obj.position.x, b0.min.y - obj.position.y + 0.1,
+                      (b0.min.z + b0.max.z)/2 - obj.position.z);
+      obj.add(cs);
+    }
+  }
+  if (CONFIG.labels.show && !ambient){
+    /* 标签密度：'all' 全挂（几十个标签在大场景里必然糊成一团）；
+       'key' 只挂异常 + 显式 tag:true 的关键资产，其余靠 hover 提示。
+       大场景（>20 个业务资产）建议 key。 */
+    const dens = CONFIG.labels.density || 'all';
+    const keep = dens === 'all' || cfg.tag === true ||
+                 cfg.status === 'alarm' || cfg.status === 'warn' || cfg.status === 'off';
+    if (keep){
+    if (!tagY){
+      const box = new THREE.Box3().setFromObject(obj);
+      tagY = (box.max.y - obj.position.y) + 6;
+    }
+    const tag = makeTag(Object.assign({ tagHeight: tagY }, cfg));
+    let host = obj;
+    if (obj.userData.tagAt){                 // 管线等世界坐标构件：标签单独挂到指定世界点
+      host = new THREE.Object3D();
+      host.position.copy(obj.userData.tagAt);
+      scene.add(host);
+    }
+    host.add(tag);
+    const rec = assets.get(cfg.id);
+    rec.tagEl = tag.element; rec.tagObj = tag;
+    }
+  }
+  scene.add(obj);
+  return obj;
+}
+
+/* =========================================================================
+ * 4. 程序化几何构件库（厂房 / 货架 / 堆场 / 储罐 / 筒仓 / 管线 / 廊道 / 车辆）
+ * ========================================================================= */
+function buildWarehouse(cfg){
+  const [w,h,d] = cfg.size, t = 0.8, g = new THREE.Group();
+  const base = new THREE.Mesh(rbox(w, 0.6, d, 0.15), mat(0x152739));
+  base.position.y = 0.3; g.add(base);
+
+  const wallMat = cfg.seeThrough
+    ? new THREE.MeshPhysicalMaterial({ color: cfg.wallColor == null ? 0x2f6f96 : cfg.wallColor,
+        transparent:true, opacity: cfg.wallOpacity == null ? 0.20 : cfg.wallOpacity,
+        roughness:0.12, metalness:0.05, side:THREE.DoubleSide, depthWrite:false })
+    : texMat(T('wallSteel'), Math.max(2, w/20), Math.max(1, h/9), { color:0xffffff, roughness:0.62, metalness:0.35 });
+  const specs = [ [0,-d/2,w,t], [0,d/2,w,t], [-w/2,0,t,d], [w/2,0,t,d] ];
+  for (const [x,z,bw,bd] of specs){
+    const wall = new THREE.Mesh(rbox(bw,h,bd, 0.1), wallMat);
+    wall.position.set(x, h/2, z); wall.renderOrder = 2; g.add(wall);
+  }
+  // 屋顶
+  let roof;
+  if (cfg.roof === 'arch'){
+    roof = new THREE.Mesh(new THREE.CylinderGeometry(w/2, w/2, d, 28, 1, true, 0, Math.PI), texMat(T('wallSteel'), Math.max(2, w/20), 1, { color:0xffffff, roughness:0.7, metalness:0.2 }));
+    roof.rotation.x = -Math.PI/2;
+    roof.scale.z = Math.max(0.18, (h*0.55)/(w/2));
+    roof.position.y = h;
+  } else if (cfg.roof === 'gable'){
+    const s = new THREE.Shape();
+    s.moveTo(-w/2, 0); s.lineTo(w/2, 0); s.lineTo(0, h*0.55); s.closePath();
+    roof = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth:d, bevelEnabled:false }), texMat(T('wallSteel'), Math.max(2, w/20), 1, { color:0xffffff, roughness:0.7, metalness:0.2 }));
+    roof.position.set(0, h, -d/2);
+  } else {
+    roof = new THREE.Mesh(rbox(w+1.2, 0.8, d+1.2, 0.2), texMat(T('wallSteel'), Math.max(2, w/20), 1, { color:0xffffff, roughness:0.7, metalness:0.2 }));
+    roof.position.y = h + 0.4;
+  }
+  g.add(roof);
+  /* 屋顶剖切：数字孪生必须能看见库内货位，实心屋顶一盖就成"彩色大棚"。
+     roofOpacity 0.2~0.35 是甜点——既保留屋面存在的体量感，又能俯视看到货架阵列。 */
+  if (cfg.roofOpacity != null && cfg.roofOpacity < 1 && roof.material){
+    roof.material.transparent = true;
+    roof.material.opacity = cfg.roofOpacity;
+    roof.material.depthWrite = false;
+    roof.material.side = THREE.DoubleSide;
+    roof.renderOrder = 3;
+  }
+  /* ===== v0.9 结构细节：门式刚架 + 檩条 + 屋脊通风器 + 采光带 + 卷帘门雨棚 + 落水管 =====
+     「透视看库内」靠半透明墙板实现，但钢结构必须实体——真实仓库本就是「钢骨架 + 彩钢板围护」，
+     骨架可见反而更像建筑；只有墙板+屋顶实心、连根柱子都没有，才是"彩色大棚塑料感"的根源。
+     全部按 BoxGeometry 拼装后 mergeGeometries 合并成 5 个 mesh，避免上百 draw call。 */
+  const mFrame  = mat(0x616b77, { metalness:0.72, roughness:0.40 });   // 主刚架（涂装钢）
+  const mPurlin = mat(0x555f6a, { metalness:0.68, roughness:0.46 });   // 檩条 / 屋脊通风器
+  const mDoor   = mat(0x767f8a, { metalness:0.55, roughness:0.44 });   // 卷帘门板 / 门框 / 雨棚
+  const mCave   = mat(0x23282e, { metalness:0.35, roughness:0.70 });   // 门洞内腔（凹陷感）
+  const mPipe   = mat(0x4d555e, { metalness:0.60, roughness:0.50 });   // 落水管
+  const frameG = [], purlinG = [], doorG = [], caveG = [], pipeG = [];
+
+  const halfD = d / 2, eave = h * 0.80, rise = Math.max(1.2, h - eave);
+  const nB = Math.max(3, Math.round(w / 11));                 // 刚架榀数（柱距 ~11m）
+  const isArch = (cfg.roof === 'arch');
+
+  // —— 刚架：立柱 + 斜梁（双坡）/ 拱肋（拱形，7 段折线近似半圆）——
+  for (let i = 0; i <= nB; i++){
+    const x = -w / 2 + (w / nB) * i;
+    for (const sz of [-1, 1]){
+      const col = new THREE.BoxGeometry(0.5, eave, 0.5);
+      col.translate(x, eave / 2, sz * (halfD - 0.25));
+      frameG.push(col);
+    }
+    if (isArch){
+      const N = 7;
+      for (let k = 0; k < N; k++){
+        const a0 = Math.PI * (k / N), a1 = Math.PI * ((k + 1) / N);
+        const z0 = Math.cos(a0) * halfD, y0 = eave + Math.sin(a0) * rise;
+        const z1 = Math.cos(a1) * halfD, y1 = eave + Math.sin(a1) * rise;
+        const seg = new THREE.BoxGeometry(0.38, 0.42, Math.hypot(z1 - z0, y1 - y0) + 0.06);
+        seg.rotateX(Math.atan2(-(y1 - y0), -(z1 - z0)));
+        seg.translate(x, (y0 + y1) / 2, (z0 + z1) / 2);
+        frameG.push(seg);
+      }
+    } else {
+      for (const sz of [-1, 1]){
+        const len = Math.hypot(halfD, rise);
+        const seg = new THREE.BoxGeometry(0.42, 0.46, len);
+        seg.rotateX(Math.atan2(-rise, -sz * halfD));          // 檐口 → 屋脊
+        seg.translate(x, (eave + h) / 2, sz * halfD / 2);
+        frameG.push(seg);
+      }
+      const tie = new THREE.BoxGeometry(0.28, 0.28, d - 0.5); // 柱顶系杆
+      tie.translate(x, eave - 0.55, 0);
+      frameG.push(tie);
+    }
+  }
+
+  // —— 檩条（沿纵向贯穿全长）——
+  const nP = isArch ? 7 : 4;
+  for (let k = 1; k <= nP; k++){
+    const u = k / (nP + 1);
+    let yy, zz;
+    if (isArch){ const a = Math.PI * u; zz = Math.cos(a) * halfD; yy = eave + Math.sin(a) * rise; }
+    else { zz = halfD * (1 - u); yy = eave + rise * u; }
+    for (const sz of (isArch ? [1] : [-1, 1])){
+      const p = new THREE.BoxGeometry(w, 0.16, 0.16);
+      p.translate(0, yy, sz * zz);
+      purlinG.push(p);
+    }
+  }
+
+  // —— 采光带（屋面中段半透明浅蓝，"天窗"感）——
+  const skyMat = new THREE.MeshPhysicalMaterial({ color:0xbcd8ff, transparent:true, opacity:0.42,
+    roughness:0.15, metalness:0.10, side:THREE.DoubleSide, depthWrite:false });
+  for (const sz of (isArch ? [1] : [-1, 1])){
+    let yy, zz;
+    if (isArch){ const a = Math.PI * 0.34; zz = Math.cos(a) * halfD; yy = eave + Math.sin(a) * rise; }
+    else { zz = halfD * 0.62; yy = eave + rise * 0.38; }
+    const band = new THREE.BoxGeometry(w * 0.88, 0.10, 2.4);
+    band.translate(0, yy + 0.20, sz * zz);
+    const bm = new THREE.Mesh(band, skyMat); bm.renderOrder = 4; g.add(bm);
+  }
+
+  // —— 屋脊通风器（双坡才有屋脊）——
+  if (!isArch){
+    const cap = new THREE.BoxGeometry(w * 0.92, 0.85, 1.9);
+    cap.translate(0, h + 0.5, 0); purlinG.push(cap);
+    for (let i = 0; i <= 8; i++){
+      const st = new THREE.BoxGeometry(0.18, 0.5, 1.2);
+      st.translate(-w * 0.44 + (w * 0.88 / 8) * i, h + 0.05, 0); purlinG.push(st);
+    }
+  }
+
+  // —— 卷帘门（正面 nDoor 樘）：门洞 + 门框 + 卷帘箱 + 门板横纹 + 挑雨棚 + 吊杆 ——
+  /* 外立面构件必须落在墙外表面之外：墙厚 t=0.8，外表面在 halfD + t/2 = halfD + 0.4。
+     v0.9 首版把门设在 halfD+0.12、落水管 +0.18、窗带 +0.06 —— 全部埋进墙里，
+     结果是"钢架透过半透明墙能看见，门和雨棚却一点不剩"。 */
+  const nDoor = Math.max(2, Math.min(4, Math.round(w / 42)));
+  const dw = 4.6, dh = Math.min(5.2, h * 0.36);
+  for (let i = 0; i < nDoor; i++){
+    const x = -w / 2 + (w / nDoor) * (i + 0.5), zf = halfD + 0.45;
+    const cave = new THREE.BoxGeometry(dw, dh, 0.25);
+    cave.translate(x, dh / 2, zf - 0.22); caveG.push(cave);
+    for (const sx of [-1, 1]){
+      const jamb = new THREE.BoxGeometry(0.28, dh + 0.4, 0.5);
+      jamb.translate(x + sx * (dw / 2 + 0.14), (dh + 0.4) / 2, zf); doorG.push(jamb);
+    }
+    const head = new THREE.BoxGeometry(dw + 0.9, 0.72, 0.68);
+    head.translate(x, dh + 0.62, zf + 0.06); doorG.push(head);
+    for (let k = 0; k < 5; k++){
+      const sl = new THREE.BoxGeometry(dw - 0.1, 0.14, 0.10);
+      sl.translate(x, dh - 0.35 - k * (dh - 0.6) / 5, zf + 0.02); doorG.push(sl);
+    }
+    const can = new THREE.BoxGeometry(dw + 2.0, 0.20, 3.4);
+    can.rotateX(-0.06); can.translate(x, dh + 1.5, zf + 1.6); doorG.push(can);
+    for (const sx of [-1, 1]){
+      const rod = new THREE.BoxGeometry(0.10, 0.9, 0.10);
+      rod.translate(x + sx * (dw / 2 + 0.7), dh + 1.95, zf + 2.9); doorG.push(rod);
+    }
+  }
+
+  // —— 落水管（两侧纵墙）+ 纵墙窗带 ——
+  const nPipe = Math.max(3, Math.round(w / 24));
+  for (let i = 0; i <= nPipe; i++){
+    const x = -w / 2 + (w / nPipe) * i;
+    for (const sz of [-1, 1]){
+      const p = new THREE.BoxGeometry(0.22, eave, 0.22);
+      p.translate(x, eave / 2, sz * (halfD + 0.52)); pipeG.push(p);
+    }
+  }
+  const winMat = new THREE.MeshPhysicalMaterial({ color:0x9fc4e8, transparent:true, opacity:0.55,
+    roughness:0.10, metalness:0.05, side:THREE.DoubleSide, depthWrite:false });
+  for (const sz of [-1, 1]){
+    const wb = new THREE.BoxGeometry(w * 0.82, 1.3, 0.12);
+    wb.translate(0, eave * 0.70, sz * (halfD + 0.44));
+    const wm = new THREE.Mesh(wb, winMat); wm.renderOrder = 4; g.add(wm);
+  }
+
+  if (frameG.length)  g.add(new THREE.Mesh(mergeGeometries(frameG),  mFrame));
+  if (purlinG.length) g.add(new THREE.Mesh(mergeGeometries(purlinG), mPurlin));
+  if (doorG.length)   g.add(new THREE.Mesh(mergeGeometries(doorG),   mDoor));
+  if (caveG.length)   g.add(new THREE.Mesh(mergeGeometries(caveG),   mCave));
+  if (pipeG.length)   g.add(new THREE.Mesh(mergeGeometries(pipeG),   mPipe));
+  // 写实模式下仅留极淡的轮廓线（科技风由配置抬升）
+  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(w, h, d), 28),
+    new THREE.LineBasicMaterial({ color:0x00e5ff, transparent:true, opacity: edgeOpacity() * 0.8 }));
+  edge.position.y = h/2; g.add(edge);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+function buildRack(cfg){
+  const [w,h,d] = cfg.size, bays = cfg.bays || 10, levels = cfg.levels || 4;
+  const g = new THREE.Group(), parts = [], beams = [], guards = [], step = w/bays, lh = h/levels;
+  const rn = seeded((cfg.seed != null) ? cfg.seed : (bays * 131 + levels * 17 + 5));
+  /* v0.11：细节密度倍率。集显上最有效的降面手段不是砍货架骨架（合并后只有 3 个 draw call），
+     而是子位货箱数量 —— 每货位 6 个子位 × 240 个货位 = 上千个箱体，占全场三角面三分之一 */
+  const det = (CONFIG.performance && CONFIG.performance.detail != null) ? CONFIG.performance.detail : 1;
+
+  /* —— 立柱片（upright frame）：立柱 + 地脚板 + 柱顶封盖 + 层间横撑 ——
+     真实横梁式货架的最小单元是「片」：两根立柱 + 其间横撑/斜撑，横梁再沿 X 把各片连起来 */
+  for (let i = 0; i <= bays; i++){
+    const xi = -w/2 + i*step;
+    for (const z of [-d/2, d/2]){
+      const pg = rbox(0.45, h, 0.45, 0.05, 1); pg.translate(xi, h/2, z); parts.push(pg);
+      const bp = rbox(0.92, 0.16, 0.92, 0.03, 1); bp.translate(xi, 0.08, z); parts.push(bp);   // 地脚板
+      const cp = rbox(0.52, 0.14, 0.52, 0.03, 1); cp.translate(xi, h + 0.07, z); parts.push(cp); // 柱顶封盖
+    }
+    for (let l = 0; l <= levels; l++){
+      const hg = rbox(0.13, 0.13, d, 0.03, 1); hg.translate(xi, l*lh, 0); parts.push(hg);       // 横撑（沿 Z 连前后柱）
+    }
+  }
+  /* —— 斜撑：Y-Z 平面连续 Z 字（货架最醒目的识别特征，缺了它就像几根竹竿）——
+     绕 X 轴旋转把 Y 轴对齐到 (0, lh, ±d)，故 θ = atan2(d, lh) */
+  const diagLen = Math.sqrt(d*d + lh*lh), da = Math.atan2(d, lh);
+  for (let i = 0; i <= bays; i++){
+    const xi = -w/2 + i*step;
+    for (let l = 0; l < levels; l++){
+      if (det < 0.5 && (i % 2)) continue;               // 保命档：斜撑隔片省略，远看仍是 Z 字
+      const dg = new THREE.CylinderGeometry(0.07, 0.07, diagLen, 6);
+      dg.rotateX((l % 2 === 0) ? da : -da);
+      dg.translate(xi, (l + 0.5) * lh, 0);
+      parts.push(dg);
+    }
+  }
+  const frame = new THREE.Mesh(mergeSafe(parts), mat(0x4a6b8a, { metalness:0.70, roughness:0.36 }));
+  g.add(frame);
+
+  /* —— 承载横梁：每层前后各一根，橙色安全色（RAL2004 是真实货架横梁标配色，
+     在灰蓝场景里这一抹橙是「工业感」的关键，全灰会死板） */
+  for (let l = 1; l <= levels; l++){
+    for (const z of [-d/2, d/2]){
+      const bg = rbox(w, 0.30, 0.42, 0.06, 1); bg.translate(0, l*lh, z); beams.push(bg);
+    }
+  }
+  /* —— 端部防撞护栏：黄黑警示色（与橙色横梁区分开，独立 mesh）。
+     真实仓库货架端部必装，1m 高也是画面里最好的尺度参照物 —— */
+  const gLen = Math.min(d * 0.9, 16);
+  for (const sx of [-1, 1]){
+    const ox = sx * (w/2 + 1.15);
+    for (const oz of [-gLen/2 + 0.15, 0, gLen/2 - 0.15]){
+      const pg = rbox(0.17, 1.05, 0.17, 0.03, 1); pg.translate(ox, 0.52, oz); guards.push(pg);
+    }
+    for (const hy of [0.55, 0.95]){
+      const rb = rbox(0.15, 0.17, gLen, 0.03, 1); rb.translate(ox, hy, 0); guards.push(rb);
+    }
+  }
+  const beamMesh = new THREE.Mesh(mergeSafe(beams), mat(0xc85a20, { metalness:0.55, roughness:0.45 }));
+  g.add(beamMesh);
+  const guardMesh = new THREE.Mesh(mergeSafe(guards), mat(0xe0a818, { metalness:0.42, roughness:0.52 }));
+  g.add(guardMesh);
+
+  /* —— 托盘 + 货箱：两个 InstancedMesh。
+     关键：一个「货位」是 5.6m 宽 × 14.9m 深，若只塞一个大方块，货物会变成一块地板砖
+     （v0.10 首版实测被判定为「扁平黄褐色板状」）。故每个货位再切 COLS×ROWS 个独立子位，
+     每个子位 = 1 托盘 + 1 货箱，各自随机高度/朝向/缺货 —— 视觉上才是一摞摞箱子。
+     面数控制：托盘用 BoxGeometry（12 tris）而非 rbox（108 tris），子位数翻 6 倍也不炸。 */
+  const COLS = det >= 0.75 ? 2 : 1;
+  const ROWS = det >= 0.75 ? 3 : (det >= 0.45 ? 2 : 1);
+  const sub = COLS * ROWS;
+  const count = bays*levels*sub, bw = step*0.72, bd = d*0.62;
+  const sw = bw/COLS, sd = bd/ROWS;
+  const pk = [];
+  const pTop = new THREE.BoxGeometry(sw*0.92, 0.07, sd*0.92); pTop.translate(0, 0.115, 0); pk.push(pTop);
+  for (const oz of [-sd*0.36, 0, sd*0.36]){
+    const st = new THREE.BoxGeometry(sw*0.92, 0.11, 0.15); st.translate(0, 0.045, oz); pk.push(st);
+  }
+  const pallet = new THREE.InstancedMesh(mergeSafe(pk),
+    mat(0xb0874e, { roughness:0.93, metalness:0.02 }), count);
+  const cargo = new THREE.InstancedMesh(rbox(sw*0.86, 1, sd*0.86, 0.05, 1),
+    texMat(T('crate'), 1, 1, { roughness:0.86, metalness:0.04 }), count);
+
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), YAX = new THREE.Vector3(0,1,0);
+  const pos = new THREE.Vector3(), scl = new THREE.Vector3();
+  const pal = [0xb08046, 0x9aa7b5, 0x4f7fae, 0xc4a06a];
+  const fill = (cfg.fill == null) ? 0.75 : cfg.fill;
+  let n = 0;
+  for (let b = 0; b < bays; b++){
+    for (let l = 0; l < levels; l++){
+      const bx = -w/2 + step*(b+0.5), by = l*lh;
+      for (let ci = 0; ci < COLS; ci++){
+        for (let ri = 0; ri < ROWS; ri++){
+          const cx = bx + (ci - (COLS-1)/2) * sw, cz = (ri - (ROWS-1)/2) * sd;
+          if (rn() < fill * 0.94){                        // 子位也随机缺货，避免整层齐刷刷
+            const hgt = lh * 0.66 * (0.55 + rn() * 0.45);
+            const kx = 0.84 + rn() * 0.16, kz = 0.84 + rn() * 0.16;
+            const jx = (rn() - 0.5) * 0.16, jz = (rn() - 0.5) * 0.16, jr = (rn() - 0.5) * 0.14;
+            m4.compose(pos.set(cx + jx, by + 0.16 + hgt/2, cz + jz),
+                       q.setFromAxisAngle(YAX, jr),
+                       scl.set(sw*0.86*kx, hgt, sd*0.86*kz));
+            cargo.setMatrixAt(n, m4);
+            cargo.setColorAt(n, new THREE.Color(pal[(b + l + ci + ri) % pal.length]));
+            m4.compose(pos.set(cx + jx*0.7, by, cz + jz*0.7), q.setFromAxisAngle(YAX, jr*0.6), scl.set(1,1,1));
+            pallet.setMatrixAt(n, m4);
+          } else {
+            m4.makeScale(0.001, 0.001, 0.001);            // 空位压到看不见，省一次分支
+            cargo.setMatrixAt(n, m4); pallet.setMatrixAt(n, m4);
+          }
+          n++;
+        }
+      }
+    }
+  }
+  for (const im of [cargo, pallet]){
+    im.instanceMatrix.needsUpdate = true;
+    if (im.instanceColor) im.instanceColor.needsUpdate = true;
+    im.castShadow = CONFIG.performance.shadows;
+    g.add(im);
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+function buildYard(cfg){
+  const [w,d] = cfg.size, rows = cfg.rows || 3, cols = cfg.cols || 6;
+  const g = new THREE.Group();
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(w, 0.4, d), mat(0x1a2c3c));
+  pad.position.y = 0.2; g.add(pad);
+  const cellW = w/cols, cellD = d/rows, count = rows*cols;
+  const geo = cfg.stack === 'box'
+    ? rbox(cellW*0.55, 9, cellD*0.55, 0.3)
+    : new THREE.ConeGeometry(cellW*0.42, 11, 14);
+  const stack = new THREE.InstancedMesh(geo, texMat(T('ore'), 2, 2, { roughness:0.92, metalness:0.02 }), count);
+  const m4 = new THREE.Matrix4(), pal = [0x6b5a3e, 0x4a4f56, 0x7a6a4c, 0x565e66];
+  let n = 0;
+  for (let r = 0; r < rows; r++){
+    for (let c = 0; c < cols; c++){
+      const hgt = 0.6 + ((Math.sin(r*5.1 + c*2.7)+1)/2) * 0.7;
+      m4.makeScale(1, hgt, 1);
+      m4.setPosition(-w/2 + cellW*(c+0.5), (cfg.stack === 'box' ? 9 : 11) * hgt / 2 + 0.4, -d/2 + cellD*(r+0.5));
+      stack.setMatrixAt(n, m4);
+      stack.setColorAt(n, new THREE.Color(pal[(r+c) % pal.length]));
+      n++;
+    }
+  }
+  stack.instanceMatrix.needsUpdate = true;
+  if (stack.instanceColor) stack.instanceColor.needsUpdate = true;
+  stack.castShadow = CONFIG.performance.shadows;
+  g.add(stack);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+function buildTank(cfg){
+  const r = cfg.radius || 12, h = cfg.height || 24, g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 36), texMat(T('tank'), Math.max(2, r/6), Math.max(1, h/12), { metalness:0.55, roughness:0.44 }));
+  body.position.y = h/2; g.add(body);
+  const dome = new THREE.Mesh(new THREE.SphereGeometry(r, 36, 16, 0, Math.PI*2, 0, Math.PI/2), texMat(T('tank'), Math.max(2, r/6), 2, { metalness:0.6, roughness:0.4 }));
+  dome.position.y = h; dome.scale.y = 0.42;            // 压扁罐顶，避免整体读成「球罐」
+  g.add(dome);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r*1.02, r*1.06, 1.2, 36), mat(0x39505f));
+  skirt.position.y = 0.6; g.add(skirt);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(r*1.01, 0.35, 8, 40), mat(0x00e5ff, { emissive:0x00e5ff, emissiveIntensity:0.5 }));
+  band.rotation.x = Math.PI/2; band.position.y = h * (cfg.level == null ? 0.6 : cfg.level); g.add(band);
+  for (let i = 0; i < 9; i++){                       // 爬梯
+    const step = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.22, 0.22), mat(0x6d8296));
+    step.position.set(r*1.02, 2 + i*2.4, 0); g.add(step);
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+function buildSilo(cfg){
+  const r = cfg.radius || 10, h = cfg.height || 32, hopper = 8, g = new THREE.Group();
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(r, hopper, 28), mat(0x7f8fa0, { metalness:0.4 }));
+  cone.position.y = hopper/2; cone.rotation.x = Math.PI; g.add(cone);   // 锥斗：0 → hopper
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28), texMat(T('wallConcrete'), Math.max(2, r/6), Math.max(1, h/12), { metalness:0.25, roughness:0.62 }));
+  body.position.y = hopper + h/2; g.add(body);                          // 罐身紧接锥斗，不留缝
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(r, 28, 12, 0, Math.PI*2, 0, Math.PI/2), texMat(T('wallConcrete'), 4, 2, { metalness:0.25, roughness:0.62 }));
+  cap.position.y = hopper + h; cap.scale.y = 0.5; g.add(cap);
+  for (const [dx,dz] of [[-1,-1],[1,-1],[-1,1],[1,1]]){                 // 支腿
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, hopper, 10), mat(0x52657a));
+    leg.position.set(dx*r*0.85, hopper/2, dz*r*0.85); g.add(leg);
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+function stripeTexture(){
+  const c = document.createElement('canvas'); c.width = 64; c.height = 8;
+  const x = c.getContext('2d');
+  x.fillStyle = '#2b6f8c'; x.fillRect(0,0,64,8);
+  x.fillStyle = '#7ff0ff'; x.fillRect(0,0,20,8);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(14, 1);
+  return t;
+}
+function buildPipeline(cfg){
+  const pts = (cfg.points || []).map(p => new THREE.Vector3().fromArray(p));
+  if (pts.length < 2) return new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const g = new THREE.Group();
+  const tube = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(40, pts.length*24), cfg.radius || 0.8, 12, false),
+    mat(0x2f7f9c, { metalness:0.7, roughness:0.3 }));
+  g.add(tube);
+  if (cfg.flow){
+    const flowTex = stripeTexture();
+    const sleeve = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(40, pts.length*24), (cfg.radius||0.8)*1.22, 12, false),
+      new THREE.MeshBasicMaterial({ map:flowTex, transparent:true, opacity:0.32, blending:THREE.AdditiveBlending, depthWrite:false }));
+    g.add(sleeve);
+    movers.push({ kind:'flow', tex:flowTex, speed:0.35 });
+  }
+  const stepN = Math.max(2, Math.round(curve.getLength()/22));
+  for (let i = 0; i <= stepN; i++){
+    const p = curve.getPointAt(i/stepN);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, Math.max(1, p.y), 8), mat(0x3b5266));
+    leg.position.set(p.x, p.y/2, p.z); g.add(leg);
+  }
+  const mid = curve.getPointAt(0.5);
+  g.userData.tagAt = new THREE.Vector3(mid.x, mid.y + 14, mid.z);
+  g.userData.noCS = true;                          // 细长管线：整片椭圆阴影不合比例
+  return shade(g);
+}
+
+function buildConveyor(cfg){
+  const L = cfg.length || 100, g = new THREE.Group();
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(L, 0.5, 4.4), mat(0x35485a));
+  belt.position.y = 9; g.add(belt);
+  const tex = stripeTexture(); tex.repeat.set(Math.round(L/6), 1);
+  const top = new THREE.Mesh(new THREE.PlaneGeometry(L, 3.6),
+    new THREE.MeshBasicMaterial({ map:tex, transparent:true, opacity:0.5 }));
+  top.rotation.x = -Math.PI/2; top.position.y = 9.3; g.add(top);
+  movers.push({ kind:'flow', tex, speed:0.6 });
+  const n = Math.max(2, Math.round(L/16));
+  for (let i = 0; i <= n; i++){
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.6, 9, 0.6), mat(0x2c3f50));
+    leg.position.set(-L/2 + (L/n)*i, 4.5, 0); g.add(leg);
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  g.userData.noCS = true;                          // 长廊道：整片椭圆阴影不合比例
+  return shade(g);
+}
+
+function buildVehicle(cfg){
+  const g = new THREE.Group();
+  const cabMat = mat(cfg.color || 0xe8eef5, { metalness:0.35, roughness:0.5 });
+  const cab = new THREE.Mesh(rbox(4.4, 3.4, 6, 0.5), cabMat);
+  cab.position.set(4.2, 2.4, 0); g.add(cab);
+  const glass = new THREE.Mesh(rbox(3.6, 1.7, 5.2, 0.2), glassMat());
+  glass.position.set(4.2, 3.1, 0); g.add(glass);
+  if (cfg.body === 'tank'){                                   // 洒水车 / 罐车：卧罐 + 端封 + 爬梯 + 喷洒护栏
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.95, 1.95, 9.6, 20).rotateZ(Math.PI / 2),
+      mat(0xdfe6ee, { metalness:0.4, roughness:0.4 }));
+    tank.position.set(-3.4, 3.5, 0); g.add(tank);
+    for (const ex of [-8.1, 1.3]){
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(1.95, 18, 10), mat(0xdfe6ee, { metalness:0.4, roughness:0.4 }));
+      dome.position.set(ex, 3.5, 0); g.add(dome);
+    }
+    const ladder = new THREE.Mesh(new THREE.BoxGeometry(0.8, 2.6, 0.12), mat(0x6d8296));
+    ladder.position.set(-3.4, 5.6, 0); g.add(ladder);
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(7.5, 0.14, 3.4), mat(0x8d969e));
+    rail.position.set(-3.4, 5.5, 0); g.add(rail);
+  } else if (cfg.body === 'pickup'){                          // 指挥车 / 皮卡
+    const box = new THREE.Mesh(rbox(4.6, 1.6, 5.0, 0.35), mat(0x3d5772));
+    box.position.set(-2.2, 2.2, 0); g.add(box);
+  } else {
+    const box = new THREE.Mesh(rbox(12, 3.8, 6.2, 0.45), mat(0x2f6ea8, { metalness:0.4 }));
+    box.position.set(-4.4, 2.6, 0); g.add(box);
+  }
+  const wheelGeo = new THREE.CylinderGeometry(1.5, 1.5, 1.1, 14).rotateZ(Math.PI/2);
+  for (const [x,z] of [[4.2,3.1],[4.2,-3.1],[-6,3.1],[-6,-3.1],[-9.4,3.1],[-9.4,-3.1]]){
+    const w = new THREE.Mesh(wheelGeo, mat(0x151b22, { roughness:0.9 }));
+    w.position.set(x, 1.5, z); g.add(w);
+  }
+  g.scale.setScalar(cfg.size == null ? 1 : cfg.size);         // 整体缩放（皮卡 0.6 / 大车 1.2）
+  g.position.fromArray(cfg.position || [0,0,0]);
+  if (cfg.path && cfg.path.length > 1){
+    movers.push({ kind:'vehicle', obj:g,
+      curve:new THREE.CatmullRomCurve3(cfg.path.map(p => new THREE.Vector3().fromArray(p))),
+      t:(cfg.phase == null ? 0 : cfg.phase), speed:(cfg.speed || 12) / 600 });
+  }
+  return shade(g);
+}
+
+function buildBox(cfg){                              // GLTF 失败时的程序化占位
+  const s = cfg.size || [6,10,4];
+  const m = new THREE.Mesh(rbox(s[0], s[1], s[2], 0.2), mat(0x3d5772));
+  m.position.y = s[1]/2;
+  const g = new THREE.Group(); g.add(m); g.add(edgesOf(m, 0x8b5cf6, 0.5));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+/* --- 货物托盘：木托盘底座 + 堆叠货物箱（装卸区散货的"生活痕迹"） --- */
+function buildPallet(cfg){
+  const g = new THREE.Group();
+  const px = (cfg.size && cfg.size[0]) || 2.4, pz = (cfg.size && cfg.size[1]) || 2.4;
+  const layers = cfg.layers || 2;
+  const wood = mat(0x8a6b3e, { roughness:0.9, metalness:0 });
+  const crate = mat(0x7a5c3a, { roughness:0.82, metalness:0.02 });
+  /* 木托盘：底 3 横条 + 面板 4 竖条 */
+  const deck = [];
+  for (let i = 0; i < 3; i++){ const s = new THREE.BoxGeometry(px*0.94, 0.14, 0.2); s.translate(0, 0.07, -pz*0.32 + pz*0.32*i); deck.push(s); }
+  for (let i = 0; i < 4; i++){ const s = new THREE.BoxGeometry(0.2, 0.1, pz*0.94); s.translate(-px*0.36 + px*0.24*i, 0.2, 0); deck.push(s); }
+  g.add(new THREE.Mesh(mergeGeometries(deck), wood));
+  /* 货物箱：每层 2~3 个错开堆叠 */
+  const boxes = [];
+  for (let l = 0; l < layers; l++){
+    const n = 2 + (l % 2 ? 1 : 2);
+    for (let b = 0; b < n; b++){
+      const bw = px*0.5, bh = 0.75, bd = pz*0.5;
+      const bx = rbox(bw*0.94, bh, bd*0.94, 0.08);
+      bx.translate((b - (n-1)/2) * px*0.30, 0.3 + l*bh + bh/2, 0);
+      boxes.push(bx);
+    }
+  }
+  g.add(new THREE.Mesh(mergeGeometries(boxes), crate));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+
+/* --- 现代办公楼：幕墙贴图 + 裙房 + 屋顶设备 + 入口雨棚 --- */
+function buildOffice(cfg){
+  const [w,h,d] = cfg.size, g = new THREE.Group();
+  const floors = cfg.floors || Math.max(3, Math.round(h/4.2));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+    texMat(T('glass'), Math.max(2, w/6), Math.max(2, floors*0.9),
+           { color:0xffffff, roughness:0.18, metalness:0.55 }));
+  body.position.y = h/2; g.add(body);
+  if (cfg.podium){                                       // 裙房：底部外扩一圈
+    const ph = Math.min(h*0.55, cfg.podium * 4.2);
+    const pod = new THREE.Mesh(rbox(w*1.16, ph, d*1.16, 0.25),
+      texMat(T('wallConcrete'), Math.max(2, w/8), Math.max(1, ph/4), { roughness:0.72, metalness:0.08 }));
+    pod.position.y = ph/2; g.add(pod);
+  }
+  const cap = new THREE.Mesh(rbox(w+0.9, 0.7, d+0.9, 0.15), mat(0xdfe6ec, { roughness:0.8 }));
+  cap.position.y = h + 0.35; g.add(cap);                 // 屋面板
+  for (let i = 0; i < (cfg.roofUnits == null ? 3 : cfg.roofUnits); i++){
+    const ew = w * (0.10 + 0.05 * ((i*7) % 3));
+    const unit = new THREE.Mesh(new THREE.BoxGeometry(ew, 2.2, ew*0.8), mat(0x8d99a6, { metalness:0.5, roughness:0.6 }));
+    unit.position.set(-w/2 + w*(0.20 + 0.30*i), h + 1.8, (i%2 ? d*0.14 : -d*0.14)); g.add(unit);
+  }
+  const shaft = new THREE.Mesh(new THREE.BoxGeometry(w*0.16, 4.4, d*0.28), mat(0xb6bfc8, { roughness:0.75 }));
+  shaft.position.set(w*0.28, h + 2.9, 0); g.add(shaft);   // 电梯机房
+  const entry = new THREE.Mesh(new THREE.BoxGeometry(w*0.26, 4.2, 0.6),
+    mat(0x1b3a4f, { roughness:0.12, metalness:0.7 }));
+  entry.position.set(0, 2.1, d/2 + 0.3); g.add(entry);    // 玻璃门厅
+  const canopy = new THREE.Mesh(new THREE.BoxGeometry(w*0.34, 0.5, 7), mat(0x3f4d5c, { metalness:0.4, roughness:0.5 }));
+  canopy.position.set(0, 4.7, d/2 + 3.2); g.add(canopy);  // 入口雨棚
+  for (const sx of [-w*0.14, w*0.14]){
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 4.7, 10), mat(0x6d7a88));
+    col.position.set(sx, 2.35, d/2 + 6.4); g.add(col);
+  }
+  const eg = edgesOf(new THREE.Mesh(new THREE.BoxGeometry(w, h, d)), 0x00e5ff, 0.16);
+  eg.position.y = h/2; g.add(eg);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+/* --- 单棵树：树干 + 三球树冠（俯瞰为圆形绿团，正视也有体积） --- */
+function buildTree(cfg){
+  const h = cfg.height || 12, r = cfg.canopy || 5.2, g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.62, h*0.4, 8),
+    mat(0x6b4f35, { roughness:0.95, metalness:0 }));
+  trunk.position.y = h*0.20; g.add(trunk);
+  const rn = seeded(cfg.seed || Math.abs((cfg.position||[0,0,0])[0]) + 7);
+  const base = new THREE.Color(cfg.leafColor || 0x3d6b33);
+  /* 树冠 = 5~6 个压扁椭球簇 + 每瓣色相/明度微调，打破"完美绿球"的卡通感 */
+  const lobes = 5 + Math.floor(rn()*2);
+  for (let i = 0; i < lobes; i++){
+    const s = 0.45 + rn()*0.6;
+    const tint = base.clone().offsetHSL(rn()*0.05 - 0.025, rn()*0.08, rn()*0.10 - 0.05);
+    const leaf = mat(tint, { roughness:0.92, metalness:0, flatShading:true });
+    const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r*s, 1), leaf);
+    const a = rn()*6.283;
+    c.position.set(Math.cos(a)*r*0.55*rn(), h*0.60 + (rn()-0.5)*r*0.5, Math.sin(a)*r*0.55*rn());
+    c.scale.set(0.9 + rn()*0.3, 0.62 + rn()*0.35, 0.9 + rn()*0.3);
+    g.add(c);
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+/* --- 树林：区域内批量种树，合并成 2 个 draw call --- */
+function buildGrove(cfg){
+  const [w,d] = cfg.size || [80,40], n = cfg.count || 24, g = new THREE.Group();
+  const rn = seeded(cfg.seed || 11);
+  const trunkG = [], leafG = [], leafHi = [];
+  const leafBase = new THREE.Color(cfg.leafColor || 0x3d6b33);
+  const leafDark = leafBase.clone().offsetHSL(0, 0.02, -0.07);   // 内层深绿（阴影）
+  const leafLite = leafBase.clone().offsetHSL(0.02, -0.02, 0.06); // 外层受光亮绿
+  for (let i = 0; i < n; i++){
+    const x = (rn()-0.5)*w, z = (rn()-0.5)*d;
+    const hh = 9 + rn()*7, rr = 3.2 + rn()*2.6;
+    const tk = new THREE.CylinderGeometry(0.32, 0.5, hh*0.42, 6); tk.translate(x, hh*0.21, z); trunkG.push(tk);
+    /* 树冠：1 主冠 + 4 侧冠（压扁椭球、不规则簇）；内层深绿 / 外层亮绿，打破"绿球"感 */
+    const main = new THREE.IcosahedronGeometry(rr, 1);
+    main.scale(1, 0.72, 1); main.translate(x, hh*0.60, z); leafG.push(main);
+    const lobes = [[0.66, 0.55, 0.30, 0.74], [0.60, -0.52, -0.28, 0.70],
+                   [0.52, 0.18, -0.55, 0.68], [0.48, -0.15, 0.52, 0.66]];
+    for (let k = 0; k < 4; k++){
+      const [lr, lx, lz, ly] = lobes[k];
+      const c = new THREE.IcosahedronGeometry(rr*lr, 1);
+      c.scale(1, ly, 1); c.translate(x + lx*rr, hh*0.48, z + lz*rr);
+      (k % 2 ? leafHi : leafG).push(c);
+    }
+  }
+  if (trunkG.length) g.add(new THREE.Mesh(mergeGeometries(trunkG), mat(0x6b4f35, { roughness:0.95, metalness:0 })));
+  if (leafG.length)  g.add(new THREE.Mesh(mergeGeometries(leafG), mat(leafDark, { roughness:0.92, metalness:0, flatShading:true })));
+  if (leafHi.length) g.add(new THREE.Mesh(mergeGeometries(leafHi), mat(leafLite, { roughness:0.92, metalness:0, flatShading:true })));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g);
+}
+
+/* --- 道路：沥青贴图 + 中心虚线 + 路缘石 --- */
+function buildRoad(cfg){
+  const [w,d] = cfg.size || [16,200], g = new THREE.Group();
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(w, d),
+    texMat(T('asphalt'), Math.max(1, w/8), Math.max(1, d/8), { roughness:0.92, metalness:0.03 }));
+  road.rotation.x = -Math.PI/2; road.position.y = 0.06; road.receiveShadow = true; g.add(road);
+  if (cfg.lane !== false){
+    const n = Math.max(4, Math.round(d/9)), dash = new THREE.Group();
+    const dm = new THREE.MeshBasicMaterial({ color:0xeaeadf });
+    for (let i = 0; i < n; i++){
+      const s = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 4.2), dm);
+      s.rotation.x = -Math.PI/2; s.position.set(0, 0.12, -d/2 + (d/n)*(i+0.5)); dash.add(s);
+    }
+    g.add(dash);
+  }
+  if (cfg.curb !== false){
+    for (const sx of [-w/2-0.6, w/2+0.6]){
+      const c = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.34, d), mat(0xb9bfc6, { roughness:0.85 }));
+      c.position.set(sx, 0.17, 0); g.add(c);
+    }
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g, false);
+}
+
+/* --- 草坪 --- */
+function buildLawn(cfg){
+  const [w,d] = cfg.size || [60,40], g = new THREE.Group();
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(w, d),
+    texMat(T('lawn'), Math.max(1, w/10), Math.max(1, d/10), { roughness:0.95, metalness:0 }));
+  p.rotation.x = -Math.PI/2; p.position.y = 0.04; p.receiveShadow = true; g.add(p);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g, false);
+}
+
+/* --- 功能区地面色块 zone ---
+   数字孪生大屏的标配：把「A区/B区/E区堆场」这类业务分区在地面上实实在在地划出来。
+   没有它，观众只能看到一堆建筑，看不出「库区」这个概念。
+   填充用极低不透明度（0.06~0.14），描边用高亮色，四角加 L 形角标（比整圈实线更像仪表盘）。
+   约定：默认 ambient（纯视觉，不进清单/不拾取/不占资产数）。 */
+function buildZone(cfg){
+  const [w, d] = cfg.size || [60, 40];
+  const g = new THREE.Group();
+  const col = cfg.color == null ? 0x22d3ee : cfg.color;
+  const hw = w/2, hd = d/2, y = 0.12;
+
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(w, d),
+    new THREE.MeshBasicMaterial({ color: col, transparent: true,
+      opacity: cfg.opacity == null ? 0.10 : cfg.opacity, depthWrite: false }));
+  pad.rotation.x = -Math.PI/2; pad.position.y = 0.07; pad.renderOrder = 2;
+  g.add(pad);
+
+  const lineMat = new THREE.LineBasicMaterial({ color: col, transparent: true,
+    opacity: cfg.lineOpacity == null ? 0.75 : cfg.lineOpacity });
+  const seg = (x1, z1, x2, z2) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1, y, z1), new THREE.Vector3(x2, y, z2)]);
+    g.add(new THREE.Line(geo, lineMat));
+  };
+  seg(-hw, -hd, hw, -hd); seg(hw, -hd, hw, hd);
+  seg(hw, hd, -hw, hd);   seg(-hw, hd, -hw, -hd);
+
+  // 四角 L 形角标：沿边收进去一段，端头加粗视觉砝码
+  const c = Math.min(w, d) * (cfg.cornerRatio || 0.14);
+  const cm = new THREE.LineBasicMaterial({ color: col, transparent: true,
+    opacity: cfg.lineOpacity == null ? 0.9 : cfg.lineOpacity });
+  const corner = (x1, z1, x2, z2) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1, y + 0.02, z1), new THREE.Vector3(x2, y + 0.02, z2)]);
+    g.add(new THREE.Line(geo, cm));
+  };
+  [[-1,-1],[1,-1],[1,1],[-1,1]].forEach(([sx, sz]) => {
+    corner(sx * hw, sz * hd, sx * (hw - c), sz * hd);
+    corner(sx * hw, sz * hd, sx * hw, sz * (hd - c));
+  });
+
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  g.userData.noCS = true;
+  return g;
+}
+
+/* --- 停车场：沥青 + 白色车位线 + 停放车辆 --- */
+function buildParking(cfg){
+  const cols = cfg.cols || 8, rows = cfg.rows || 1, g = new THREE.Group();
+  const cw = cfg.cellW || 6, cd = cfg.cellD || 12, W = cols*cw, D = rows*cd;
+  const pad = new THREE.Mesh(new THREE.PlaneGeometry(W, D),
+    texMat(T('asphalt'), Math.max(1, W/8), Math.max(1, D/8), { roughness:0.92, metalness:0.03 }));
+  pad.rotation.x = -Math.PI/2; pad.position.y = 0.05; pad.receiveShadow = true; g.add(pad);
+  const lines = [];
+  for (let i = 0; i <= cols; i++){ const l = new THREE.BoxGeometry(0.24, 0.02, D); l.translate(-W/2 + cw*i, 0, 0); lines.push(l); }
+  for (let j = 0; j <= rows; j++){ const l = new THREE.BoxGeometry(W, 0.02, 0.24); l.translate(0, 0, -D/2 + cd*j); lines.push(l); }
+  g.add(new THREE.Mesh(mergeGeometries(lines), new THREE.MeshBasicMaterial({ color:0xf0f2ee })));
+  const cars = cfg.occupied == null ? Math.round(cols*rows*0.7) : cfg.occupied;
+  const rn = seeded(cfg.seed || 7), bodies = [], cabs = [], pal = [0xdfe4ea, 0x9fb0c0, 0x3c5a78, 0xb8453a, 0x3a4a5c];
+  for (let i = 0; i < cars; i++){
+    const cx = -W/2 + cw*((i % cols) + 0.5), cz = -D/2 + cd*(Math.floor(i/cols) + 0.5);
+    const b = rbox(4.4, 1.7, 9.0, 0.35, 1); b.translate(cx, 1.0, cz); bodies.push(b);
+    const c = rbox(4.0, 1.1, 3.2, 0.25, 1); c.translate(cx, 2.35, cz - 1.4); cabs.push(c);
+  }
+  if (bodies.length){
+    g.add(new THREE.Mesh(mergeGeometries(bodies), mat(pal[Math.floor(rn()*pal.length)], { metalness:0.45, roughness:0.4 })));
+    g.add(new THREE.Mesh(mergeGeometries(cabs), mat(0x2b3a4a, { roughness:0.22, metalness:0.65 })));
+  }
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+/* --- 路灯（单个） --- */
+function buildLamp(cfg){
+  const H = cfg.height || 9, g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.34, H, 10), mat(0x8b949e, { metalness:0.6, roughness:0.45 }));
+  pole.position.y = H/2; g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.24, 0.24), mat(0x8b949e, { metalness:0.6 }));
+  arm.position.set(1.5, H - 0.2, 0); g.add(arm);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.42, 0.9), mat(0x2a333d, { metalness:0.4 }));
+  head.position.set(3.0, H - 0.5, 0); g.add(head);
+  const bulb = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.7), new THREE.MeshBasicMaterial({ color:0xfff2c8 }));
+  bulb.position.set(3.0, H - 0.73, 0); bulb.rotation.x = Math.PI/2; g.add(bulb);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g, false);
+}
+
+/* --- 路灯带：沿路径布灯，合并 2 个 draw call --- */
+function buildLampRow(cfg){
+  const pts = (cfg.points || []).map(p => new THREE.Vector3().fromArray(p));
+  if (pts.length < 2) return new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const n = cfg.count || Math.max(2, Math.round(curve.getLength()/42));
+  const H = cfg.height || 9, g = new THREE.Group(), poles = [], heads = [];
+  for (let i = 0; i < n; i++){
+    const p = curve.getPointAt(i/(n-1 || 1));
+    const po = new THREE.CylinderGeometry(0.22, 0.34, H, 8); po.translate(p.x, H/2, p.z); poles.push(po);
+    const he = new THREE.BoxGeometry(1.8, 0.42, 0.9);        he.translate(p.x + 3, H - 0.5, p.z); heads.push(he);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(poles), mat(0x8b949e, { metalness:0.6, roughness:0.45 })));
+  g.add(new THREE.Mesh(mergeGeometries(heads), mat(0x2a333d, { metalness:0.4 })));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g, false);
+}
+
+/* --- 园区标识牌：Canvas 文字贴图（字体缺失也只是牌面变素，不报错） --- */
+function signTexture(text, sub){
+  try{
+    const c = document.createElement('canvas'); c.width = 1024; c.height = 256;
+    const x = c.getContext('2d');
+    x.fillStyle = '#0b2536'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = '#00e5ff'; x.fillRect(0, 0, c.width, 10); x.fillRect(0, c.height - 10, c.width, 10);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = '#eaf6ff';
+    x.font = 'bold 108px "Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif';
+    x.fillText(text || '', c.width/2, sub ? c.height * 0.40 : c.height * 0.5);
+    if (sub){
+      x.fillStyle = '#8fd6ff';
+      x.font = 'bold 52px "Microsoft YaHei","Noto Sans CJK SC",sans-serif';
+      x.fillText(sub, c.width/2, c.height * 0.75);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }catch(e){ return null; }
+}
+
+/* --- 装卸月台：混凝土台 + 卷帘门阵列 + 雨棚 + 登车桥 + 防撞块 + 车位线 --- */
+function buildDock(cfg){
+  const [w,d] = cfg.size || [120,24], bays = cfg.bays || 6;
+  const H = cfg.height || 1.35, WH_ = cfg.wallHeight || 13, g = new THREE.Group();
+  const pad = new THREE.Mesh(rbox(w, H, d, 0.12),
+    texMat(T('concrete'), Math.max(2, w/8), Math.max(1, d/8), { color:0xffffff, roughness:0.9, metalness:0.03 }));
+  pad.position.y = H/2; g.add(pad);
+  const wall = new THREE.Mesh(rbox(w, WH_, 0.8, 0.12),
+    texMat(T('wallSteel'), Math.max(2, w/20), Math.max(1, WH_/9), { color:0xffffff, roughness:0.62, metalness:0.35 }));
+  wall.position.set(0, H + WH_/2, -d/2 + 0.4); g.add(wall);
+  const step = w/bays, doors = [], frames = [], bridges = [], bumpers = [];
+  for (let i = 0; i < bays; i++){
+    const cx = -w/2 + step*(i + 0.5);
+    const dr = rbox(step*0.52, Math.min(8.5, WH_*0.66), 0.5, 0.08);
+    dr.translate(cx, H + Math.min(8.5, WH_*0.66)/2, -d/2 + 0.98); doors.push(dr);
+    const fr = rbox(step*0.60, Math.min(9.4, WH_*0.74), 0.34, 0.06);
+    fr.translate(cx, H + Math.min(9.4, WH_*0.74)/2, -d/2 + 0.70); frames.push(fr);
+    const br = rbox(step*0.34, 0.18, 3.4, 0.05);
+    br.rotateX(-0.06); br.translate(cx, H + 0.02, d/2 - 1.4); bridges.push(br);
+    for (const sx of [-step*0.22, step*0.22]){
+      const bu = rbox(0.9, 0.7, 0.5, 0.12); bu.translate(cx + sx, H + 0.35, d/2 - 0.35); bumpers.push(bu);
+    }
+  }
+  g.add(new THREE.Mesh(mergeGeometries(frames), mat(0x3b4954, { metalness:0.55, roughness:0.45 })));
+  g.add(new THREE.Mesh(mergeGeometries(doors), mat(0x0b1620, { metalness:0.3, roughness:0.72 })));
+  g.add(new THREE.Mesh(mergeGeometries(bridges), mat(0x8a939c, { metalness:0.7, roughness:0.35 })));
+  g.add(new THREE.Mesh(mergeGeometries(bumpers), mat(0x1c1f22, { roughness:0.95 })));
+  // 雨棚：只出挑 8m，压在门前（太大就成了"帐篷"）
+  const cD = Math.min(9, d*0.45);
+  const canopy = new THREE.Mesh(rbox(w + 2, 0.45, cD, 0.12),
+    mat(0x76838f, { metalness:0.45, roughness:0.52 }));
+  canopy.position.set(0, H + WH_ + 1.3, d/2 - cD/2 + 0.4); canopy.rotation.x = -0.04; g.add(canopy);
+  const poles = [];
+  for (let i = 0; i <= bays; i++){
+    const p = new THREE.CylinderGeometry(0.24, 0.28, H + WH_ + 1.2, 8);
+    p.translate(-w/2 + step*i, (H + WH_ + 1.2)/2, d/2 - cD + 0.8); poles.push(p);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(poles), mat(0x77838f, { metalness:0.55, roughness:0.45 })));
+  // 月台前沿黄色警示带 + 前方车道边线
+  const warn = new THREE.Mesh(new THREE.BoxGeometry(w, 0.06, 0.6), new THREE.MeshBasicMaterial({ color:0xd9a52b }));
+  warn.position.set(0, H + 0.05, d/2 - 0.3); g.add(warn);
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+/* --- 园区大门：门卫室 + 双立柱 + 道闸 + 标识牌 + 减速带 --- */
+function buildGate(cfg){
+  const W = cfg.width || 30, g = new THREE.Group();
+  const booth = new THREE.Mesh(rbox(7, 3.6, 5, 0.2),
+    texMat(T('wallConcrete'), 2, 1, { color:0xffffff, roughness:0.7, metalness:0.06 }));
+  booth.position.set(-W/2 + 6, 1.8, -3); g.add(booth);
+  const glass = new THREE.Mesh(rbox(5.6, 1.5, 4.7, 0.12),
+    mat(0x18394d, { roughness:0.1, metalness:0.75 }));
+  glass.position.set(-W/2 + 6, 2.9, -3); g.add(glass);
+  const roof = new THREE.Mesh(rbox(8.4, 0.5, 6.4, 0.14), mat(0xdde4ea, { roughness:0.8 }));
+  roof.position.set(-W/2 + 6, 3.85, -3); g.add(roof);
+  const columns = [];
+  for (const sx of [-W/2, W/2]){
+    const c = rbox(2.2, 7.5, 2.2, 0.3, 1); c.translate(sx, 3.75, 0); columns.push(c);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(columns), mat(0xb7bfc7, { roughness:0.75, metalness:0.1 })));
+  // 道闸：机箱 + 红白横杆（双向各一套）
+  for (const [sx, dir] of [[-W/2 + 3.4, 1], [W/2 - 3.4, -1]]){
+    const box0 = new THREE.Mesh(rbox(1.0, 1.2, 1.0, 0.12), mat(0x3d4b58, { metalness:0.5, roughness:0.45 }));
+    box0.position.set(sx, 0.6, 0); g.add(box0);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(W*0.42, 0.24, 0.24),
+      mat(0xe8ecef, { metalness:0.2, roughness:0.5, emissive:0x223038, emissiveIntensity:0.2 }));
+    bar.position.set(sx + dir*W*0.21, 1.0, 0); g.add(bar);
+  }
+  // 标识牌：Canvas 文字（园区名）
+  const st0 = signTexture(cfg.sign, cfg.signSub);
+  const signMat = st0 ? new THREE.MeshBasicMaterial({ map: st0, toneMapped: false })
+                      : mat(0x0d2b3e, { emissive:0x0d2b3e, emissiveIntensity:0.4 });
+  const sign = new THREE.Mesh(new THREE.BoxGeometry(W*0.72, 2.6, 0.4), signMat);
+  sign.position.set(0, 6.2, 0); g.add(sign);
+  for (const sx of [-W*0.30, W*0.30]){
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 5.2, 8), mat(0x8b949e, { metalness:0.6 }));
+    p.position.set(sx, 2.6, 0); g.add(p);
+  }
+  const bands = [];
+  for (const dz of [-2.6, 2.6]){
+    const b = new THREE.BoxGeometry(W, 0.22, 1.0); b.translate(0, 0.13, dz); bands.push(b);
+  }
+  g.add(new THREE.Mesh(mergeGeometries(bands), mat(0xc8a02a, { roughness:0.9 })));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+/* --- 围墙：沿折线布立柱 + 栅栏板（各合并成 1 个 Mesh，2 个 draw call） --- */
+function buildFence(cfg){
+  const pts = (cfg.points || []).map(p => new THREE.Vector3().fromArray(p));
+  if (pts.length < 2) return new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(pts, cfg.closed !== false, 'catmullrom', 0.02);
+  const H = cfg.height || 2.4, seg = Math.max(2, Math.round(curve.getLength()/4));
+  const g = new THREE.Group(), posts = [], panels = [], rails = [];
+  for (let i = 0; i <= seg; i++){
+    const t = i/seg, p = curve.getPointAt(Math.min(1, t));
+    const po = new THREE.BoxGeometry(0.34, H, 0.34); po.translate(p.x, H/2, p.z); posts.push(po);
+    if (i < seg){
+      const tan = curve.getTangentAt(Math.min(1, t)), ang = Math.atan2(tan.x, tan.z);
+      const pm = curve.getPointAt(Math.min(1, (i + 0.5)/seg)), len = curve.getLength()/seg * 1.04;
+      const pa = new THREE.BoxGeometry(0.1, H*0.74, len); pa.rotateY(ang); pa.translate(pm.x, H*0.44, pm.z); panels.push(pa);
+      const ra = new THREE.BoxGeometry(0.16, 0.16, len); ra.rotateY(ang); ra.translate(pm.x, H - 0.2, pm.z); rails.push(ra);
+    }
+  }
+  g.add(new THREE.Mesh(mergeGeometries(posts), mat(0x9aa4ad, { metalness:0.35, roughness:0.7 })));
+  g.add(new THREE.Mesh(mergeGeometries(panels), new THREE.MeshStandardMaterial({
+    color:0x5e6a75, metalness:0.45, roughness:0.55, transparent:true, opacity:0.55, side:THREE.DoubleSide })));
+  g.add(new THREE.Mesh(mergeGeometries(rails), mat(0x8d969e, { metalness:0.5 })));
+  g.userData.noCS = true;                    // 细长构件：不生成接触阴影
+  g.position.fromArray(cfg.position || [0,0,0]);
+  return shade(g, false);
+}
+
+/* --- 屋顶光伏阵列：斜面板 InstancedMesh + 支架（绿色园区/能耗面板配套） --- */
+function buildSolar(cfg){
+  const [w,d] = cfg.size || [100,50], rows = cfg.rows || 4, cols = cfg.cols || 10;
+  const g = new THREE.Group(), tilt = (cfg.tilt == null ? 22 : cfg.tilt) * Math.PI/180;
+  const pw = w/cols*0.86, pd = d/rows*0.52, n = rows*cols;
+  const inst = new THREE.InstancedMesh(rbox(pw, 0.16, pd, 0.04, 1),
+    mat(0x152c46, { metalness:0.6, roughness:0.2, emissive:0x081a2c, emissiveIntensity:0.18 }), n);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(-tilt, 0, 0));
+  const one = new THREE.Vector3(1, 1, 1), legs = [];
+  let k = 0;
+  for (let r = 0; r < rows; r++){
+    for (let c = 0; c < cols; c++){
+      const px = -w/2 + (w/cols)*(c + 0.5), pz = -d/2 + (d/rows)*(r + 0.5);
+      m4.compose(new THREE.Vector3(px, 0.75 + pd*0.28, pz), q, one);
+      inst.setMatrixAt(k++, m4);
+      const lg = new THREE.BoxGeometry(0.22, 0.75, 0.22); lg.translate(px - pw*0.3, 0.375, pz); legs.push(lg);
+      const lg2 = new THREE.BoxGeometry(0.22, 0.75, 0.22); lg2.translate(px + pw*0.3, 0.375, pz); legs.push(lg2);
+    }
+  }
+  inst.instanceMatrix.needsUpdate = true;
+  inst.castShadow = CONFIG.performance.shadows;
+  g.add(inst);
+  g.add(new THREE.Mesh(mergeGeometries(legs), mat(0x8d969e, { metalness:0.55, roughness:0.5 })));
+  g.position.fromArray(cfg.position || [0,0,0]);
+  g.rotation.y = (cfg.rotation || 0) * Math.PI/180;
+  return shade(g);
+}
+
+/* =========================================================================
+ * 4b. 露天矿场专用构件（台阶采场 / 斜坡道 / 电铲 / 牙轮钻机 / 矿卡 / 破碎站 /
+ *     排土场 / 高杆灯塔 / 推土机 / 沉淀池 / 边坡监测桩）
+ * ========================================================================= */
+
+/* 两点之间拉一根液压杆（油缸）：电铲/推土机的机构连杆 */
+function rodBetween(a, b, r, m){
+  const dir = new THREE.Vector3().subVectors(b, a), len = dir.length();
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 10), m);
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+  return mesh;
+}
+/* 半透明玻璃（驾驶室 / 仪表窗）：physical 材质 + envMap 反射 */
+function glassMat(){
+  const m = new THREE.MeshPhysicalMaterial({ color:0x1b3a52, metalness:0.35, roughness:0.08,
+    transparent:true, opacity:0.72, envMapIntensity:0.80 });
+  PBR_MATS.push(m);
+  if (skyEnvMap){ m.envMap = skyEnvMap;
+    /* v0.3：默认 0.15。物理天空 PMREM 的 radiance 极高（太阳周边尤甚），
+       0.5 的旧默认会让 IBL 反射贡献全场 40%+ 亮度，把中灰材质整片"洗白"。
+       金属/玻璃类构件用 opts.envMapIntensity 显式调高。 */
+    if (m.envMapIntensity == null) m.envMapIntensity = IBL_DEFAULT; }
+  return m;
+}
+
+/* --- 台阶式露天采场：椭圆开口逐层收缩；层间坡面 + 安全平台 + 台阶运输道路 ---
+   半径全部按圆形计算，group 整体按 rz/rx 压扁成椭圆（y 不被缩放）。 */
+/* --- 扬尘粒子：canvas 径向渐变贴图 + Points（无外部资源），模拟破碎/排土粉尘 --- */
+let DUST_TEX = null;
+function dustTexture(){
+  if (DUST_TEX) return DUST_TEX;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const ctx = cv.getContext('2d');
+  const gr = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(176,158,124,0.62)');
+  gr.addColorStop(0.45, 'rgba(160,142,110,0.28)');
+  gr.addColorStop(1, 'rgba(150,132,100,0)');
+  ctx.fillStyle = gr; ctx.fillRect(0, 0, 64, 64);
+  DUST_TEX = new THREE.CanvasTexture(cv);
+  return DUST_TEX;
+}
+function makeDust(origin, opts){
+  opts = opts || {};
+  const count = opts.count || 40, spread = opts.spread || 8, maxRise = opts.rise || 14;
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(count * 3), bx = new Float32Array(count), bz = new Float32Array(count);
+  for (let i = 0; i < count; i++){
+    const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * spread;
+    bx[i] = origin.x + Math.cos(a) * r; bz[i] = origin.z + Math.sin(a) * r;
+    pos[i * 3] = bx[i]; pos[i * 3 + 1] = origin.y + Math.random() * maxRise; pos[i * 3 + 2] = bz[i];
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+    map: dustTexture(), size: opts.size || 8, transparent: true,
+    opacity: opts.opacity || 0.5, depthWrite: false, sizeAttenuation: true, color: 0xc9b08a, fog: true }));
+  pts.frustumCulled = false;
+  scene.add(pts);
+  dustSystems.push({ pts, count, bx, bz, baseY: origin.y, maxRise,
+    rise: opts.riseSpeed || 1.1, drift: opts.drift || 1.6, opacity: opts.opacity || 0.5,
+    seed: Math.random() * 10 });
+  return pts;
+}
+
+function buildPit(cfg){
+  const rx = cfg.rx || 300, rz = cfg.rz || 240;
+  const bh = cfg.benchHeight || 12;
+  const n  = Math.max(2, Math.round((cfg.depth || 150) / bh));
+  const slopeAng = (cfg.slope || 65) * Math.PI / 180;
+  const berm = cfg.berm == null ? 7 : cfg.berm;
+  const setback = bh / Math.tan(slopeAng);
+  const g = new THREE.Group();
+  /* 岩石贴图化：tex-bench（水平沉积层理 + 红褐铁矿 + 矿脉，2048px）让岩台阶有矿物颗粒与坡面起伏。
+     tint 让同一张贴图派生三档岩层色带（挂图后乘性着色，无贴图时退回兜底色）；
+     RingGeometry/CircleGeometry 的 UV 按各自外接矩形归一化 → 同一 repeat 下密度一致。 */
+  const orePit = (u, v, color, tint) => texMat(T('bench'), u, v, { color, tint, roughness:0.97, metalness:0.02 });
+  const benchMats = [ orePit(20, 20, 0x8b6a4f, 0xcbb096), orePit(20, 20, 0x7f7260, 0xb4a48c), orePit(20, 20, 0x96856d, 0xd8c2ac) ];
+  const wallMat = orePit(40, 6, 0x6b5f4e, 0xb09878);  // 坡面：u 沿圆周 / v 沿高度
+  wallMat.side = THREE.BackSide;                      // 背向坑心一面看不见，省一半像素
+  const roadGeos = [], lineGeos = [];
+  let rPrev = rx;
+  for (let i = 1; i <= n; i++){
+    const y = -i * bh;
+    const rNext = rPrev - (i === 1 ? 0 : berm) - setback;
+    // 坡面（背向坑心一面看不见，BackSide 省一半像素）；首级坡面上端略露出地表，避免与地面共面闪面
+    const wallH = bh + (i === 1 ? 0.5 : 0);
+    const wall = new THREE.Mesh(new THREE.CylinderGeometry(rPrev, rNext, wallH, 72, 1, true), wallMat);
+    wall.position.y = y + bh / 2 + (i === 1 ? 0.25 : 0);
+    wall.castShadow = false; wall.receiveShadow = true;
+    g.add(wall);
+    // 台阶平台（安全平台）
+    const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(4, rNext - berm), rNext, 72).rotateX(-Math.PI / 2),
+      benchMats[i % benchMats.length]);
+    ring.position.y = y + 0.03; ring.castShadow = false; ring.receiveShadow = true;
+    g.add(ring);
+    // 台阶运输道路（环带 + 双黄边线，最后合并成 2 个 Mesh）
+    if (cfg.benchRoads !== false){
+      const rr = rNext - berm / 2, rw = 5;
+      const road = new THREE.RingGeometry(rr - rw, rr + rw, 72).rotateX(-Math.PI / 2);
+      road.translate(0, y + 0.07, 0); roadGeos.push(road);
+      for (const s of [-1, 1]){
+        const ln = new THREE.RingGeometry(rr + s * (rw - 1.2) - 0.5, rr + s * (rw - 1.2) + 0.5, 72).rotateX(-Math.PI / 2);
+        ln.translate(0, y + 0.1, 0); lineGeos.push(ln);
+      }
+      // 台阶安全护栏：平台临空侧连续横杆 + 立柱（每级合并，共 2×N 个 Mesh）
+      const railR = rr - rw - 0.8;
+      const rail = new THREE.Mesh(new THREE.RingGeometry(railR - 0.18, railR + 0.18, 72).rotateX(-Math.PI / 2),
+        mat(0xd8b423, { metalness:0.3, roughness:0.55, envMapIntensity:0.2 }));
+      rail.position.y = y + 1.05; rail.castShadow = false; rail.receiveShadow = true; g.add(rail);
+      const postGeos = [];
+      for (let k = 0; k < 24; k++){
+        const a = k / 24 * Math.PI * 2;
+        postGeos.push(new THREE.CylinderGeometry(0.1, 0.1, 1.05, 6)
+          .translate(Math.cos(a) * railR, y + 0.52, Math.sin(a) * railR));
+      }
+      g.add(new THREE.Mesh(mergeGeometries(postGeos),
+        mat(0xc9a227, { metalness:0.3, roughness:0.55, envMapIntensity:0.2 })));
+    }
+    rPrev = rNext - berm;
+  }
+  if (roadGeos.length) g.add(new THREE.Mesh(mergeGeometries(roadGeos), texMat(T('asphalt'), 24, 24, { color:0x3a4046, roughness:0.94, metalness:0.03 })));
+  if (lineGeos.length) g.add(new THREE.Mesh(mergeGeometries(lineGeos), mat(0xc2a134, { roughness:0.8 })));
+  // 坑底
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(Math.max(4, rPrev), 72).rotateX(-Math.PI / 2), orePit(16, 16, 0x8b7c66, 0xbfaf98));
+  floor.position.y = -n * bh + 0.03; floor.castShadow = false; floor.receiveShadow = true;
+  g.add(floor);
+  // 地表境界：crest 安全矮堤（斜坡面 + 顶面，盖住地面洞口边缘）
+  const crest = new THREE.Mesh(new THREE.RingGeometry(rx + 2, rx + 5.5, 72).rotateX(-Math.PI / 2),
+    orePit(10, 10, 0x7a6e5c, 0xb0a086));
+  crest.position.y = 1.15; crest.castShadow = false; crest.receiveShadow = true; g.add(crest);
+  const crestWall = new THREE.Mesh(new THREE.CylinderGeometry(rx + 5.5, rx + 2, 1.15, 72, 1, true),
+    orePit(30, 1, 0x6e6455, 0xa89478));
+  crestWall.material.side = THREE.DoubleSide;
+  crestWall.position.y = 0.575; crestWall.castShadow = false; crestWall.receiveShadow = true; g.add(crestWall);
+  g.scale.set(1, 1, rz / rx);                       // 圆 → 椭圆（不缩放 y）
+  g.userData.noCS = true;                           // 巨构：整片接触阴影不合比例
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  return shade(g, false);
+}
+
+/* --- 斜坡道（露天矿运输干线）：沿三维折线生成条带路面 + 双黄边线 --- */
+function buildRamp(cfg){
+  const pts = (cfg.points || []).map(p => new THREE.Vector3().fromArray(p));
+  if (pts.length < 2) return new THREE.Group();
+  const curve = new THREE.CatmullRomCurve3(pts);
+  const W = cfg.width || 24, g = new THREE.Group();
+  const len = curve.getLength();
+  const N = Math.max(24, Math.round(len / 8));
+  const up = new THREE.Vector3(0, 1, 0);
+  const ribbon = (halfW, yOff, offset) => {
+    const pos = [], uvs = [], idx = [];
+    for (let i = 0; i <= N; i++){
+      const t = i / N, p = curve.getPointAt(t), tan = curve.getTangentAt(t).normalize();
+      const side = new THREE.Vector3().crossVectors(tan, up).normalize();
+      const c = p.clone().addScaledVector(side, offset || 0);
+      const a = c.clone().addScaledVector(side, -halfW), b = c.clone().addScaledVector(side, halfW);
+      pos.push(a.x, a.y + yOff, a.z, b.x, b.y + yOff, b.z);
+      uvs.push(0, t * (len / 12), 1, t * (len / 12));
+    }
+    for (let i = 0; i < N; i++){ const o = i * 2; idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2); }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(idx); geo.computeVertexNormals();
+    return geo;
+  };
+  const road = new THREE.Mesh(ribbon(W / 2, 0.05, 0),
+    texMat(T('asphalt'), 1, 1, { color:0x3a4046, roughness:0.94, metalness:0.03 }));
+  road.receiveShadow = true; g.add(road);
+  for (const s of [-1, 1]){
+    const edge = new THREE.Mesh(ribbon(0.6, 0.1, s * (W / 2 - 1.2)), mat(0xc2a134, { roughness:0.8 }));
+    g.add(edge);
+  }
+  for (const s of [-1, 1]){                            // 轮胎磨痕：重车反复压出的深色带（黄线内侧）
+    const rut = new THREE.Mesh(ribbon(1.9, 0.07, s * (W / 2 - 5.6)), mat(0x23262b, { roughness:0.96, metalness:0.02 }));
+    rut.receiveShadow = true; g.add(rut);
+  }
+  g.userData.noCS = true;
+  return shade(g, false);
+}
+
+/* --- 电铲（矿用单斗挖掘机）：履带底盘 + 回转体 + 起重臂 + 斗杆 + 铲斗，带作业动画 --- */
+function buildExcavator(cfg){
+  const g = new THREE.Group();
+  const mY = mat(0xe3a92f, { metalness:0.25, roughness:0.6, envMapIntensity:0.3 });   // 主机黄
+  const mD = texMat(T('track'), 8, 3, { color:0x2c333c, metalness:0.2, roughness:0.9, envMapIntensity:0.12 }); // 履带 / 机构（波纹钢板）
+  const mG = glassMat();
+  for (const sx of [-1, 1]){                                      // 履带底盘
+    const tr = new THREE.Mesh(rbox(2.8, 1.9, 10.5, 0.55), mD);
+    tr.position.set(sx * 3.0, 1.05, -0.7); g.add(tr);
+    const roll = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 2.6, 12).rotateZ(Math.PI / 2), mD);
+    roll.position.set(sx * 3.0, 1.05, 3.9); g.add(roll);
+  }
+  const deck = new THREE.Mesh(rbox(8.6, 1.5, 9.2, 0.4), mD);      // 回转平台
+  deck.position.y = 2.2; g.add(deck);
+  const swing = new THREE.Group(); swing.position.y = 2.95; g.add(swing);
+  const house = new THREE.Mesh(rbox(7.2, 3.8, 8.2, 0.55), mY);    // 机房
+  house.position.set(0, 1.9, -1.1); swing.add(house);
+  const cw = new THREE.Mesh(rbox(7.4, 3.2, 3.2, 0.45), mD);       // 配重箱
+  cw.position.set(0, 1.8, -5.4); swing.add(cw);
+  const cab = new THREE.Mesh(rbox(3.6, 3.2, 3.8, 0.4), mY);       // 驾驶室
+  cab.position.set(0, 4.4, 1.4); swing.add(cab);
+  const glass = new THREE.Mesh(rbox(3.2, 1.8, 3.4, 0.2), mG);
+  glass.position.set(0, 4.9, 1.6); swing.add(glass);
+  const arm = new THREE.Group(); arm.position.set(0, 3.4, 3.8); swing.add(arm);
+  const boom = new THREE.Mesh(rbox(2.0, 10.5, 2.6, 0.3), mY);     // 起重臂（前上方 60°）
+  boom.rotation.x = Math.PI / 3; boom.position.set(0, 5.25, 0); arm.add(boom);
+  const stick = new THREE.Group(); stick.position.set(0, 5.25, 9.09); arm.add(stick);
+  const stickBox = new THREE.Mesh(rbox(1.7, 8.0, 2.2, 0.25), mY); // 斗杆（前下方）
+  stickBox.rotation.x = 2.36; stickBox.position.set(0, 4.0, 0); stick.add(stickBox);
+  const bucket = new THREE.Group(); bucket.position.set(0, -5.66, 5.66); stick.add(bucket);
+  const tubMat = new THREE.MeshStandardMaterial({ color:0x6a737d, metalness:0.72, roughness:0.38, side:THREE.DoubleSide, envMapIntensity:0.50 });
+  PBR_MATS.push(tubMat);
+  const tub = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.15, 2.9, 6, 1, true), tubMat);  // 铲斗
+  tub.rotation.x = Math.PI / 2 - 0.35; tub.position.set(0, 0.2, 0.5); bucket.add(tub);
+  for (const tx of [-1.1, 0, 1.1]){                                // 斗齿
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.9, 6), mD);
+    tooth.position.set(tx, -0.9, 1.7); tooth.rotation.x = Math.PI - 0.5; bucket.add(tooth);
+  }
+  swing.add(rodBetween(new THREE.Vector3(0, 5.4, -1.6), new THREE.Vector3(0, 5.0, 6.2), 0.42, mY)); // 大臂油缸
+  arm.add(rodBetween(new THREE.Vector3(0, 8.6, 3.4), new THREE.Vector3(0, 8.4, 5.6), 0.38, mY));    // 斗杆油缸
+  if (cfg.scale) g.scale.setScalar(cfg.scale);
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = cfg.rotation * Math.PI / 180;
+  movers.push({ kind:'excavator', swing, stick, bucket,
+    baseSwing: swing.rotation.y, baseStick: stick.rotation.x, baseBucket: bucket.rotation.x,
+    phase: (cfg.phase || 0) * Math.PI });
+  return shade(g);
+}
+
+/* --- 牙轮钻机（穿孔爆破）：履带底盘 + 钻架 + 钻杆钻头，带高频微振动 --- */
+function buildDrill(cfg){
+  const g = new THREE.Group();
+  const mY = mat(0xe3a92f, { metalness:0.25, roughness:0.6, envMapIntensity:0.3 });
+  const mD = texMat(T('track'), 8, 3, { color:0x2c333c, metalness:0.2, roughness:0.9, envMapIntensity:0.12 });
+  const mG = glassMat();
+  for (const sx of [-1, 1]){
+    const tr = new THREE.Mesh(rbox(1.5, 1.5, 8.0, 0.4), mD);
+    tr.position.set(sx * 1.7, 0.9, -0.5); g.add(tr);
+  }
+  const body = new THREE.Mesh(rbox(3.2, 2.2, 7.5, 0.4), mY);
+  body.position.y = 2.6; g.add(body);
+  const cab = new THREE.Mesh(rbox(2.6, 2.4, 2.8, 0.35), mY);
+  cab.position.set(0, 5.0, -2.6); g.add(cab);
+  const glass = new THREE.Mesh(rbox(2.2, 1.3, 2.4, 0.2), mG);
+  glass.position.set(0, 5.3, -2.6); g.add(glass);
+  const mast = new THREE.Group(); mast.position.set(0, 3.6, 0.4); g.add(mast);
+  const mastBox = new THREE.Mesh(rbox(1.6, 13, 1.6, 0.25), mat(0xb98a2e, { metalness:0.5, roughness:0.45 }));
+  mastBox.position.y = 6.5; mast.add(mastBox);
+  for (const sx of [-1, 1]){
+    const rail = new THREE.Mesh(rbox(0.18, 12.5, 0.5, 0.05), mD);
+    rail.position.set(sx * 0.9, 6.3, -0.3); mast.add(rail);
+  }
+  const head = new THREE.Mesh(rbox(2.2, 1.6, 2.2, 0.3), mD);     // 顶部回转器
+  head.position.set(0, 13.2, -0.35); mast.add(head);
+  const steel = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6.5, 10),
+    mat(0x8d969e, { metalness:0.7, roughness:0.35 }));            // 钻杆
+  steel.position.set(0, 8.4, 0.9); steel.rotation.x = 0.3; mast.add(steel);
+  const bit = new THREE.Mesh(new THREE.ConeGeometry(0.55, 1.2, 10), mat(0x707a85, { metalness:0.8, roughness:0.35 }));
+  bit.position.set(0, 5.2, 1.9); bit.rotation.x = Math.PI - 0.3; mast.add(bit);
+  const cyl = rodBetween(new THREE.Vector3(0, 3.2, -1.8), new THREE.Vector3(0, 8.0, -0.6), 0.34, mY); // 起塔油缸
+  g.add(cyl);
+  if (cfg.scale) g.scale.setScalar(cfg.scale);
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = cfg.rotation * Math.PI / 180;
+  movers.push({ kind:'drill', mast, baseY: mast.position.y, baseRX: mast.rotation.x,
+    phase: (cfg.phase || 0) * 6 });
+  return shade(g);
+}
+
+/* --- 矿用自卸卡车（刚性矿卡）：六轮（前小后大双轴）+ 自卸车厢 + 装载状态 --- */
+function buildHaulTruck(cfg){
+  const g = new THREE.Group();
+  const mY = mat(cfg.color || 0xe3a92f, { metalness:0.25, roughness:0.55, envMapIntensity:0.3 });
+  const mD = texMat(T('track'), 8, 3, { color:0x2c333c, metalness:0.25, roughness:0.9, envMapIntensity:0.12 });
+  const mG = glassMat();
+  const frame = new THREE.Mesh(rbox(15.5, 1.5, 7.6, 0.3), mD);   // 车架
+  frame.position.y = 2.7; g.add(frame);
+  const wf = new THREE.CylinderGeometry(1.85, 1.85, 1.05, 16).rotateZ(Math.PI / 2);
+  const wr = new THREE.CylinderGeometry(2.8, 2.8, 1.3, 16).rotateZ(Math.PI / 2);
+  const hubF = new THREE.CylinderGeometry(0.9, 0.9, 1.1, 10).rotateZ(Math.PI / 2);
+  const hubR = new THREE.CylinderGeometry(1.3, 1.3, 1.36, 10).rotateZ(Math.PI / 2);
+  for (const [x, y, z, big] of [[5.8, 1.85, 3.4, 0], [5.8, 1.85, -3.4, 0],
+      [-1.4, 2.8, 3.55, 1], [-1.4, 2.8, -3.55, 1], [-5.4, 2.8, 3.55, 1], [-5.4, 2.8, -3.55, 1]]){
+    const w = new THREE.Mesh(big ? wr : wf, mD); w.position.set(x, y, z); g.add(w);
+    const h = new THREE.Mesh(big ? hubR : hubF, mat(0x8d969e, { metalness:0.3, roughness:0.55, envMapIntensity:0.2 }));
+    h.position.set(x, y, z); g.add(h);
+  }
+  const bodyG = new THREE.Group(); bodyG.position.set(-1.4, 3.45, 0); g.add(bodyG);
+  const floor = new THREE.Mesh(rbox(11.8, 0.5, 7.2, 0.15), mD); floor.position.y = 0.25; bodyG.add(floor);
+  const sideGeo = rbox(11.8, 4.8, 0.35, 0.12);
+  for (const sz of [1, -1]){
+    const s = new THREE.Mesh(sideGeo, mY); s.position.set(0, 2.65, sz * 3.55); bodyG.add(s);
+  }
+  const front = new THREE.Mesh(rbox(0.35, 4.8, 7.2, 0.12), mY);
+  front.position.set(5.7, 2.65, 0); bodyG.add(front);
+  const rear = new THREE.Mesh(rbox(0.35, 2.4, 7.2, 0.12), mY);   // 后挡板（自卸矮栏）
+  rear.position.set(-5.7, 1.45, 0); bodyG.add(rear);
+  if (cfg.loaded !== false){
+    const oreMat = texMat(T('ore'), 1.5, 1.5, { roughness:0.95, metalness:0.02 });
+    const ore = new THREE.Mesh(rbox(9.8, 3.0, 6.4, 0.3), oreMat);
+    ore.position.set(-0.9, 2.0, 0); bodyG.add(ore);
+    const oreTop = new THREE.Mesh(rbox(6.0, 1.2, 4.6, 0.25), oreMat);   // 堆尖：两级堆更接近真车装载
+    oreTop.position.set(-0.9, 3.5, 0); bodyG.add(oreTop);
+  }
+  const cab = new THREE.Mesh(rbox(4.0, 3.8, 5.4, 0.5), mY);
+  cab.position.set(6.6, 5.9, 0); g.add(cab);
+  const cg = new THREE.Mesh(rbox(3.4, 2.1, 4.8, 0.25), mG);
+  cg.position.set(6.6, 6.3, 0); g.add(cg);
+  const stack = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 3.6, 8), mD);
+  stack.position.set(4.0, 8.2, 2.6); g.add(stack);
+  const fueltank = new THREE.Mesh(rbox(2.2, 1.4, 5.2, 0.3), mD);
+  fueltank.position.set(3.2, 3.6, -3.4); g.add(fueltank);
+  if (cfg.path && cfg.path.length > 1){
+    movers.push({ kind:'vehicle', obj:g,
+      curve:new THREE.CatmullRomCurve3(cfg.path.map(p => new THREE.Vector3().fromArray(p))),
+      t:(cfg.phase == null ? 0 : cfg.phase), speed:(cfg.speed || 10) / 600 });
+  }
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = cfg.rotation * Math.PI / 180;
+  return shade(g);
+}
+
+/* --- 半移动破碎站：受料漏斗 + 破碎腔 + 出料皮带 + 单梁吊车 + 爬梯 --- */
+function buildCrusher(cfg){
+  const g = new THREE.Group();
+  const mC = texMat(T('wallConcrete'), 3, 2, { color:0x9aa0a8, roughness:0.88, metalness:0.08 });
+  const mS = texMat(T('wallSteel'), 3, 2, { color:0x7a8694, metalness:0.85, roughness:0.35, envMapIntensity:0.60 });
+  const mD = texMat(T('wallSteel'), 2, 2, { color:0x3a424c, metalness:0.85, roughness:0.40, envMapIntensity:0.50 });
+  const base = new THREE.Mesh(rbox(28, 2.6, 17, 0.4), mC);
+  base.position.y = 1.3; g.add(base);
+  for (const [dx, dz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]){
+    const col = new THREE.Mesh(rbox(1.8, 8.5, 1.8, 0.2), mS);
+    col.position.set(dx * 11, 6.8, dz * 6); g.add(col);
+  }
+  const hopper = new THREE.Mesh(new THREE.CylinderGeometry(8.5, 3.4, 7.5, 4, 1, true), mD);  // 受料漏斗
+  hopper.rotation.y = Math.PI / 4; hopper.position.y = 12.2; g.add(hopper);
+  const lip = new THREE.Mesh(new THREE.TorusGeometry(8.7, 0.45, 8, 4), mS);                  // 斗沿
+  lip.rotation.x = Math.PI / 2; lip.rotation.z = Math.PI / 4; lip.position.y = 15.9; g.add(lip);
+  const cham = new THREE.Mesh(rbox(10, 6.5, 9, 0.6), mS);                                    // 破碎腔
+  cham.position.y = 6.8; g.add(cham);
+  for (const ry of [4.6, 6.8, 9.0]){
+    const rib = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.3, 9.4), mD);
+    rib.position.y = ry; g.add(rib);
+  }
+  const belt = new THREE.Mesh(rbox(12, 0.7, 3.6, 0.2), mD);                                  // 出料皮带
+  belt.position.set(13.5, 5.0, 5.0); belt.rotation.z = -0.42; g.add(belt);
+  const crane = new THREE.Mesh(new THREE.BoxGeometry(26, 0.9, 1.2), mS);                     // 单梁吊车
+  crane.position.y = 17.6; g.add(crane);
+  const trolley = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.6, 2.4), mat(0xe3a92f, { metalness:0.3, roughness:0.5, envMapIntensity:0.25 }));
+  trolley.position.set(-4, 16.4, 0); g.add(trolley);
+  for (let i = 0; i < 10; i++){                                                              // 检修爬梯
+    const step = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 0.16), mD);
+    step.position.set(-13.2, 2 + i * 1.5, 7.4); g.add(step);
+  }
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = (cfg.rotation || 0) * Math.PI / 180;
+  if (cfg.dust !== false){                       // 扬尘：受料口翻料粉尘 + 出料皮带端转载粉尘
+    const cp = new THREE.Vector3().fromArray(cfg.position || [0, 0, 0]);
+    const rot = (cfg.rotation || 0) * Math.PI / 180;
+    makeDust(new THREE.Vector3(cp.x, cp.y + 13.5, cp.z), { count: 46, spread: 9, rise: 16, size: 11, opacity: 0.6 });
+    const beltLocal = new THREE.Vector3(19.5, 0, 5.0).applyAxisAngle(new THREE.Vector3(0, 1, 0), rot);
+    makeDust(new THREE.Vector3(cp.x + beltLocal.x, cp.y + 5.5, cp.z + beltLocal.z),
+      { count: 22, spread: 3.5, rise: 7, size: 6, opacity: 0.5, drift: 0.9 });
+  }
+  return shade(g);
+}
+
+/* --- 排土场：多层截锥台阶 + 顶部排土线亮色岩面 --- */
+function buildDump(cfg){
+  const R = cfg.radius || 130, H = cfg.height || 46, steps = cfg.steps || 4;
+  const g = new THREE.Group();
+  const rocks = [ texMat(T('bench'), 8, 3, { color:0x7d7263, tint:0xc0a888, roughness:0.98, metalness:0.02 }),
+                  texMat(T('bench'), 8, 3, { color:0x6e6455, tint:0xa89070, roughness:0.98, metalness:0.02 }),
+                  texMat(T('bench'), 8, 3, { color:0x8b7f6d, tint:0xc8b494, roughness:0.98, metalness:0.02 }) ];
+  const h = H / steps;
+  let r = R;
+  for (let i = 0; i < steps; i++){
+    const r2 = R * (1 - (i + 1) / (steps + 0.6));
+    const step = new THREE.Mesh(new THREE.CylinderGeometry(r2, r, h, 30), rocks[i % rocks.length]);
+    step.position.y = (i + 0.5) * h; step.castShadow = true; step.receiveShadow = true; g.add(step);
+    const edge = new THREE.Mesh(new THREE.RingGeometry(r2, r, 30).rotateX(-Math.PI / 2),
+      texMat(T('bench'), 7, 7, { color:0x9a8d78, tint:0xd4c0a0, roughness:0.98, metalness:0.02 }));  // 新排土线（亮一档）
+    edge.position.y = (i + 1) * h + 0.04; g.add(edge);
+    r = r2;
+  }
+  const top = new THREE.Mesh(new THREE.CircleGeometry(r, 30).rotateX(-Math.PI / 2), rocks[2]);
+  top.position.y = H + 0.03; g.add(top);
+  g.userData.noCS = true;
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.dust !== false){                       // 扬尘：排土线卸载粉尘（大团、缓升）
+    const dp = new THREE.Vector3().fromArray(cfg.position || [0, 0, 0]);
+    makeDust(new THREE.Vector3(dp.x, dp.y + H * 0.9, dp.z),
+      { count: 54, spread: R * 0.55, rise: 24, size: 18, opacity: 0.5, riseSpeed: 0.85, drift: 1.2 });
+  }
+  return shade(g);
+}
+
+/* --- 高杆灯塔：灯杆 + 四联灯头（夜间自发光，矿坑夜间照明） --- */
+function buildLightTower(cfg){
+  const H = cfg.height || 28, g = new THREE.Group();
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 1.2, 12), mat(0x6e7680, { metalness:0.4, roughness:0.6 }));
+  base.position.y = 0.6; g.add(base);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.85, H, 10), mat(0x9aa4ad, { metalness:0.5, roughness:0.5, envMapIntensity:0.2 }));
+  mast.position.y = H / 2 + 1.2; g.add(mast);
+  const head = new THREE.Group(); head.position.y = H + 1.2; g.add(head);
+  const frame = new THREE.Mesh(rbox(4.6, 0.5, 1.4, 0.15), mat(0x3a3f45, { metalness:0.5 }));
+  head.add(frame);
+  for (const sx of [-1.5, -0.5, 0.5, 1.5]){
+    const lamp = new THREE.Mesh(rbox(0.8, 0.5, 1.0, 0.1),
+      mat(0xfff3d0, { emissive:0xffe9a8, emissiveIntensity:0.85, roughness:0.4 }));
+    lamp.position.set(sx, -0.4, 0); lamp.rotation.x = 0.5; head.add(lamp);
+  }
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = (cfg.rotation || 0) * Math.PI / 180;
+  return shade(g);
+}
+
+/* --- 推土机：履带 + 车体 + 驾驶室 + 直推铲（可调倾角）+ 刀齿 + 推臂 --- */
+function buildDozer(cfg){
+  const g = new THREE.Group();
+  const mY = mat(cfg.color || 0xe3a92f, { metalness:0.25, roughness:0.6, envMapIntensity:0.3 });
+  const mD = texMat(T('track'), 8, 3, { color:0x2c333c, metalness:0.2, roughness:0.9, envMapIntensity:0.12 });
+  const mG = glassMat();
+  for (const sz of [1, -1]){
+    const tr = new THREE.Mesh(rbox(1.5, 1.7, 7.0, 0.45), mD);
+    tr.position.set(sz * 1.55, 0.95, -0.3); g.add(tr);
+  }
+  const body = new THREE.Mesh(rbox(3.2, 2.2, 6.0, 0.4), mY);
+  body.position.y = 2.6; g.add(body);
+  const cab = new THREE.Mesh(rbox(2.7, 2.5, 2.9, 0.35), mY);
+  cab.position.set(0, 4.8, -0.6); g.add(cab);
+  const glass = new THREE.Mesh(rbox(2.3, 1.4, 2.5, 0.2), mG);
+  glass.position.set(0, 5.2, -0.6); g.add(glass);
+  const blade = new THREE.Group(); blade.position.set(0, 1.6, 3.6); g.add(blade);
+  const plate = new THREE.Mesh(rbox(7.2, 3.4, 0.55, 0.2), mD);
+  plate.position.set(0, 1.4, 0.1);
+  plate.rotation.x = (cfg.blade == null ? 0.85 : cfg.blade) * Math.PI / 180;
+  blade.add(plate);
+  for (const tx of [-2.6, -1.3, 0, 1.3, 2.6]){
+    const tooth = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.7, 5), mD);
+    tooth.position.set(tx, -0.5, 0.3); tooth.rotation.x = Math.PI; blade.add(tooth);
+  }
+  for (const sz of [1, -1]){
+    g.add(rodBetween(new THREE.Vector3(sz * 1.5, 3.4, 1.6), new THREE.Vector3(sz * 2.4, 2.6, 3.5), 0.32, mY));
+  }
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  if (cfg.rotation) g.rotation.y = cfg.rotation * Math.PI / 180;
+  return shade(g);
+}
+
+/* --- 沉淀池（矿坑水 / 洗车水处理）：围堰 + 半透明水面 --- */
+function buildPond(cfg){
+  const r = cfg.radius || 40, g = new THREE.Group();
+  const levee = new THREE.Mesh(new THREE.RingGeometry(r, r + 6, 40).rotateX(-Math.PI / 2),
+    texMat(T('ground'), 4, 4, { color:0x6b6152, roughness:0.98, metalness:0.02 }));
+  levee.position.y = 1.6; g.add(levee);
+  const wall = new THREE.Mesh(new THREE.CylinderGeometry(r + 6, r + 6, 1.6, 40, 1, true),
+    texMat(T('ground'), 4, 1, { color:0x5d5446, roughness:0.98, metalness:0.02, side:THREE.DoubleSide }));
+  wall.position.y = 0.8; g.add(wall);
+  const mud = new THREE.Mesh(new THREE.CircleGeometry(r - 1, 40).rotateX(-Math.PI / 2),
+    texMat(T('ground'), 6, 6, { color:0x4a443a, roughness:0.99 }));
+  mud.position.y = 0.25; g.add(mud);
+  const water = new THREE.Mesh(new THREE.CircleGeometry(r - 1, 40).rotateX(-Math.PI / 2), glassMat());
+  water.material.color.set(0x2f6f8a); water.material.opacity = 0.72;
+  water.position.y = 1.15; g.add(water);
+  g.userData.noCS = true;
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  return shade(g, false);
+}
+
+/* --- 边坡 GNSS 监测桩：立杆 + 设备箱 + 太阳能板 + 天线 --- */
+function buildMonitor(cfg){
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.22, 4.2, 8), mat(0x9aa4ad, { metalness:0.6 }));
+  pole.position.y = 2.1; g.add(pole);
+  const box = new THREE.Mesh(rbox(1.1, 1.4, 0.8, 0.12), mat(0xdfe6ee, { metalness:0.3, roughness:0.5 }));
+  box.position.set(0, 1.2, 0.5); g.add(box);
+  const panel = new THREE.Mesh(rbox(1.6, 0.12, 1.1, 0.04), mat(0x152c46, { metalness:0.6, roughness:0.2,
+    emissive:0x081a2c, emissiveIntensity:0.18 }));
+  panel.position.set(0, 3.4, 0.3); panel.rotation.x = -0.5; g.add(panel);
+  const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.6, 6), mat(0x8d969e, { metalness:0.7 }));
+  ant.position.set(0.4, 5.0, 0.2); g.add(ant);
+  const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 6),
+    mat(0xff4d4f, { emissive:0xff4d4f, emissiveIntensity:1.2 }));
+  beacon.position.set(0.4, 5.85, 0.2); g.add(beacon);
+  g.position.fromArray(cfg.position || [0, 0, 0]);
+  return shade(g);
+}
+
+/* 参与业务统计的资产数（排除 ambient 环境配景） */
+function countAssets(){ let n = 0; for (const r of assets.values()) if (!r.ambient) n++; return n; }
+
+/* 确定性伪随机：同一 seed 每次刷新结果一致（避免配景「每次打开都不一样」） */
+function seeded(seed){ let s = (seed || 1) % 233280; return () => { s = (s*9301 + 49297) % 233280; return s/233280; }; }
+
+const BUILDERS = { warehouse:buildWarehouse, office:buildOffice, rack:buildRack, yard:buildYard, tank:buildTank,
+                   silo:buildSilo, pipeline:buildPipeline, conveyor:buildConveyor,
+                   vehicle:buildVehicle, haulTruck:buildHaulTruck, box:buildBox,
+                   tree:buildTree, grove:buildGrove, road:buildRoad, lawn:buildLawn,
+                   pallet:buildPallet,
+                   parking:buildParking, lamp:buildLamp, lampRow:buildLampRow, zone:buildZone,
+                   dock:buildDock, gate:buildGate, fence:buildFence, solar:buildSolar,
+                   pit:buildPit, ramp:buildRamp, excavator:buildExcavator, drill:buildDrill,
+                   crusher:buildCrusher, dump:buildDump, lightTower:buildLightTower,
+                   dozer:buildDozer, pond:buildPond, monitor:buildMonitor };
+
+
+/* =========================================================================
+ * 5. 告警标记（扩散环 + 光柱 + 告警标签）
+ * ========================================================================= */
+const alertGroup = new THREE.Group(); scene.add(alertGroup);
+const alertRings = [];
+function buildAlertMarker(cfg){
+  const s = st(cfg.status), g = new THREE.Group();
+  const ring = new THREE.Mesh(new THREE.RingGeometry(5, 7.5, 40),
+    new THREE.MeshBasicMaterial({ color:s.color, transparent:true, opacity:0.8, side:THREE.DoubleSide,
+      blending:THREE.AdditiveBlending, depthWrite:false }));
+  ring.rotation.x = -Math.PI/2; ring.position.y = 0.6; g.add(ring);
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 70, 10, 1, true),
+    new THREE.MeshBasicMaterial({ color:s.color, transparent:true, opacity:0.16,
+      blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide }));
+  beam.position.y = 35; g.add(beam);
+  alertRings.push({ ring, t:Math.random() });
+  return g;
+}
+function refreshAlerts(){
+  alertGroup.clear(); alertRings.length = 0;
+  for (const a of (CONFIG.alerts || [])){
+    const rec = assets.get(a.deviceId);
+    if (!rec) continue;
+    const box = new THREE.Box3().setFromObject(rec.object3d);
+    const pos = new THREE.Vector3((box.min.x+box.max.x)/2, box.max.y, (box.min.z+box.max.z)/2);
+    const g = buildAlertMarker({ status: a.level === 'critical' ? 'alarm' : 'warn' });
+    g.position.copy(pos); alertGroup.add(g);
+  }
+  alertGroup.visible = alarmOn;
+}
+
+/* =========================================================================
+ * 6. 场景装配（建筑 → 设备 → GLTF → 告警）
+ * ========================================================================= */
+for (const cfg of (CONFIG.buildings || [])){
+  const b = (BUILDERS[cfg.type] || buildBox)(cfg);
+  attachAsset(cfg, b);
+  applyStatus(cfg.id, cfg.status || 'normal');
+}
+for (const cfg of (CONFIG.devices || [])){
+  const d = (BUILDERS[cfg.type] || buildBox)(cfg);
+  attachAsset(cfg, d);
+  applyStatus(cfg.id, cfg.status || 'normal');
+}
+
+/* --- 阴影相机按场景实际包围盒收紧：固定 ±300m/2048 对 600m 场地 = 0.29m/像素，边缘全糊 --- */
+function tuneShadowCamera(){
+  const box = new THREE.Box3();
+  for (const r of assets.values()) if (!r.ambient) box.expandByObject(r.object3d);
+  if (box.isEmpty()) return;
+  const c = box.getCenter(new THREE.Vector3());
+  const radius = box.getSize(new THREE.Vector3()).length() * 0.5;
+  const dist = Math.max(420, radius * 2.2);
+  sun.position.copy(c).addScaledVector(sunDirVec(), dist);
+  sun.target.position.copy(c); sun.target.updateMatrixWorld(); scene.add(sun.target);
+  const s = Math.max(140, radius * 1.05);
+  const cam = sun.shadow.camera;
+  cam.left = -s; cam.right = s; cam.top = s; cam.bottom = -s;
+  cam.near = Math.max(1, dist - s * 1.6); cam.far = dist + s * 1.6;
+  cam.updateProjectionMatrix();
+}
+tuneShadowCamera();
+
+const manager = new THREE.LoadingManager();
+manager.onProgress = (u, loaded, total) => setProgress(total ? loaded/total : 1);
+const gltfLoader = new GLTFLoader(manager);
+try {
+  // 必须把共享 manager 传给 DRACOLoader：decoder 文件由 FileLoader 加载，
+  // 而 FileLoader 走 manager.resolveURL —— URL modifier 才能把请求改写为 data URI
+  const draco = new DRACOLoader(manager);
+  const EMBED_DRACO = window.__TWIN_DRACO__;   // scaffold 在检测到 Draco 压缩模型时注入
+  if (EMBED_DRACO) {
+    manager.setURLModifier((url) => {
+      if (url.indexOf('draco_wasm_wrapper.js') >= 0) return EMBED_DRACO.wrapper;
+      if (url.indexOf('draco_decoder.wasm') >= 0)   return EMBED_DRACO.wasm;
+      return url;                                  // 其余请求（含 glb 的 data URI）原样放行
+    });
+  } else {
+    draco.setDecoderPath((window.__TWIN_CDN__ || 'https://unpkg.com/three@0.160.0/') + 'examples/jsm/libs/draco/');
+  }
+  gltfLoader.setDRACOLoader(draco);
+} catch (e) { /* DRACO 不可用时静默降级为普通 GLTF */ }
+
+const modelTasks = (CONFIG.models || []).map(m => new Promise(res => {
+  if (!m.url){ res(); return; }
+  /* v0.11：模型去重查表。同一 GLB 常被引用多次（集装箱 ×14），内联时只存一份，
+     加载前按原路径还原成 data URI（无映射时保持原样，--no-inline 模式照常工作）*/
+  if (window.__TWIN_MODEL_URI__ && window.__TWIN_MODEL_URI__[m.url]) m.url = window.__TWIN_MODEL_URI__[m.url];
+  const onOk = (gltf) => {
+      const obj = gltf.scene;
+      obj.userData.glbRoot = true;                    // v0.11：整棵 GLB 子树豁免距离剔除
+      obj.position.fromArray(m.position || [0,0,0]);
+      obj.rotation.y = (m.rotation || 0) * Math.PI/180;
+      obj.scale.setScalar(m.scale || 1);
+      shade(obj);
+      /* GLB 材质并入环境反射登记表。不做这步的话，GLTFLoader 自建的材质拿不到
+         skyEnvMap —— 真实模型在白天场景里会比周围程序化资产暗一截（实测储罐黑成一坨，
+         因为程序化资产都有 0.15 的 IBL，模型却是"裸"的）。envMapIntensity 保留 GLTF
+         自带值；applyEnvMaps 会把默认 1 压到 0.15 与全场统一。 */
+      obj.traverse(o => {
+        if (!o.isMesh || !o.material) return;
+        const list = Array.isArray(o.material) ? o.material : [o.material];
+        for (const mm of list){
+          if ((!mm.isMeshStandardMaterial && !mm.isMeshPhysicalMaterial) || PBR_MATS.includes(mm)) continue;
+          PBR_MATS.push(mm);
+          if (skyEnvMap){ mm.envMap = skyEnvMap; mm.needsUpdate = true; }
+        }
+      });
+      attachAsset(m, obj);
+      applyStatus(m.id, m.status || 'normal');
+      res();
+  };
+  const onErr = () => { console.warn('[twin] GLTF 加载失败，回退程序化占位：' + m.url);
+      const fb = Object.assign({}, m.fallback || { type:'box', size:[6,10,4] }, { id:m.id, name:m.name, status:m.status, position:m.position });
+      attachAsset(m, buildBox(fb)); applyStatus(m.id, m.status || 'normal'); res(); };
+  if (m.url.startsWith('data:')) {
+    /* 严格 CSP 下 connect-src 会拦 data: 的 fetch/XHR —— 直接解码后走
+       gltfLoader.parse()，模型加载完全不经过网络栈（离线 + 严格 CSP 通吃） */
+    try {
+      const b64 = m.url.slice(m.url.indexOf(',') + 1);
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      gltfLoader.parse(bytes.buffer, '', onOk, onErr);
+    } catch (e) { onErr(); }
+  } else {
+    gltfLoader.load(m.url, onOk, undefined, onErr);
+  }
+}));
+Promise.all(modelTasks).then(() => { tuneShadowCamera(); refreshAlerts(); setProgress(1); });
+
+/* =========================================================================
+ * 7. 状态高亮：emissive 着色 + 告警呼吸
+ * ========================================================================= */
+function applyStatus(id, status){
+  const rec = assets.get(id); if (!rec) return;
+  rec.cfg.status = status;
+  const c = new THREE.Color(st(status).color);
+  rec.object3d.traverse(o => {
+    if (!o.isMesh || !o.material) return;
+    const list = Array.isArray(o.material) ? o.material : [o.material];
+    for (const m of list){
+      if (!m.emissive) continue;
+      if (m.userData.baseEmissive === undefined) m.userData.baseEmissive = m.emissive.getHex();
+      m.emissive.copy(c);
+      m.emissiveIntensity = (status === 'normal') ? 0.0 : (status === 'off' ? 0.0 : 0.45);
+    }
+  });
+  if (rec.tagEl){
+    const s = st(status);
+    rec.tagEl.innerHTML = '<span>' + (rec.cfg.name || rec.cfg.id) + '</span>' +
+      '<span class="s ' + s.cls + '">' + s.text + '</span>';
+    rec.tagEl.classList.toggle('alarm', status === 'alarm');
+  }
+  renderDeviceList();
+}
+
+/* =========================================================================
+ * 8. 点击拾取 / 悬浮提示 / 选中框
+ * ========================================================================= */
+const ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
+let hovered = null;                                    // selected / helper 已在第 3 节提前声明
+const tip = document.getElementById('tip');
+
+function pickAt(clientX, clientY){
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((clientX - r.left) / r.width) * 2 - 1;
+  pointer.y = -((clientY - r.top) / r.height) * 2 + 1;
+  ray.setFromCamera(pointer, camera);
+  const hits = ray.intersectObjects(pickables, false);
+  return hits.length ? hits[0] : null;
+}
+function setHover(mesh){
+  if (hovered === mesh) return;
+  if (hovered){
+    const m = hovered.material;
+    if (m && m.emissive && hovered.userData.hoverSaved !== undefined) m.emissiveIntensity = hovered.userData.hoverSaved;
+  }
+  hovered = mesh;
+  if (mesh){
+    const m = mesh.material;
+    if (m && m.emissive){ mesh.userData.hoverSaved = m.emissiveIntensity; m.emissiveIntensity = 0.9; }
+    document.body.style.cursor = 'pointer';
+  } else document.body.style.cursor = '';
+}
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (patrol.playing) return;
+  const hit = pickAt(e.clientX, e.clientY);
+  setHover(hit ? hit.object : null);
+  if (hit){
+    const id = hit.object.userData.assetId, rec = assets.get(id);
+    if (rec){
+      tip.style.display = 'block';
+      tip.style.left = (e.clientX + 14) + 'px';
+      tip.style.top  = (e.clientY + 14) + 'px';
+      const ms = (rec.cfg.metrics || []).slice(0,3).map(x => x.label + '：' + x.value).join('<br/>');
+      tip.innerHTML = '<b>' + (rec.cfg.name || id) + '</b> <span class="m">' + st(rec.cfg.status).text + '</span>' +
+        (ms ? '<div class="m" style="margin-top:4px">' + ms + '</div>' : '');
+    }
+  } else tip.style.display = 'none';
+});
+renderer.domElement.addEventListener('pointerleave', () => { tip.style.display = 'none'; setHover(null); });
+renderer.domElement.addEventListener('click', (e) => {
+  const hit = pickAt(e.clientX, e.clientY);
+  if (hit) selectAsset(hit.object.userData.assetId, true); else selectAsset(null);
+});
+
+function selectAsset(id, fly = false){
+  if (helper){ scene.remove(helper); helper.geometry.dispose(); helper = null; }
+  selected = id; renderDeviceList();
+  const box = document.getElementById('ui-info');
+  if (!id || !assets.has(id)){
+    box.innerHTML = '<div class="empty">点击场景中的设备<br/>或左侧清单查看详情</div>';
+    return;
+  }
+  const rec = assets.get(id), cfg = rec.cfg, s = st(cfg.status);
+  let html = '<div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:2px">' + (cfg.name || id) + '</div>' +
+    '<div style="font-size:11px;color:var(--txt-3);margin-bottom:8px">' + id + ' · ' + (cfg.type || '—') + '</div>' +
+    '<div class="prop"><span class="k">状态</span><span class="v" style="color:' + s.css + '">' + s.text + '</span></div>' +
+    '<div class="prop"><span class="k">坐标</span><span class="v">' +
+      (cfg.position ? cfg.position.map(v => v.toFixed(1)).join(', ') : '—') + '</span></div>';
+  for (const m of (cfg.metrics || [])){
+    html += '<div class="mt"><span style="color:var(--txt-2)">' + m.label + '</span>' +
+      '<span class="bar"><i style="width:' + (m.pct == null ? 100 : Math.max(2, Math.min(100, m.pct))) + '%"></i></span>' +
+      '<span style="color:#fff">' + m.value + '</span></div>';
+  }
+  const als = (CONFIG.alerts || []).filter(a => a.deviceId === id);
+  if (als.length){
+    html += '<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px">';
+    for (const a of als){
+      html += '<div style="font-size:12px;color:' + (a.level === 'critical' ? 'var(--crit)' : 'var(--warn)') +
+        '">● ' + a.time + '　' + a.text + '</div>';
+    }
+    html += '</div>';
+  }
+  box.innerHTML = html;
+  helper = new THREE.BoxHelper(rec.object3d, 0x00e5ff);
+  scene.add(helper);
+  if (fly) flyTo(rec.object3d);
+}
+document.getElementById('ui-close').onclick = () => selectAsset(null);
+
+function flyTo(obj){
+  const box = new THREE.Box3().setFromObject(obj);
+  const center = box.getCenter(new THREE.Vector3());
+  const size = Math.max(box.getSize(new THREE.Vector3()).length(), 20);
+  const dir = new THREE.Vector3().subVectors(camera.position, center).normalize();
+  tween = { from:camera.position.clone(), to:center.clone().add(dir.multiplyScalar(size*1.5)),
+            tFrom:controls.target.clone(), tTo:center, t:0, dur:0.9 };
+}
+
+/* =========================================================================
+ * 9. 漫游巡检：路径曲线 + 播放控制
+ * ========================================================================= */
+const patrol = { playing:false, t:0, speed:1, curve:null, target:new THREE.Vector3() };
+if (CONFIG.patrol && CONFIG.patrol.enabled && (CONFIG.patrol.waypoints || []).length > 1){
+  patrol.curve = new THREE.CatmullRomCurve3(
+    CONFIG.patrol.waypoints.map(p => new THREE.Vector3(p[0], p[1] != null ? p[1] : (CONFIG.patrol.height || 40), p[2])), true);
+}
+function updatePatrol(dt){
+  if (!patrol.playing || !patrol.curve) return;
+  patrol.t += dt * patrol.speed / Math.max(6, CONFIG.patrol.duration);
+  if (patrol.t > 1){ if (CONFIG.patrol.loop) patrol.t -= 1; else { stopPatrol(); return; } }
+  camera.position.copy(patrol.curve.getPointAt(patrol.t));
+  const look = patrol.curve.getPointAt((patrol.t + 0.02) % 1).clone();
+  look.lerp(patrol.target, 0.55);
+  camera.lookAt(look);
+}
+function startPatrol(){
+  if (!patrol.curve) return;
+  patrol.playing = true; controls.enabled = false; tip.style.display = 'none';
+  patrol.target.set(0, 8, 0);
+  document.getElementById('btn-play').classList.add('on');
+  document.getElementById('btn-play').textContent = '❚❚ 停止巡检';
+}
+function stopPatrol(){
+  patrol.playing = false; controls.enabled = true;
+  controls.target.copy(patrol.target.lengthSq() ? patrol.target : new THREE.Vector3().fromArray(CONFIG.camera.target));
+  controls.update();
+  const b = document.getElementById('btn-play');
+  b.classList.remove('on'); b.textContent = '▶ 巡检漫游';
+}
+function resetCamera(){
+  stopPatrol(); patrol.t = 0;
+  camera.position.fromArray(CONFIG.camera.position);
+  controls.target.fromArray(CONFIG.camera.target);
+  controls.update();
+}
+function fitView(){
+  const box = new THREE.Box3();
+  for (const rec of assets.values()){ if (rec.ambient) continue; box.expandByObject(rec.object3d); }
+  if (box.isEmpty()) return;
+  const center = box.getCenter(new THREE.Vector3()), size = box.getSize(new THREE.Vector3()).length();
+  controls.target.copy(center);
+  camera.position.copy(center.clone().add(new THREE.Vector3(0.6, 0.55, 0.9).normalize().multiplyScalar(size*0.85)));
+  controls.update();
+}
+
+/* =========================================================================
+ * 10. HUD 渲染 + 交互按钮 + 数据刷新（Mock / HTTP）
+ * ========================================================================= */
+function renderKpis(){
+  const el = document.getElementById('ui-kpis');
+  el.innerHTML = (CONFIG.kpis || []).map(k =>
+    '<div class="kpi"><div class="v">' + k.value + '<small>' + (k.unit || '') + '</small></div>' +
+    '<div class="l">' + k.label + '</div></div>').join('');
+}
+function renderDeviceList(){
+  const el = document.getElementById('ui-devs');
+  const rows = [];
+  for (const rec of assets.values()){
+    if (rec.ambient) continue;               // 环境配景不进设备清单
+    const s = st(rec.cfg.status);
+    rows.push('<div class="dev' + (selected === rec.cfg.id ? ' on' : '') + '" data-id="' + rec.cfg.id + '">' +
+      '<span class="dot" style="background:' + s.css + '"></span>' +
+      '<span class="nm">' + (rec.cfg.name || rec.cfg.id) + '</span>' +
+      '<span class="st">' + s.text + '</span></div>');
+  }
+  el.innerHTML = rows.join('');
+  el.querySelectorAll('.dev').forEach(d => d.onclick = () => selectAsset(d.dataset.id, true));
+}
+function renderTop(){
+  document.getElementById('ui-title').textContent = CONFIG.meta.title;
+  document.getElementById('ui-sub').textContent   = CONFIG.meta.subtitle;
+  document.getElementById('ui-scene').textContent = '场景：' + CONFIG.sceneType;
+  const m = document.getElementById('ui-mode');
+  m.textContent = '数据模式：' + (CONFIG.dataSource.mode === 'http' ? '接口' : 'Mock');
+  m.className = 'chip ' + (CONFIG.dataSource.mode === 'http' ? 'live' : 'mock');
+  document.getElementById('ui-count').textContent = '资产：' + countAssets();
+}
+renderKpis(); renderDeviceList(); renderTop();
+
+/* alarmOn / wireOn / labelOn 已在第 3 节随 CONFIG 初始化 */
+document.getElementById('btn-play').onclick  = () => patrol.playing ? stopPatrol() : startPatrol();
+document.getElementById('btn-reset').onclick = resetCamera;
+document.getElementById('btn-fit').onclick   = fitView;
+document.getElementById('btn-label').onclick = (e) => {
+  labelOn = !labelOn; e.target.classList.toggle('on', labelOn);
+  for (const rec of assets.values()) if (rec.tagObj) rec.tagObj.visible = labelOn;
+};
+document.getElementById('btn-alarm').onclick = (e) => {
+  alarmOn = !alarmOn; e.target.classList.toggle('on', alarmOn); alertGroup.visible = alarmOn;
+};
+document.querySelectorAll('.wbtn').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.wbtn').forEach(x => x.classList.remove('on'));
+  b.classList.add('on');
+  applyWeather(b.dataset.w);                 // 白天/黄昏/夜晚 走真实天空贴图，科技 走深色渐变
+});
+
+document.getElementById('btn-wire').onclick = (e) => {
+  wireOn = !wireOn; e.target.classList.toggle('on', wireOn);
+  scene.traverse(o => { if (o.isMesh && o.material && 'wireframe' in o.material) o.material.wireframe = wireOn; });
+};
+const sp = document.getElementById('ui-speed');
+sp.oninput = () => { patrol.speed = parseFloat(sp.value); document.getElementById('ui-speed-v').textContent = patrol.speed + '×'; };
+
+/* --- 数据层：Mock 优先，接口可替换 --- */
+function mockTick(){
+  for (const k of (CONFIG.kpis || [])){
+    const num = parseFloat(String(k.value).replace(/,/g, ''));
+    if (!isNaN(num)){
+      const next = Math.max(0, num * (1 + (Math.random() - 0.48) * 0.06));
+      k.value = (num % 1 === 0 ? Math.round(next) : next.toFixed(1)).toLocaleString('en-US');
+    }
+  }
+  renderKpis();
+  const ids = [...assets.keys()];
+  if (ids.length){
+    const id = ids[Math.floor(Math.random()*ids.length)];
+    const pick = Math.random();
+    applyStatus(id, pick > 0.9 ? 'warn' : (pick > 0.985 ? 'alarm' : 'normal'));
+  }
+}
+async function pullRemote(){
+  const ds = CONFIG.dataSource;
+  if (ds.mode !== 'http') return;
+  try {
+    if (ds.http.metrics){
+      const r = await fetch(ds.http.metrics); const j = await r.json();
+      if (Array.isArray(j.kpis)) { CONFIG.kpis = j.kpis; renderKpis(); }
+    }
+    if (ds.http.alerts){
+      const r = await fetch(ds.http.alerts); const j = await r.json();
+      if (Array.isArray(j.alerts)) { CONFIG.alerts = j.alerts; refreshAlerts(); renderDeviceList(); }
+    }
+  } catch (err){ console.warn('[twin] 接口拉取失败，保持 Mock：', err); mockTick(); }
+}
+let timer = null;
+function startTimer(){
+  if (timer) clearInterval(timer);
+  const ms = CONFIG.dataSource.refreshMs || 8000;
+  timer = setInterval(() => { CONFIG.dataSource.mode === 'http' ? pullRemote() : mockTick(); }, ms);
+}
+startTimer();
+
+/* =========================================================================
+ * 11. 主循环 + 自适应 + 生命周期
+ * ========================================================================= */
+const clock = new THREE.Clock();
+let frames = 0, fpsT = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+  if (document.hidden) return;                       // 后台暂停，别烧显卡
+
+  if (tween){
+    tween.t += dt / tween.dur;
+    const k = Math.min(1, tween.t), e = 1 - Math.pow(1 - k, 3);
+    camera.position.lerpVectors(tween.from, tween.to, e);
+    controls.target.lerpVectors(tween.tFrom, tween.tTo, e);
+    if (k >= 1) tween = null;
+  }
+  updatePatrol(dt);
+  for (const mv of movers){
+    if (mv.kind === 'flow') mv.tex.offset.x -= dt * mv.speed;
+    else if (mv.kind === 'vehicle'){
+      mv.t += dt * mv.speed;
+      if (mv.t > 1) mv.t -= 1;
+      const p = mv.curve.getPointAt(mv.t), q = mv.curve.getPointAt((mv.t + 0.01) % 1);
+      mv.obj.position.copy(p);
+      mv.obj.lookAt(q.x, mv.obj.position.y, q.z);
+      mv.obj.rotation.y += Math.PI/2;                // 车头（+X）对齐行进方向
+    }
+    else if (mv.kind === 'excavator'){               // 电铲作业：回转 + 斗杆/铲斗微动
+      const s = Math.sin(t * 0.22 + mv.phase);
+      mv.swing.rotation.y = mv.baseSwing + s * 0.42;
+      mv.stick.rotation.x = mv.baseStick + s * 0.16;
+      mv.bucket.rotation.x = mv.baseBucket + Math.sin(t * 0.22 + mv.phase + 1.5) * 0.26;
+    }
+    else if (mv.kind === 'drill'){                   // 钻机穿孔：钻架高频微振动
+      mv.mast.position.y = mv.baseY + Math.sin(t * 26 + mv.phase) * 0.045;
+      mv.mast.rotation.x = mv.baseRX + Math.sin(t * 26 + mv.phase) * 0.004;
+    }
+  }
+  for (const ds of dustSystems){                       // 扬尘：缓慢上浮 + 横向漂移 + 寿命循环
+    const pos = ds.pts.geometry.attributes.position;
+    for (let i = 0; i < ds.count; i++){
+      let y = pos.getY(i) + ds.rise * dt;
+      let x = pos.getX(i) + Math.sin(t * 0.6 + ds.seed + i * 0.7) * ds.drift * dt;
+      let z = pos.getZ(i) + Math.cos(t * 0.45 + ds.seed * 1.3 + i * 0.9) * ds.drift * dt;
+      if (y - ds.baseY > ds.maxRise){ y = ds.baseY; x = ds.bx[i]; z = ds.bz[i]; }
+      pos.setXYZ(i, x, y, z);
+    }
+    pos.needsUpdate = true;
+    ds.pts.material.opacity = ds.opacity * (curWeather === 'night' ? 0.4 : 1);
+  }
+  for (const r of alertRings){
+    r.t += dt * 0.75; if (r.t > 1) r.t -= 1;
+    r.ring.scale.setScalar(1 + r.t * 1.9);
+    r.ring.material.opacity = 0.75 * (1 - r.t);
+  }
+  for (const rec of assets.values()){
+    if (rec.cfg.status === 'alarm'){
+      rec.object3d.traverse(o => {
+        if (o.isMesh && o.material && o.material.emissive) o.material.emissiveIntensity = 0.35 + Math.abs(Math.sin(t*3)) * 0.55;
+      });
+    }
+  }
+  if (helper && selected && assets.has(selected)) helper.update();
+  controls.update();
+  /* v0.11 集显三件套：距离剔除 → 静态阴影按需刷新 → 掉帧自动降档 */
+  tickCull();
+  tickStaticShadow(dt);
+  governorTick(dt);
+  renderer.info.reset();                              // 手动托管：统计覆盖本帧全部 pass
+  if (composer) composer.render(dt); else renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+
+  frames++; fpsT += dt;
+  if (fpsT >= 0.5){
+    const fpsNow = Math.round(frames / fpsT);
+    document.getElementById('ui-perf').textContent =
+      'FPS ' + fpsNow + ' · 绘制 ' + renderer.info.render.calls + ' · 三角面 ' +
+      (renderer.info.render.triangles / 1000).toFixed(0) + 'k';
+    const chip = document.getElementById('ui-perf');
+    chip.style.color = fpsNow < 25 ? 'var(--crit)' : (fpsNow < 45 ? 'var(--warn)' : 'var(--txt-3)');
+    frames = 0; fpsT = 0;
+  }
+}
+animate();
+
+let rzTimer = null;
+function onResize(){
+  clearTimeout(rzTimer);
+  rzTimer = setTimeout(() => {
+    const w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.performance.maxPixelRatio));
+    renderer.setSize(w, h);
+    labelRenderer.setSize(w, h);
+    if (composer){                                    // 后处理链必须跟着 resize，否则画面被拉伸/裁切
+      composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, CONFIG.performance.maxPixelRatio));
+      composer.setSize(w, h);
+    }
+  }, 100);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', onResize);
+if (window.ResizeObserver) new ResizeObserver(onResize).observe(stage);
+
+let inited = false;
+function finishInit(){                                // 幂等：装配完成 / 兜底超时 都只会执行一次
+  if (inited) return; inited = true;
+  if (CONFIG.camera.autoFit !== false) fitView();
+  setupPostFX();                                      // 装配完成后再建链：GTAO 尺寸与场景尺度都对得上
+  buildCullList();                                    // v0.11：装配完才能扫到全部小零件
+  updateQualityChip(GPU.tier && CONFIG.performance.quality === 'auto' ? '自动' : '');
+  bindQualityUI();
+  renderDeviceList();
+  document.getElementById('loading').classList.add('off');
+  if (CONFIG.patrol && CONFIG.patrol.autoStart) startPatrol();
+}
+
+/* v0.11：档位切换交互（点击 chip 循环 / P 键 / 右键回自动） */
+function bindQualityUI(){
+  const el = document.getElementById('ui-tier');
+  if (!el) return;
+  el.addEventListener('click', () => {
+    const i = TIER_ORDER.indexOf(CURRENT_QUALITY);
+    const next = TIER_ORDER[(i + 1) % TIER_ORDER.length];
+    CONFIG.performance.quality = next;
+    applyQualityRuntime(next, '');
+  });
+  el.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    CONFIG.performance.quality = 'auto';
+    applyQualityRuntime(resolveQuality('auto'), '自动');
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'p' || e.key === 'P'){
+      const i = TIER_ORDER.indexOf(CURRENT_QUALITY);
+      const next = TIER_ORDER[(i + 1) % TIER_ORDER.length];
+      CONFIG.performance.quality = next;
+      applyQualityRuntime(next, '');
+    }
+  });
+}
+function setProgress(p){
+  document.getElementById('ldbar').style.width = Math.round(p*100) + '%';
+  document.getElementById('ldtxt').textContent = Math.round(p*100) + '%';
+  if (p >= 1) setTimeout(finishInit, 260);
+}
+setTimeout(() => setProgress(1), 1200);              // 无外部模型 / 网络慢时兜底放行
+
+/* 控制台调试入口：tw.CONFIG / tw.select('TANK-01') / tw.status('TANK-01','alarm') */
+window.tw = { CONFIG, scene, camera, renderer, controls, assets, selectAsset, applyStatus, applyWeather, fitView, refreshAlerts,
+  /* v0.3：后处理开关与实时调参。tw.setPostFX(false) 可一键对比"开/关 AO"的真实感差距 */
+  setPostFX,
+  setAO: (radius, intensity) => {
+    if (!gtaoPass) return false;
+    if (radius != null) gtaoPass.gtaoMaterial.uniforms.radius.value = radius;
+    if (intensity != null) gtaoPass.blendIntensity = intensity;
+    return true;
+  },
+  setBloom: (s, threshold) => {
+    if (!bloomPass) return false;
+    if (s != null) bloomPass.strength = s;
+    if (threshold != null) bloomPass.threshold = threshold;
+    return true;
+  },
+  setSSR: (intensity) => { if (!ssrPass) return false; if (intensity != null) ssrPass.opacity = intensity; return true; },
+  postfx: () => ({ on: !!composer, ao: !!gtaoPass, bloom: !!bloomPass, smaa: !!smaaPass, ssr: !!ssrPass }),
+  /* v0.11：画质档位（集显适配）。tw.setQuality('low') / tw.quality() 查当前状态
+     档位顺序 potato < low < medium < high < ultra，运行时可来回切（贴图分辨率除外）*/
+  setQuality: (name) => { CONFIG.performance.quality = name; return applyQualityRuntime(name, ''); },
+  quality: () => ({ current: CURRENT_QUALITY, label: QUALITY_TIERS[CURRENT_QUALITY].label,
+                    list: TIER_ORDER.slice(), gpu: GPU, pixelRatio: renderer.getPixelRatio(),
+                    autoQuality: !!CONFIG.performance.autoQuality, drops: GOVERNOR.drops,
+                    cullables: CULLABLES.length,
+                    culled: CULLABLES.reduce((n, c) => n + (c.vis ? 0 : 1), 0) }),
+  setAutoQuality: (on) => { CONFIG.performance.autoQuality = !!on; GOVERNOR.warmup = 0; GOVERNOR.ring.length = 0; return !!on; },
+  rebuildCull: () => { buildCullList(); return CULLABLES.length; }
+};
+</script>
+</body>
+</html>

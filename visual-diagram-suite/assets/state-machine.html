@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>状态机图 · State Machine Diagram</title>
+<!--
+  ============================================================================
+  状态机图骨架（单文件 · 零 CDN · 纯内联 CSS + 原生 JS）
+  ============================================================================
+  这是「状态流转」图：状态卡在网格里排列，转移用带事件标签的曲线箭头连接。
+
+  改法只有两步，绝不手写坐标：
+    ① 改状态：.grid 里增删 .st，状态必须给 data-cid 与配色类 c-*
+       （网格固定 6 列，用 <div class="cell-empty"></div> 占位断行）
+    ② 改转移：底部 TRANS 数组 —— {from, to, on:'事件名', side:['出边','进边']}
+
+  side 可选：出/进边取 'r' 右 / 'l' 左 / 't' 上 / 'b' 下。不写则自动判定。
+  ⚠️ 同一状态同一侧有多条出边时，锚点会自动均分，不必手工调坐标。
+  ============================================================================
+-->
+<style>
+:root{
+  --ink:#1F2937; --ink2:#4B5563; --ink3:#8A93A0;
+  --line:#E3E7EE; --paper:#FFFFFF; --canvas:#F1F4F9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  color:var(--ink); padding:22px 26px 26px; -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  width:1740px; margin:0 auto; background:var(--paper);
+  border-radius:16px; padding:30px 30px 22px;
+  box-shadow:0 10px 34px rgba(23,42,77,.10), 0 2px 8px rgba(23,42,77,.05);
+}
+
+/* ---------- 头部 ---------- */
+.hd{border-bottom:1.6px solid var(--line); padding-bottom:15px; margin-bottom:24px;}
+.hd h1{font-size:25px; margin:0 0 8px; letter-spacing:.4px; font-weight:800;}
+.hd .sub{font-size:13px; color:var(--ink2); margin:0; line-height:1.6;}
+.hd .sub b{color:#2C6FBE; font-weight:800;}
+.hd .legend{display:flex; flex-wrap:wrap; gap:9px 20px; margin-top:14px;}
+.lg{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink2); font-weight:600;}
+.lg .sw{width:26px; height:0; border-top-width:2px; border-top-style:solid;}
+.lg .sw.dash{border-top-style:dashed;}
+
+/* ---------- 画布与状态网格 ---------- */
+.canvas{position:relative; padding:26px 6px 30px;}
+svg.edges{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; z-index:1;}
+.elabel{
+  font-size:10.5px; font-weight:800; fill:#4B5563; font-family:inherit;
+  paint-order:stroke; stroke:#FFFFFF; stroke-width:3.5px; stroke-linejoin:round;
+}
+
+.grid{position:relative; z-index:3; display:grid; grid-template-columns:repeat(6,1fr); gap:56px 20px;}
+
+.st{
+  border:1.6px solid var(--c,#C9D2DE); background:var(--cbg,#FBFCFE);
+  border-radius:10px; padding:11px 10px; text-align:center;
+  min-height:56px; display:flex; flex-direction:column; justify-content:center;
+}
+.st .sn{font-size:12.5px; font-weight:800; color:var(--c,#374151); letter-spacing:.2px;}
+.st .sd{font-size:10px; color:var(--ink3); margin-top:3px; font-weight:700;}
+
+/* 起始节点：实心圆点 */
+.st.st-init{
+  width:48px; height:48px; min-height:0; padding:0; border-radius:50%;
+  justify-self:center; align-self:center;
+  background:#1F2937; border-color:#1F2937;
+}
+.st.st-init .sn{color:#fff; font-size:16px; line-height:1;}
+
+/* 终态：双线边框 */
+.st.st-final{border-width:1.6px; box-shadow:inset 0 0 0 3px var(--cbg), inset 0 0 0 4.6px var(--c);}
+
+.cell-empty{visibility:hidden;}
+
+/* ---------- 状态配色类（务必与正文引用一一对应） ---------- */
+.c-blue  {--c:#2C6FBE; --cbg:#F3F8FE;}
+.c-teal  {--c:#2E9E8F; --cbg:#F1FAF8;}
+.c-purple{--c:#7C5CBF; --cbg:#F8F5FE;}
+.c-amber {--c:#C98A1F; --cbg:#FEFAF0;}
+.c-coral {--c:#D16B65; --cbg:#FEF7F6;}
+.c-gold  {--c:#C2803A; --cbg:#FDF8F0;}
+.c-sky   {--c:#4AA3D8; --cbg:#F2F9FD;}
+.c-red   {--c:#C0504D; --cbg:#FDF3F2;}
+.c-grey  {--c:#8A93A0; --cbg:#F7F8FA;}
+
+/* ---------- 页脚注 ---------- */
+.notes{border-top:1.6px solid var(--line); margin-top:22px; padding-top:14px;}
+.notes p{font-size:11.5px; color:var(--ink2); margin:0 0 7px; line-height:1.72;}
+.notes p:last-child{margin-bottom:0;}
+.notes p b{color:#2C6FBE;}
+.notes .no{
+  display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+  border-radius:50%; background:#EAF1FB; color:#2C6FBE; font-size:10px; font-weight:800;
+  margin-right:6px; vertical-align:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="hd">
+    <h1>套保委托指令 · 状态机图</h1>
+    <p class="sub">
+      <b>10</b> 个状态 · <b>10</b> 条转移 · <b>4</b> 个终态 · 覆盖柜台拒单与报单失败
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="border-color:#2C6FBE"></span>正常流转</span>
+      <span class="lg"><span class="sw" style="border-color:#C0504D"></span>异常分支</span>
+      <span class="lg"><span class="sw" style="border-color:#8A93A0"></span>终止 / 回退</span>
+    </div>
+  </div>
+
+  <div class="canvas">
+    <svg class="edges">
+      <defs>
+        <marker id="ar-ok"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2C6FBE"/></marker>
+        <marker id="ar-err"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#C0504D"/></marker>
+        <marker id="ar-end"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8A93A0"/></marker>
+      </defs>
+      <g id="paths"></g>
+    </svg>
+
+    <!-- ① 状态：固定 6 列网格，用 .cell-empty 占位断行 -->
+    <div class="grid">
+      <div class="st st-init" data-cid="init"><div class="sn">●</div></div>
+      <div class="st c-grey"   data-cid="draft"><div class="sn">草稿</div><div class="sd">未提交</div></div>
+      <div class="st c-purple" data-cid="pending"><div class="sn">待提交</div><div class="sd">已锁额度</div></div>
+      <div class="st c-amber"  data-cid="submitted"><div class="sn">已报</div><div class="sd">柜台已受理</div></div>
+      <div class="st c-sky"    data-cid="partial"><div class="sn">部分成交</div><div class="sd">未成交余量挂单</div></div>
+      <div class="st c-teal st-final" data-cid="filled"><div class="sn">全部成交</div><div class="sd">终态</div></div>
+
+      <div class="cell-empty"></div>
+      <div class="st c-red"  data-cid="failed"><div class="sn">报单失败</div><div class="sd">可重试</div></div>
+      <div class="st c-red st-final"  data-cid="rejected"><div class="sn">已拒绝</div><div class="sd">柜台拒单 · 终态</div></div>
+      <div class="st c-grey st-final" data-cid="expired"><div class="sn">已过期</div><div class="sd">有效期届满 · 终态</div></div>
+      <div class="st c-grey st-final" data-cid="canceled"><div class="sn">已撤单</div><div class="sd">终态</div></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <p><span class="no">①</span>「已报」可同时走向 <b>部分成交 / 柜台拒单 / 有效期届满</b> 三个分支，实盘中必须全部实现——只画成功路径的状态机是不完整的。</p>
+    <p><span class="no">②</span>「报单失败」<b>不是终态</b>，可退回复核重试；「已过期」「已拒绝」「已撤单」才是不可逆终态。</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  // ② 转移：side = ['出边','进边']，取 r/l/t/b
+  var TRANS = [
+    { from: 'init',      to: 'draft',     on: '创建',       side: ['r', 'l'], kind: 'ok'  },
+    { from: 'draft',     to: 'pending',   on: '提交',       side: ['r', 'l'], kind: 'ok'  },
+    { from: 'pending',   to: 'submitted', on: '报盘',       side: ['r', 'l'], kind: 'ok'  },
+    { from: 'submitted', to: 'partial',   on: '部分成交',   side: ['r', 'l'], kind: 'ok'  },
+    { from: 'partial',   to: 'filled',    on: '全部成交',   side: ['r', 'l'], kind: 'ok'  },
+    { from: 'pending',   to: 'failed',    on: '报单失败',   side: ['b', 't'], kind: 'err' },
+    { from: 'submitted', to: 'rejected',  on: '柜台拒单',   side: ['b', 't'], kind: 'err' },
+    { from: 'submitted', to: 'expired',   on: '有效期届满', side: ['b', 't'], kind: 'end' },
+    { from: 'partial',   to: 'canceled',  on: '撤单',       side: ['b', 't'], kind: 'end' },
+    { from: 'failed',    to: 'pending',   on: '复核重试',   side: ['r', 'b'], kind: 'end' }
+  ];
+  var COLOR = { ok: '#2C6FBE', err: '#C0504D', end: '#8A93A0' };
+
+  var canvas = document.querySelector('.canvas');
+  var g = document.getElementById('paths');
+  if (!canvas || !g) return;
+
+  var C = canvas.getBoundingClientRect();
+  function boxOf(id) {
+    var el = document.querySelector('[data-cid="' + id + '"]');
+    if (!el) { console.warn('TRANS 里的 id 不存在:', id); return null; }
+    var r = el.getBoundingClientRect();
+    return {
+      l: r.left - C.left, t: r.top - C.top, r: r.right - C.left, b: r.bottom - C.top,
+      w: r.width, h: r.height,
+      cx: r.left - C.left + r.width / 2, cy: r.top - C.top + r.height / 2
+    };
+  }
+  function anchor(box, side, frac) {
+    if (side === 'r') return { x: box.r, y: box.t + box.h * frac, d: [1, 0] };
+    if (side === 'l') return { x: box.l, y: box.t + box.h * frac, d: [-1, 0] };
+    if (side === 't') return { x: box.l + box.w * frac, y: box.t,     d: [0, -1] };
+    return               { x: box.l + box.w * frac, y: box.b,     d: [0, 1] };
+  }
+  // 兜底判据（本骨架的转移都在 TRANS 里显式给了 side，这里只防漏填）
+  function autoSides(a, b) {
+    var dx = Math.abs(b.cx - a.cx), dy = Math.abs(b.cy - a.cy);
+    if (dy > dx) return b.cy > a.cy ? ['b', 't'] : ['t', 'b'];
+    return b.cx > a.cx ? ['r', 'l'] : ['l', 'r'];
+  }
+
+  var svgns = 'http://www.w3.org/2000/svg';
+
+  // 同一状态同一侧多条出边 → 自动均分锚点
+  var outCount = {};
+  var preparsed = TRANS.map(function (e) {
+    var a = boxOf(e.from), b = boxOf(e.to);
+    if (!a || !b) return null;
+    var sides = e.side || autoSides(a, b);
+    var key = e.from + '|' + sides[0];
+    outCount[key] = (outCount[key] || 0) + 1;
+    return { e: e, a: a, b: b, sides: sides, key: key };
+  });
+
+  var seen = {};
+  var drawn = 0;
+  preparsed.forEach(function (it) {
+    if (!it) return;
+    var e = it.e, kind = e.kind || 'ok';
+    var sOut = it.sides[0], sIn = it.sides[1];
+    var idx = (seen[it.key] = (seen[it.key] || 0) + 1);
+    var fracOut = outCount[it.key] > 1 ? idx / (outCount[it.key] + 1) : 0.5;
+
+    var p1 = anchor(it.a, sOut, fracOut);
+    var p2 = anchor(it.b, sIn, 0.5);
+    var dist = 52;
+    var c1 = { x: p1.x + p1.d[0] * dist, y: p1.y + p1.d[1] * dist };
+    var c2 = { x: p2.x + p2.d[0] * dist, y: p2.y + p2.d[1] * dist };
+
+    var p = document.createElementNS(svgns, 'path');
+    p.setAttribute('d', 'M' + p1.x + ',' + p1.y + ' C' + c1.x + ',' + c1.y + ' ' + c2.x + ',' + c2.y + ' ' + p2.x + ',' + p2.y);
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', COLOR[kind]);
+    p.setAttribute('stroke-width', '1.8');
+    if (kind === 'end') p.setAttribute('stroke-dasharray', '5 4');
+    p.setAttribute('marker-end', 'url(#ar-' + kind + ')');
+    g.appendChild(p);
+    drawn++;
+
+    if (e.on) {
+      var mx = (p1.x + 3 * c1.x + 3 * c2.x + p2.x) / 8;
+      var my = (p1.y + 3 * c1.y + 3 * c2.y + p2.y) / 8;
+      var t = document.createElementNS(svgns, 'text');
+      t.setAttribute('class', 'elabel');
+      t.setAttribute('x', mx); t.setAttribute('y', my);
+      t.setAttribute('text-anchor', 'middle');
+      t.textContent = e.on;
+      g.appendChild(t);
+    }
+  });
+
+  window.__DIAGRAM_STATS__ = {
+    type: 'statemachine',
+    nodes: document.querySelectorAll('.st').length,
+    edges: TRANS.length,
+    drawn: drawn
+  };
+  window.__DIAGRAM_READY__ = true;
+})();
+</script>
+</body>
+</html>

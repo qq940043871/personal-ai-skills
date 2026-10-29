@@ -1,0 +1,293 @@
+{
+  "title": "云港枢纽 · 智慧港口孪生平台",
+  "subtitle": "SMART PORT LOGISTICS DIGITAL TWIN PLATFORM",
+  "scene": "port",
+  "pulse": true,
+  "pulseInterval": 3200,
+  "panels": {
+    "left": [
+      {
+        "type": "kpi",
+        "title": "今日作业概览",
+        "note": "REAL-TIME",
+        "data": {
+          "items": [
+            {
+              "label": "集装箱吞吐",
+              "value": 12486,
+              "unit": "TEU",
+              "trend": 8.2
+            },
+            {
+              "label": "在泊船舶",
+              "value": 7,
+              "unit": "艘",
+              "trend": 1.0
+            },
+            {
+              "label": "岸桥效率",
+              "value": 32.4,
+              "unit": "箱/h",
+              "trend": 3.6
+            },
+            {
+              "label": "闸口通行",
+              "value": 2140,
+              "unit": "车次",
+              "trend": 4.4
+            }
+          ]
+        }
+      },
+      {
+        "type": "bars",
+        "title": "泊位作业进度",
+        "note": "%",
+        "data": {
+          "items": [
+            {
+              "name": "泊位 A-1",
+              "value": 86,
+              "color": "#22d3ee"
+            },
+            {
+              "name": "泊位 A-2",
+              "value": 64,
+              "color": "#3b82f6"
+            },
+            {
+              "name": "泊位 B-1",
+              "value": 92,
+              "color": "#2dd4bf"
+            },
+            {
+              "name": "泊位 B-2",
+              "value": 48,
+              "color": "#fbbf24"
+            }
+          ]
+        }
+      },
+      {
+        "type": "lineChart",
+        "title": "近 7 日吞吐量",
+        "note": "TEU",
+        "data": {
+          "labels": [
+            "周一",
+            "周二",
+            "周三",
+            "周四",
+            "周五",
+            "周六",
+            "周日"
+          ],
+          "series": [
+            {
+              "name": "进口",
+              "color": "#22d3ee",
+              "data": [
+                8200,
+                9100,
+                8600,
+                10200,
+                11800,
+                9600,
+                7400
+              ]
+            },
+            {
+              "name": "出口",
+              "color": "#a855f7",
+              "data": [
+                7600,
+                8200,
+                9400,
+                9800,
+                10600,
+                8800,
+                6900
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "rank",
+        "title": "堆场容量占用",
+        "note": "%",
+        "data": {
+          "items": [
+            {
+              "name": "A 区重箱堆场",
+              "value": 88,
+              "unit": "%"
+            },
+            {
+              "name": "B 区空箱堆场",
+              "value": 62,
+              "unit": "%"
+            },
+            {
+              "name": "C 区中转堆场",
+              "value": 74,
+              "unit": "%"
+            }
+          ]
+        }
+      }
+    ],
+    "right": [
+      {
+        "type": "ringGroup",
+        "title": "枢纽运行体征",
+        "data": {
+          "items": [
+            {
+              "label": "泊位利用率",
+              "value": 78,
+              "max": 100,
+              "color": "#22d3ee"
+            },
+            {
+              "label": "堆场周转",
+              "value": 65,
+              "max": 100,
+              "color": "#34d399"
+            },
+            {
+              "label": "设备完好",
+              "value": 94,
+              "max": 100,
+              "color": "#3b82f6"
+            },
+            {
+              "label": "闸口拥堵",
+              "value": 42,
+              "max": 100,
+              "color": "#fbbf24"
+            }
+          ]
+        }
+      },
+      {
+        "type": "entities",
+        "title": "岸桥实时状态",
+        "note": "CLICK TO LOCATE",
+        "data": {
+          "items": [
+            {
+              "id": "cr1",
+              "name": "岸桥 1# 泊位A",
+              "status": "run",
+              "value": 34,
+              "unit": "箱/h"
+            },
+            {
+              "id": "cr2",
+              "name": "岸桥 2# 泊位A",
+              "status": "run",
+              "value": 31,
+              "unit": "箱/h"
+            },
+            {
+              "id": "cr3",
+              "name": "岸桥 3# 泊位B",
+              "status": "warn",
+              "value": 22,
+              "unit": "箱/h"
+            },
+            {
+              "id": "cr4",
+              "name": "岸桥 4# 泊位B",
+              "status": "run",
+              "value": 29,
+              "unit": "箱/h"
+            }
+          ]
+        }
+      },
+      {
+        "type": "switches",
+        "title": "图层控制",
+        "data": {
+          "items": [
+            {
+              "id": "sea",
+              "label": "海面波浪",
+              "on": true
+            },
+            {
+              "id": "yard",
+              "label": "堆场箱区",
+              "on": true
+            },
+            {
+              "id": "crane",
+              "label": "岸桥机构",
+              "on": true
+            },
+            {
+              "id": "ship",
+              "label": "船舶动态",
+              "on": true
+            },
+            {
+              "id": "route",
+              "label": "航线飞线",
+              "on": true
+            },
+            {
+              "id": "truck",
+              "label": "集卡流转",
+              "on": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "alarms",
+        "title": "实时告警",
+        "note": "TOP 6",
+        "data": {
+          "items": []
+        }
+      }
+    ]
+  },
+  "alarms": [
+    {
+      "time": "10:36",
+      "name": "岸桥 3#",
+      "text": "起升机构振动异常，建议点检钢丝绳",
+      "level": "err"
+    },
+    {
+      "time": "10:22",
+      "name": "闸口 2",
+      "text": "集卡排队长度 12 辆，已加开通道",
+      "level": "warn"
+    },
+    {
+      "time": "10:05",
+      "name": "A 区堆场",
+      "text": "重箱区容量 88%，接近预警阈值",
+      "level": "warn"
+    },
+    {
+      "time": "09:48",
+      "name": "远洋轮 沪航 12",
+      "text": "已靠泊 A-1，预计作业 6.5 小时",
+      "level": "info"
+    },
+    {
+      "time": "09:20",
+      "name": "岸桥 2#",
+      "text": "完成本班次作业交接，状态良好",
+      "level": "info"
+    }
+  ],
+  "env": {
+    "timeOfDay": "dusk"
+  }
+}

@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__PRODUCT_NAME__ · 产品详情</title>
+<!--
+  ============================================================
+  B2B 产品详情页通用模板（html-b2b-portal skill 资产 v1.2）
+  换行业三步走：
+    1) 改 THEME（4 个品牌色，取自 industry-profiles.md）
+    2) 改 PLATFORM / INDUSTRY（计价单位、步进值）
+    3) 替换 PRODUCT（规格选项 specOptions）/ SUPPLIER / specTable /
+       reviews / certs / related（规格表字段从行业画像取 ≥6 行）
+  功能：图册切换 / 规格选择 / 数量步进 / 5 个 Tabs 真切换 /
+        相关推荐 / 移动端底部固定操作条
+  ============================================================
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{
+    /* 品牌色（兜底默认=钢铁；运行时由 JS THEME 覆盖） */
+    --primary:#1E3A5F; --primary-light:#E8EEF4; --primary-dark:#0F1D2F; --secondary:#FF6A00;
+    /* 强调色的可读文字变体（兜底值；运行时由 applyTheme 依 secondary 计算，均 ≥4.5:1） */
+    --secondary-text:#A64500;      /* 白底上的小字 / 配白字的底色 */
+    --secondary-on-dark:#FF9447;   /* 深色底上的小字 */
+    /* 行情语义色（固定）：涨红 / 跌绿 / 持平灰 */
+    --price-up:#E53E3E; --price-down:#38A169; --price-flat:#999999;
+    /* 功能色（固定）：成功 / 警告 / 错误——组件与 Toast 依赖，禁止省略 */
+    --success:#52C41A; --warning:#FAAD14; --error:#F5222D;
+    --text-primary:#333; --text-secondary:#666; --text-tertiary:#999; --text-price:#FF6600;
+    --background:#F8F8F8; --border:#E8E8E8;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08); --shadow-md:0 4px 12px rgba(0,0,0,.08); --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+    --radius-sm:4px; --radius:8px; --container:1200px;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;background:var(--background);color:var(--text-primary);}
+  .container-x{max-width:var(--container);margin:0 auto;padding:0 16px;}
+  @media (max-width:639px){ .container-x{padding:0 12px;} }
+  .card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:all .2s ease;}
+  .card-hover:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);}
+  .spec-tag{background:var(--primary-light);color:var(--primary);border-radius:var(--radius-sm);padding:2px 8px;font-size:12px;margin:0 4px 4px 0;display:inline-block;}
+  /* 规格选项块 */
+  .sp-opt{cursor:pointer;border:1px solid var(--border);border-radius:6px;padding:6px 14px;font-size:13px;color:var(--text-secondary);background:#fff;text-align:center;}
+  .sp-opt:hover{border-color:var(--primary);color:var(--primary);}
+  .sp-opt.sel{border-color:var(--primary);color:var(--primary);background:var(--primary-light);font-weight:600;}
+  /* 详情 Tabs */
+  .d-tab{cursor:pointer;padding:12px 24px;font-size:14px;color:var(--text-secondary);border-bottom:3px solid transparent;white-space:nowrap;}
+  .d-tab.sel{color:var(--primary);font-weight:600;border-bottom-color:var(--primary);}
+  /* 数量步进 */
+  .qty-box{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:6px;overflow:hidden;}
+  .qty-btn{width:36px;height:36px;padding:0;color:var(--text-secondary);cursor:pointer;background:#fff;user-select:none;}
+  .qty-btn:hover{color:var(--primary);}
+  .qty-input{width:80px;height:36px;text-align:center;border:none;border-left:1px solid var(--border);border-right:1px solid var(--border);outline:none;font-size:14px;}
+  /* 缩略图 */
+  .thumb{width:56px;height:56px;padding:0;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:2px solid transparent;}
+  .thumb.sel{border-color:var(--primary);}
+  /* 星级 */
+  .stars{color:#FAAD14;letter-spacing:2px;}
+  /* 移动端底部条（基础规则在媒体查询之前） */
+  #mobileBar{display:none;}
+  @media (max-width:767px){ body{padding-bottom:60px;} #mobileBar{display:flex;} }
+</style>
+</head>
+<body class="text-sm">
+
+<!-- Toast -->
+<div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[100] hidden">
+  <div class="px-4 py-2 rounded-lg text-sm shadow-lg" id="toastBody"></div>
+</div>
+
+<!-- ===== 顶部通栏 ===== -->
+<div style="background:var(--primary-dark);color:#C9D4E0;height:32px;">
+  <div class="container-x h-8 flex items-center justify-between text-xs">
+    <span><i class="fa fa-phone mr-1"></i>400-000-0000</span>
+    <div class="flex items-center gap-4">
+      <a class="hidden sm:inline hover:text-white cursor-pointer">手机版</a>
+      <span class="hidden sm:inline border-l border-white/20 pl-4"><a class="hover:text-white cursor-pointer">登录</a> / <a class="hover:text-white cursor-pointer">注册</a></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 粘性头部 ===== -->
+<header class="sticky top-0 z-50 bg-white shadow-sm">
+  <div class="container-x flex items-center gap-3 py-3">
+    <a class="flex items-center gap-2 shrink-0 cursor-pointer">
+      <div class="w-9 h-9 rounded flex items-center justify-center text-white" style="background:var(--primary);"><i class="fa fa-cube"></i></div>
+      <div class="text-xl font-semibold" style="color:var(--primary);" id="brandName">平台名</div>
+    </a>
+    <div class="flex-1">
+      <div class="relative">
+        <input id="searchInput" class="w-full h-10 border-2 rounded-lg pl-3 pr-20 text-sm outline-none" style="border-color:var(--primary);" placeholder="搜索">
+        <button onclick="doSearch()" class="absolute right-0 top-0 h-full px-5 text-white text-sm rounded-r-lg" style="background:var(--primary);"><i class="fa fa-search mr-1"></i>搜索</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-gray-500 shrink-0">
+      <div class="flex items-center gap-1 cursor-pointer"><i class="fa fa-file-invoice text-lg"></i><span class="hidden sm:inline">询价单</span><span class="text-white rounded-full px-1.5 text-[10px] leading-4" style="background:var(--secondary);" id="inquiryBadge">0</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 面包屑 ===== -->
+<div class="container-x pt-3 text-xs text-gray-400" id="breadcrumb"></div>
+
+<main class="container-x py-4">
+  <!-- ===== 主信息区 ===== -->
+  <div class="card p-4 lg:p-6 mb-4">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <!-- 左：图册 -->
+      <div class="lg:col-span-5">
+        <div class="rounded-lg flex items-center justify-center" style="height:320px;background:linear-gradient(135deg,var(--primary-light),#D6E2EE);">
+          <i id="mainIcon" class="fa fa-layer-group text-8xl" style="color:#9DB4CC;"></i>
+        </div>
+        <div class="flex gap-2 mt-3" id="thumbs"></div>
+      </div>
+      <!-- 右：信息 -->
+      <div class="lg:col-span-7">
+        <h1 class="text-lg lg:text-xl font-semibold leading-relaxed" id="pTitle"></h1>
+        <div class="mt-3 rounded-lg px-4 py-3 flex items-end gap-3 flex-wrap" style="background:#FFF7F0;">
+          <span class="text-2xl lg:text-3xl font-bold" style="color:var(--text-price);" id="pPrice"></span>
+          <span class="text-xs text-gray-400 pb-1" id="pPriceNote"></span>
+        </div>
+        <div class="mt-3 flex flex-wrap" id="pTags"></div>
+        <!-- 规格选项（数据驱动） -->
+        <div id="specOptions" class="mt-4 grid gap-3"></div>
+        <!-- 数量 -->
+        <div class="mt-4 flex items-center gap-3 flex-wrap">
+          <span class="text-xs text-gray-400 w-14">采购数量</span>
+          <div class="qty-box">
+            <button type="button" class="qty-btn" onclick="changeQty(-1)">−</button>
+            <input id="qtyInput" class="qty-input" type="number">
+            <button type="button" class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
+          <span class="text-xs text-gray-400" id="qtyUnit"></span>
+        </div>
+        <!-- 交货地 -->
+        <div class="mt-4 flex items-center gap-3 flex-wrap text-xs text-gray-500">
+          <span class="text-gray-400 w-14">交货地</span>
+          <select class="h-9 border rounded px-2 bg-white" id="citySel"></select>
+          <span id="warehouse" class="text-gray-400"></span>
+        </div>
+        <!-- CTA -->
+        <div class="mt-6 flex gap-3 flex-wrap">
+          <button onclick="submitInquiry()" class="h-11 px-8 rounded-lg text-white font-medium" style="background:var(--primary);">立即询价</button>
+          <button onclick="addInquiry(this)" class="h-11 px-8 rounded-lg font-medium" style="border:1px solid var(--primary);color:var(--primary);">加入询盘</button>
+          <button onclick="fav(this)" class="h-11 w-11 rounded-lg text-gray-400" style="border:1px solid var(--border);" title="收藏"><i class="fa fa-star"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 供应商信息条 ===== -->
+  <div class="card p-4 mb-4 flex items-center gap-4 flex-wrap">
+    <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white text-lg shrink-0" style="background:var(--primary);"><i class="fa fa-warehouse"></i></div>
+    <div class="min-w-0">
+      <div class="font-semibold text-sm flex items-center gap-2" id="sName"></div>
+      <div class="text-xs mt-1 text-gray-400" id="sMeta"></div>
+    </div>
+    <div class="ml-auto flex gap-2 shrink-0">
+      <button class="h-9 px-4 rounded-lg text-white text-xs" style="background:var(--primary);" onclick="showToast('进入供应商店铺（原型演示）','info')">进入店铺</button>
+      <button class="h-9 px-4 rounded-lg border text-xs" onclick="showToast('正在接通供应商 IM（原型演示）','info')">立即联系</button>
+    </div>
+  </div>
+
+  <!-- ===== 详情 Tabs ===== -->
+  <div class="card mb-4">
+    <div class="flex border-b overflow-x-auto">
+      <button type="button" class="d-tab sel" onclick="switchTab(this,'tabDetail')">产品详情</button>
+      <button type="button" class="d-tab" onclick="switchTab(this,'tabSpec')">规格参数</button>
+      <button type="button" class="d-tab" onclick="switchTab(this,'tabTrade')">交易须知</button>
+      <button type="button" class="d-tab" onclick="switchTab(this,'tabReview')">评价（<span id="reviewCount"></span>）</button>
+      <button type="button" class="d-tab" onclick="switchTab(this,'tabCert')">企业资质</button>
+    </div>
+    <!-- 详情 -->
+    <div id="tabDetail" class="p-6 text-gray-600 leading-7">
+      <p id="detailText"></p>
+      <div class="mt-4 rounded-lg h-56 flex items-center justify-center" style="background:var(--primary-light);"><i class="fa fa-image text-4xl" style="color:#9DB4CC;"></i></div>
+    </div>
+    <!-- 规格参数表 -->
+    <div id="tabSpec" class="hidden p-6">
+      <table class="w-full text-sm border-collapse" id="specTable"></table>
+    </div>
+    <!-- 交易须知 -->
+    <div id="tabTrade" class="hidden p-6 text-gray-600 leading-7"></div>
+    <!-- 评价 -->
+    <div id="tabReview" class="hidden p-6 grid gap-4"></div>
+    <!-- 资质 -->
+    <div id="tabCert" class="hidden p-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="certBody"></div>
+    </div>
+  </div>
+
+  <!-- ===== 相关推荐 ===== -->
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold flex items-center gap-2"><span class="inline-block w-1.5 h-5 rounded" style="background:var(--primary);"></span>相关推荐</h2>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8" id="relatedGrid"></div>
+</main>
+
+<!-- ===== 移动端底部操作条 ===== -->
+<div id="mobileBar" class="fixed bottom-0 left-0 w-full h-[52px] bg-white border-t z-40 items-center px-3 gap-2">
+  <button class="flex flex-col items-center text-[11px] text-gray-500 px-2" onclick="showToast('接通客服（原型演示）','info')"><i class="fa fa-headset text-base"></i>客服</button>
+  <button class="flex flex-col items-center text-[11px] text-gray-500 px-2" onclick="fav(this)"><i class="fa fa-star text-base"></i>收藏</button>
+  <button class="flex-1 h-9 rounded text-white text-sm" style="background:var(--primary);" onclick="submitInquiry()">立即询价</button>
+</div>
+
+<script>
+/* ============================================================
+ * ① 行业主题（取自 industry-profiles.md）
+ * ============================================================ */
+var THEME = { primary:'#1E3A5F', primaryLight:'#E8EEF4', primaryDark:'#0F1D2F', secondary:'#FF6A00' };
+
+/* ============================================================
+ * ② 平台与行业配置
+ * ============================================================ */
+var PLATFORM = { name:'钢信汇', placeholder:'搜索牌号、规格、供应商' };
+var INDUSTRY = {
+  name:'钢铁', unit:'吨',
+  crumb:['板材','热轧板卷'],
+  qtyStep:30, qtyMin:30, qtyDefault:30   // 约一整车起
+};
+
+/* ============================================================
+ * ③ 当前产品数据（全部虚构）
+ * ============================================================ */
+var PRODUCT = {
+  title:'热轧板卷 Q235B 4.75×1500 · 首钢 · 上海宝山库现货',
+  price:'¥3,820 /吨',
+  priceNote:'含税价 · 理重计价 · 自提',
+  tags:[['计重','理重'],['状态','现货'],['发票','13%专票'],['钢厂','首钢']],
+  icons:['fa-bars','fa-layer-group','fa-table-cells-large','fa-square'],
+  specOptions:[
+    {label:'厚度', options:['3.0mm','4.75mm','5.75mm','7.5mm']},
+    {label:'材质', options:['Q235B','Q355B','SPHC']},
+    {label:'边缘', options:['毛边','切边']}
+  ],
+  cities:['上海 · 宝山库','江苏南京 · 江宁库','广东佛山 · 乐从库','天津 · 滨海库'],
+  detail:'本产品为首钢京唐生产的 Q235B 热轧板卷，厚度 4.75mm、宽度 1500mm，执行标准 GB/T 3274，表面质量良好，适用于钢结构件、钣金加工、工程机械制造等场景。上海宝山库现货，支持理重计价与过磅复核，可当日安排提货，批量采购可一单一议。'
+};
+
+/* ============================================================
+ * ④ 供应商 / 规格表 / 交易须知 / 评价 / 资质（字段从行业画像取）
+ * ============================================================ */
+var SUPPLIER = {
+  name:'首钢京唐 · 板材现货直营（虚构）',
+  cert:'厂商直供',
+  meta:'成立于2009年 · ISO14001 实体认证 · 主营热卷/冷卷/镀锌 · 已成交2200笔 · 好评99%'
+};
+var specTable = [
+  ['品类','热轧板卷'],['执行标准','GB/T 3274'],['牌号','Q235B'],
+  ['规格','4.75 × 1500 mm'],['边缘','毛边 / 切边可选'],['计重方式','理重（可过磅）'],
+  ['交货地','上海宝山库'],['包装','原厂钢卷包装'],['最小订购','30 吨（约一整车）']
+];
+var tradeNotice = [
+  ['计价方式','理重计价，元/吨，报价为含税价；如需过磅结算请在询价时说明。'],
+  ['付款方式','支持电汇、银行承兑汇票；企业客户可申请账期，以平台授信结果为准。'],
+  ['提货运输','上海宝山库自提，当日可提；可协助安排整车物流，运费由买方承担。'],
+  ['发票','成交后开具 13% 增值税专用发票。'],
+  ['退换说明','钢材为大宗商品，非质量问题不支持退换；质量异议请在提货后 3 个工作日内提出。']
+];
+var reviews = [
+  {company:'某钢结构工程公司（华东）', stars:5, text:'板面平整，公差控制不错，提货手续快，理重和过磅差异很小。', date:'2026-09-10'},
+  {company:'某机械制造企业（华南）', stars:5, text:'首钢的卷质量稳定，长期合作价格有优势，客服响应及时。', date:'2026-08-28'},
+  {company:'某钣金加工厂（上海）', stars:4, text:'现货足、发货快，就是切边需要提前说，整体满意。', date:'2026-08-15'}
+];
+var certs = ['ISO9001 质量管理体系','ISO14001 环境管理体系','钢厂授权经销书','深度验厂报告'];
+
+/* ============================================================
+ * ⑤ 相关推荐
+ * ============================================================ */
+var related = [
+  {icon:'fa-layer-group', title:'螺纹钢 HRB400E Φ20', price:'¥3,680/吨', specs:['HRB400','理计']},
+  {icon:'fa-square', title:'镀锌板 SGCC 1.0×1250', price:'¥4,590/吨', specs:['SGCC','锌层80g']},
+  {icon:'fa-table-cells-large', title:'中厚板 Q355B 20mm', price:'¥4,080/吨', specs:['Q355B','四切边']},
+  {icon:'fa-circle-notch', title:'无缝管 20# Φ89×4', price:'¥5,210/吨', specs:['20#','过磅']},
+  {icon:'fa-grip', title:'盘螺 HRB400 Φ8', price:'¥3,810/吨', specs:['HRB400','盘卷']}
+];
+
+/* ============================================================
+ * ⑥ 状态
+ * ============================================================ */
+var selectedSpecs = {}, inquiryCount=0, faved=false, activeIcon=0;
+
+/* ============================================================
+ * ⑦ 渲染
+ * ============================================================ */
+function applyTheme(){
+  var r=document.documentElement.style;
+  r.setProperty('--primary',THEME.primary); r.setProperty('--primary-light',THEME.primaryLight);
+  r.setProperty('--primary-dark',THEME.primaryDark); r.setProperty('--secondary',THEME.secondary);
+  r.setProperty('--secondary-text', THEME.secondaryText || shade(THEME.secondary,.35));
+  r.setProperty('--secondary-on-dark', THEME.secondaryOnDark || shade(THEME.secondary,-.28));
+}
+
+/* 强调色的两个可读变体：同色相调明暗。
+   --secondary 本身不是可读文字色——对白底仅 2.87:1、对深色底仅 4.0:1，都不达 4.5:1。
+   承载文字时一律用变体：白底上用 --secondary-text，深色底上用 --secondary-on-dark；
+   只有纯色块填充、白字底、或 ≥18px 粗体 CTA 才直接用 --secondary。 */
+function shade(hex,amt){           /* amt>0 变暗，amt<0 变亮 */
+  var h=String(hex).replace('#','');
+  if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var c=[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+  return '#'+c.map(function(v){
+    v = amt>=0 ? v*(1-amt) : v+(255-v)*(-amt);
+    v=Math.max(0,Math.min(255,Math.round(v))).toString(16);
+    return v.length<2?'0'+v:v;
+  }).join('');
+}
+
+function renderChrome(){
+  document.getElementById('brandName').textContent=PLATFORM.name;
+  document.getElementById('searchInput').placeholder=PLATFORM.placeholder;
+  var c=INDUSTRY.crumb;
+  document.getElementById('breadcrumb').innerHTML='<a class="cursor-pointer hover:text-[var(--primary)]">首页</a><i class="fa fa-angle-right mx-1"></i>'
+    +c.map(function(x,i){return '<a class="cursor-pointer hover:text-[var(--primary)]">'+x+'</a>'+(i<c.length-1?'<i class="fa fa-angle-right mx-1"></i>':'');}).join('');
+}
+
+function renderProduct(){
+  document.title=PRODUCT.title.split(' · ')[0]+' · 产品详情';
+  document.getElementById('pTitle').textContent=PRODUCT.title;
+  document.getElementById('pPrice').textContent=PRODUCT.price;
+  document.getElementById('pPriceNote').textContent=PRODUCT.priceNote;
+  document.getElementById('pTags').innerHTML=PRODUCT.tags.map(function(t){
+    return '<span class="inline-flex items-center text-xs mr-2 text-gray-500"><span class="text-gray-400 mr-1">'+t[0]+'</span><span class="spec-tag">'+t[1]+'</span></span>';
+  }).join('');
+  /* 规格选项 */
+  PRODUCT.specOptions.forEach(function(g){
+    selectedSpecs[g.label]=g.options[0];
+  });
+  document.getElementById('specOptions').innerHTML=PRODUCT.specOptions.map(function(g){
+    return '<div class="flex items-center gap-3 flex-wrap"><span class="text-xs text-gray-400 w-14">'+g.label+'</span>'
+      +g.options.map(function(o,i){
+        return '<button type="button" class="sp-opt'+(i===0?' sel':'')+'" onclick="selectSpec(this,\''+g.label+'\',\''+o+'\')">'+o+'</button>';
+      }).join('')+'</div>';
+  }).join('');
+  /* 数量 */
+  var q=document.getElementById('qtyInput');
+  q.min=INDUSTRY.qtyMin; q.step=INDUSTRY.qtyStep; q.value=INDUSTRY.qtyDefault;
+  document.getElementById('qtyUnit').textContent=INDUSTRY.unit;
+  /* 交货地 */
+  document.getElementById('citySel').innerHTML=PRODUCT.cities.map(function(c,i){return '<option>'+c+'</option>';}).join('');
+  document.getElementById('warehouse').textContent='现货 · 当日可提';
+  /* 图册 */
+  document.getElementById('thumbs').innerHTML=PRODUCT.icons.map(function(ic,i){
+    return '<button type="button" class="thumb'+(i===0?' sel':'')+'" style="background:var(--primary-light);" onclick="switchIcon(this,'+i+')"><i class="fa '+ic+' text-xl" style="color:var(--primary);"></i></button>';
+  }).join('');
+}
+
+function switchIcon(el,i){
+  activeIcon=i;
+  document.querySelectorAll('.thumb').forEach(function(t){t.classList.remove('sel');});
+  el.classList.add('sel');
+  var m=document.getElementById('mainIcon');
+  m.className='fa '+PRODUCT.icons[i]+' text-8xl';
+}
+
+function selectSpec(el,label,val){
+  selectedSpecs[label]=val;
+  el.parentNode.querySelectorAll('.sp-opt').forEach(function(o){o.classList.remove('sel');});
+  el.classList.add('sel');
+}
+
+function changeQty(dir){
+  var q=document.getElementById('qtyInput'), v=parseFloat(q.value)||INDUSTRY.qtyMin;
+  v+=dir*INDUSTRY.qtyStep;
+  if(v<INDUSTRY.qtyMin){ showToast('最小起订量 '+INDUSTRY.qtyMin+' '+INDUSTRY.unit,'warn'); v=INDUSTRY.qtyMin; }
+  q.value=v;
+}
+
+function renderSupplier(){
+  document.getElementById('sName').innerHTML=SUPPLIER.name
+    +'<span class="text-[11px] px-1.5 py-0.5 rounded text-white font-normal" style="background:var(--secondary);">'+SUPPLIER.cert+'</span>';
+  document.getElementById('sMeta').textContent=SUPPLIER.meta;
+}
+
+function switchTab(el,id){
+  el.parentNode.querySelectorAll('.d-tab').forEach(function(t){t.classList.remove('sel');});
+  el.classList.add('sel');
+  ['tabDetail','tabSpec','tabTrade','tabReview','tabCert'].forEach(function(p){
+    document.getElementById(p).classList.toggle('hidden',p!==id);
+  });
+}
+
+function renderTabs(){
+  document.getElementById('detailText').textContent=PRODUCT.detail;
+  document.getElementById('specTable').innerHTML=specTable.map(function(r,i){
+    return '<tr><td class="w-32 text-gray-400 border px-4 py-2.5" style="background:#FAFAFA;border-color:var(--border);">'+r[0]+'</td>'
+      +'<td class="border px-4 py-2.5 text-gray-600" style="border-color:var(--border);">'+r[1]+'</td></tr>';
+  }).join('');
+  document.getElementById('tabTrade').innerHTML='<div class="grid gap-4">'
+    +tradeNotice.map(function(t){
+      return '<div><div class="font-semibold text-gray-800 mb-1"><i class="fa fa-circle-info mr-1" style="color:var(--primary);"></i>'+t[0]+'</div><div class="text-xs pl-5">'+t[1]+'</div></div>';
+    }).join('')+'</div>';
+  document.getElementById('reviewCount').textContent=reviews.length;
+  document.getElementById('tabReview').innerHTML=reviews.map(function(r){
+    var st=''; for(var i=0;i<5;i++) st+='<i class="fa '+(i<r.stars?'fa-star':'fa-regular fa-star')+'"></i>';
+    return '<div class="border-b pb-4" style="border-color:var(--border);"><div class="flex items-center justify-between">'
+      +'<span class="text-xs text-gray-500">'+r.company+'</span><span class="stars text-xs">'+st+'</span></div>'
+      +'<div class="text-xs text-gray-600 mt-2 leading-6">'+r.text+'</div>'
+      +'<div class="text-[11px] text-gray-400 mt-2">'+r.date+'</div></div>';
+  }).join('');
+  document.getElementById('certBody').innerHTML=certs.map(function(c){
+    return '<div class="border rounded-lg p-4 text-center" style="border-color:var(--border);"><i class="fa fa-file-certificate text-3xl" style="color:var(--primary);"></i>'
+      +'<div class="text-xs text-gray-600 mt-2 leading-5">'+c+'</div><div class="text-[10px] text-gray-400 mt-1">（证书占位）</div></div>';
+  }).join('');
+}
+
+function renderRelated(){
+  document.getElementById('relatedGrid').innerHTML=related.map(function(p){
+    return '<div class="card card-hover cursor-pointer"><div class="flex items-center justify-center h-24" style="background:linear-gradient(135deg,var(--primary-light),#D6E2EE);"><i class="fa '+p.icon+' text-3xl" style="color:#9DB4CC;"></i></div>'
+      +'<div class="p-2.5"><div class="text-[12px] font-medium leading-snug h-8 line-clamp-2">'+p.title+'</div>'
+      +'<div class="text-xs font-semibold mt-1" style="color:var(--text-price);">'+p.price+'</div>'
+      +'<div class="mt-1.5 flex flex-wrap">'+p.specs.map(function(s){return '<span class="spec-tag text-[11px]">'+s+'</span>';}).join('')+'</div></div></div>';
+  }).join('');
+}
+
+/* ============================================================
+ * ⑧ 交互
+ * ============================================================ */
+function submitInquiry(){
+  var qty=document.getElementById('qtyInput').value;
+  showToast('已提交询价：'+qty+' '+INDUSTRY.unit+'，供应商将尽快报价','success');
+}
+function addInquiry(btn){
+  inquiryCount++;
+  document.getElementById('inquiryBadge').textContent=inquiryCount;
+  showToast('已加入询盘单（'+document.getElementById('qtyInput').value+' '+INDUSTRY.unit+'）','success');
+  if(btn && btn.tagName==='BUTTON'){ btn.textContent='已加入 ✓'; btn.style.opacity=.6; btn.disabled=true; }
+}
+function fav(btn){
+  faved=!faved;
+  var i=btn.querySelector('i');
+  if(i){ i.className=faved?'fa fa-star':'fa-regular fa-star'; i.style.color=faved?'#FAAD14':''; }
+  showToast(faved?'已收藏':'已取消收藏', faved?'success':'info');
+}
+function doSearch(){
+  var v=document.getElementById('searchInput').value.trim();
+  if(!v){ showToast('请输入搜索内容','warn'); return; }
+  showToast('搜索：'+v+'（原型演示）','info');
+}
+document.getElementById('searchInput').addEventListener('keydown',function(e){ if(e.key==='Enter') doSearch(); });
+function showToast(msg,type){
+  var k=type||'info';
+  // 底色与前景色必须成对：success/warn 底色偏亮，白字对比度不足 4.5:1，须用深色字
+  // info 底色跟随行业主题，不写死钢铁蓝（spec §3.2：主题色一律走变量）
+  var css=getComputedStyle(document.documentElement);
+  var themeDark=css.getPropertyValue('--primary-dark').trim()||'#1E3A5F';
+  var bg={success:'#52C41A',warn:'#FAAD14',error:'#CF1322',info:themeDark};
+  var fg={success:'#0B2E00',warn:'#3D2A00',error:'#FFFFFF',info:'#FFFFFF'};
+  var icons={success:'fa-circle-check',warn:'fa-triangle-exclamation',error:'fa-circle-xmark',info:'fa-circle-info'};
+  var body=document.getElementById('toastBody');
+  body.style.background=bg[k]; body.style.color=fg[k];
+  body.innerHTML='<i class="fa '+icons[k]+' mr-1"></i>'+msg;
+  document.getElementById('toast').classList.remove('hidden');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(function(){document.getElementById('toast').classList.add('hidden');},2500);
+}
+
+/* ============================================================
+ * ⑨ 初始化
+ * ============================================================ */
+applyTheme();
+renderChrome();
+renderProduct();
+renderSupplier();
+renderTabs();
+renderRelated();
+</script>
+</body>
+</html>

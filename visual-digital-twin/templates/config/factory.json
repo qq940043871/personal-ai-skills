@@ -1,0 +1,290 @@
+{
+  "title": "智擎工厂 · 产线数字孪生中心",
+  "subtitle": "SMART FACTORY PRODUCTION LINE DIGITAL TWIN",
+  "scene": "factory",
+  "pulse": true,
+  "pulseInterval": 2600,
+  "panels": {
+    "left": [
+      {
+        "type": "kpi",
+        "title": "今日生产概览",
+        "note": "REAL-TIME",
+        "data": {
+          "items": [
+            {
+              "label": "当日产量",
+              "value": 3842,
+              "unit": "件",
+              "trend": 6.8
+            },
+            {
+              "label": "良品率",
+              "value": 98.6,
+              "unit": "%",
+              "trend": 0.6
+            },
+            {
+              "label": "OEE",
+              "value": 86.4,
+              "unit": "%",
+              "trend": 2.1
+            },
+            {
+              "label": "节拍",
+              "value": 42,
+              "unit": "s/件",
+              "trend": -1.4
+            }
+          ]
+        }
+      },
+      {
+        "type": "bars",
+        "title": "产线实时产出",
+        "note": "件 / 小时",
+        "data": {
+          "items": [
+            {
+              "name": "一号装配线",
+              "value": 486,
+              "color": "#22d3ee"
+            },
+            {
+              "name": "二号焊装线",
+              "value": 402,
+              "color": "#3b82f6"
+            },
+            {
+              "name": "三号检测线",
+              "value": 318,
+              "color": "#2dd4bf"
+            }
+          ]
+        }
+      },
+      {
+        "type": "lineChart",
+        "title": "近 12 小时良率波动",
+        "note": "%",
+        "data": {
+          "labels": [
+            "08",
+            "10",
+            "12",
+            "14",
+            "16",
+            "18",
+            "20"
+          ],
+          "series": [
+            {
+              "name": "良率",
+              "color": "#2dd4bf",
+              "data": [
+                97.2,
+                98.4,
+                98.9,
+                97.6,
+                98.8,
+                99.1,
+                98.6
+              ]
+            }
+          ],
+          "opt": {
+            "min": 94,
+            "max": 100
+          }
+        }
+      },
+      {
+        "type": "donut",
+        "title": "异常停机占比",
+        "data": {
+          "items": [
+            {
+              "name": "设备故障",
+              "value": 42,
+              "color": "#fb7185"
+            },
+            {
+              "name": "换型调试",
+              "value": 31,
+              "color": "#fbbf24"
+            },
+            {
+              "name": "待料停机",
+              "value": 18,
+              "color": "#60a5fa"
+            },
+            {
+              "name": "其他",
+              "value": 9,
+              "color": "#a855f7"
+            }
+          ]
+        }
+      }
+    ],
+    "right": [
+      {
+        "type": "ringGroup",
+        "title": "设备健康度",
+        "data": {
+          "items": [
+            {
+              "label": "综合健康",
+              "value": 88,
+              "max": 100,
+              "color": "#34d399"
+            },
+            {
+              "label": "负载率",
+              "value": 74,
+              "max": 100,
+              "color": "#22d3ee"
+            },
+            {
+              "label": "保养进度",
+              "value": 56,
+              "max": 100,
+              "color": "#fbbf24"
+            },
+            {
+              "label": "稼动率",
+              "value": 92,
+              "max": 100,
+              "color": "#3b82f6"
+            }
+          ]
+        }
+      },
+      {
+        "type": "entities",
+        "title": "关键设备状态",
+        "note": "CLICK TO LOCATE",
+        "data": {
+          "items": [
+            {
+              "id": "t1",
+              "name": "配料反应釜 A",
+              "status": "normal",
+              "value": 72,
+              "unit": "%"
+            },
+            {
+              "id": "t2",
+              "name": "配料反应釜 B",
+              "status": "normal",
+              "value": 68,
+              "unit": "%"
+            },
+            {
+              "id": "t3",
+              "name": "恒温储罐",
+              "status": "alarm",
+              "value": 91,
+              "unit": "%"
+            },
+            {
+              "id": "t4",
+              "name": "成品缓存罐",
+              "status": "normal",
+              "value": 54,
+              "unit": "%"
+            },
+            {
+              "id": "t5",
+              "name": "回收处理罐",
+              "status": "warn",
+              "value": 83,
+              "unit": "%"
+            }
+          ]
+        }
+      },
+      {
+        "type": "switches",
+        "title": "图层控制",
+        "data": {
+          "items": [
+            {
+              "id": "shell",
+              "label": "厂房外壳",
+              "on": true
+            },
+            {
+              "id": "lines",
+              "label": "产线运行",
+              "on": true
+            },
+            {
+              "id": "tanks",
+              "label": "罐体设备",
+              "on": true
+            },
+            {
+              "id": "pipes",
+              "label": "管道流向",
+              "on": true
+            },
+            {
+              "id": "agv",
+              "label": "AGV 巡检",
+              "on": true
+            },
+            {
+              "id": "labels",
+              "label": "设备标签",
+              "on": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "alarms",
+        "title": "实时告警",
+        "note": "TOP 6",
+        "data": {
+          "items": []
+        }
+      }
+    ]
+  },
+  "alarms": [
+    {
+      "time": "10:31",
+      "name": "恒温储罐",
+      "text": "罐内温度超限，已触发联锁保护",
+      "level": "err"
+    },
+    {
+      "time": "10:18",
+      "name": "三号检测线",
+      "text": "检测工位节拍异常，疑似来料偏差",
+      "level": "warn"
+    },
+    {
+      "time": "09:57",
+      "name": "回收处理罐",
+      "text": "液位达到 83%，建议安排排空",
+      "level": "warn"
+    },
+    {
+      "time": "09:41",
+      "name": "AGV-07",
+      "text": "完成第 128 次巡检任务，电量 62%",
+      "level": "info"
+    },
+    {
+      "time": "09:12",
+      "name": "二号焊装线",
+      "text": "换型完成，已恢复标准节拍",
+      "level": "info"
+    }
+  ],
+  "env": {
+    "timeOfDay": "day"
+  }
+}

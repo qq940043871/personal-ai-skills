@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="512" height="512" role="img" aria-label="B2B 门户设计">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0C1D2F"/>
+      <stop offset=".58" stop-color="#123A5C"/>
+      <stop offset="1" stop-color="#050D16"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FF6A00" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#FF9A3D"/>
+    </linearGradient>
+    <radialGradient id="halo" cx=".5" cy=".42" r=".58">
+      <stop offset="0" stop-color="#3E7BB6" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#3E7BB6" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="round">
+      <rect x="0" y="0" width="240" height="240" rx="52"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#round)">
+    <rect width="240" height="240" fill="url(#bg)"/>
+    <circle cx="120" cy="104" r="96" fill="url(#halo)"/>
+
+    <!-- 精密网格 -->
+    <g stroke="#8FB6DA" stroke-opacity=".16" stroke-width="1">
+      <path d="M0 40h240M0 72h240M0 104h240M0 136h240M0 168h240"/>
+      <path d="M40 0v240M72 0v240M104 0v240M136 0v240M168 0v240M200 0v240"/>
+    </g>
+
+    <!-- 全息地球轮廓 -->
+    <g fill="none" stroke="#CFE3F7" stroke-opacity=".82">
+      <circle cx="120" cy="96" r="52" stroke-width="2.4"/>
+      <ellipse cx="120" cy="96" rx="21" ry="52" stroke-width="1.5" stroke-opacity=".55"/>
+      <ellipse cx="120" cy="96" rx="52" ry="19" stroke-width="1.5" stroke-opacity=".55"/>
+    </g>
+    <!-- 航线 -->
+    <path d="M74 84c26-16 66-16 92 2" fill="none" stroke="#FF7A1A" stroke-width="2.4" stroke-linecap="round" stroke-opacity=".95"/>
+    <circle cx="166" cy="86" r="4.4" fill="#FFFFFF"/>
+
+    <!-- 行情柱 -->
+    <g>
+      <rect x="56"  y="176" width="20" height="34" rx="3" fill="url(#bar)"/>
+      <rect x="86"  y="160" width="20" height="50" rx="3" fill="url(#bar)"/>
+      <rect x="116" y="146" width="20" height="64" rx="3" fill="url(#bar)"/>
+      <rect x="146" y="166" width="20" height="44" rx="3" fill="url(#bar)"/>
+      <rect x="176" y="152" width="20" height="58" rx="3" fill="url(#bar)"/>
+    </g>
+    <line x1="44" y1="210" x2="200" y2="210" stroke="#CFE3F7" stroke-opacity=".45" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+</svg>

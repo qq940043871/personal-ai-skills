@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__PLATFORM_NAME__ · __INDUSTRY__B2B门户</title>
+<!--
+  ============================================================
+  B2B 门户首页通用模板（html-b2b-portal skill 资产）
+  视觉语言：工业级数据终端（深色承载数据 / 浅色承载商品）
+  换行业三步走：
+    1) 改脚本顶部 THEME（4 个品牌色，取自 industry-profiles.md）
+    2) 改 PLATFORM（平台名/搜索文案/热搜词）
+    3) 替换 categories / banners / ticker / boards / products /
+       suppliers / services / news / chartData（Schema 见 html-prototype-spec.md §4）
+  其余结构与渲染函数无需改动。
+  ⚠️ 交付前请整段删除本注释块（spec §10：交付物不带 skill 内部信息）。
+  ============================================================
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<style>
+  :root{
+    /* ===== 品牌色（兜底默认=钢铁；运行时由 JS THEME 覆盖） ===== */
+    --primary:#1E3A5F; --primary-light:#E8EEF4; --primary-dark:#0F1D2F; --secondary:#FF6A00;
+    --primary-rgb:30,58,95;      /* 供彩色阴影/光晕使用，applyTheme 同步 */
+    --secondary-rgb:255,106,0;
+    /* 强调色的可读文字变体（兜底值；运行时由 applyTheme 依 secondary 计算，均 ≥4.5:1） */
+    --secondary-text:#A64500;      /* 白底上的小字 */
+    --secondary-on-dark:#FF9447;   /* 深色底上的小字 */
+
+    /* ===== 深色面板（数据驾驶舱专用） ===== */
+    --panel:#0A1420; --panel-2:#101E2E; --panel-3:#182B40;
+    --panel-line:rgba(255,255,255,.07);
+    --panel-text:#E9F0F8; --panel-dim:#8AA0B8; --panel-dim-2:#5E7590;
+
+    /* ===== 行情语义色（涨红 / 跌绿，中国市场惯例） ===== */
+    --price-up:#E5484D; --price-down:#12A150; --price-flat:#98A2B3;
+    --up-on-dark:#FF6B6B; --down-on-dark:#3DDC84;   /* 深色底上提亮版 */
+
+    /* ===== 功能色（固定）：组件与 Toast 依赖，禁止省略 ===== */
+    --success:#52C41A; --warning:#FAAD14; --error:#F5222D;
+
+    /* ===== 文字 ===== */
+    --text-primary:#101828; --text-secondary:#475467; --text-tertiary:#98A2B3;
+    --text-price:#E5484D;
+
+    /* ===== 表面 ===== */
+    --bg:#F5F7FA; --surface:#FFFFFF; --border:#E4E7EC; --border-soft:#EFF1F4;
+
+    /* ===== 圆角阶梯 ===== */
+    --r-xs:8px; --r-sm:12px; --r:16px; --r-lg:20px; --r-xl:28px; --r-full:999px;
+
+    /* ===== 阴影阶梯（多层 + 彩色光晕） ===== */
+    --sh-xs:0 1px 2px rgba(16,24,40,.05);
+    --sh-sm:0 1px 3px rgba(16,24,40,.07),0 1px 2px rgba(16,24,40,.04);
+    --sh-md:0 4px 10px -2px rgba(16,24,40,.09),0 2px 4px -2px rgba(16,24,40,.05);
+    --sh-lg:0 14px 30px -10px rgba(16,24,40,.14),0 6px 12px -6px rgba(16,24,40,.06);
+    --sh-xl:0 24px 50px -12px rgba(16,24,40,.20);
+    --sh-primary:0 10px 28px -8px rgba(var(--primary-rgb),.45);
+    --sh-secondary:0 10px 28px -8px rgba(var(--secondary-rgb),.45);
+
+    /* ===== 动效 ===== */
+    --ease:cubic-bezier(.22,.61,.36,1);
+    --dur:.32s;
+
+    --container:1240px;
+  }
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;
+    background:var(--bg); color:var(--text-primary); font-size:14px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+  }
+  .container-x{max-width:var(--container);margin:0 auto;padding:0 20px;}
+  @media (max-width:639px){ .container-x{padding:0 14px;} }
+
+  /* 数字等宽：价格/数据列对齐才专业 */
+  .tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+  /* ---------- 表面 ---------- */
+  .card{
+    background:var(--surface); border:1px solid var(--border-soft); border-radius:var(--r);
+    box-shadow:var(--sh-sm);
+  }
+  .card-lift{transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+  .card-lift:hover{transform:translateY(-4px);box-shadow:var(--sh-lg);border-color:rgba(var(--primary-rgb),.26);}
+
+  /* 玻璃拟态（深色区专用） */
+  .glass{
+    background:linear-gradient(180deg,rgba(255,255,255,.085),rgba(255,255,255,.025));
+    border:1px solid rgba(255,255,255,.11);
+    -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px);
+    border-radius:var(--r);
+  }
+  .glass-hover{transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+  .glass-hover:hover{background:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,.05));border-color:rgba(255,255,255,.24);transform:translateY(-3px);}
+
+  /* ---------- Hero：深色网格 + 光斑 ---------- */
+  .hero{
+    position:relative; overflow:hidden;
+    background:
+      radial-gradient(880px 460px at 10% -12%, rgba(var(--primary-rgb),.62), transparent 62%),
+      radial-gradient(640px 380px at 92% 4%, rgba(var(--secondary-rgb),.20), transparent 64%),
+      linear-gradient(165deg,#0C1D2F 0%,var(--primary-dark) 58%,#050D16 100%);
+  }
+  .hero-grid{
+    /* inset 外扩是为了给滚动视差留余量，避免位移后露出边缘 */
+    position:absolute; inset:-22%; pointer-events:none;
+    background-image:
+      linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+    background-size:58px 58px;
+    -webkit-mask-image:radial-gradient(ellipse 78% 65% at 50% 38%,#000 28%,transparent 100%);
+    mask-image:radial-gradient(ellipse 78% 65% at 50% 38%,#000 28%,transparent 100%);
+  }
+  .metric{font-variant-numeric:tabular-nums;letter-spacing:-.02em;}
+
+  /* Banner 轮播的显隐/指示器只依赖本文件自己的类。
+     不用 Tailwind 的 opacity-0 / w-2：那些类名只出现在 JS 字符串里，
+     能否被 CDN 版 JIT 生成属于运行时行为，不该决定首屏正确性
+     （一旦漏生成，三张幻灯片会同时可见、文字叠成一团）。 */
+  .banner-slide{position:absolute;inset:0;transition:opacity .7s var(--ease);}
+  .banner-slide.off{opacity:0;pointer-events:none;}
+  .banner-dot{height:6px;width:8px;border-radius:var(--r-full);background:rgba(255,255,255,.35);
+    transition:width .5s var(--ease),background .5s var(--ease);}
+  .banner-dot.on{width:28px;background:var(--secondary);}
+
+  /* 实时脉冲点 */
+  .pulse{position:relative;display:inline-block;width:7px;height:7px;border-radius:50%;background:currentColor;}
+  .pulse::before{content:"";position:absolute;inset:0;border-radius:50%;background:currentColor;animation:ping 1.9s cubic-bezier(0,0,.2,1) infinite;}
+  @keyframes ping{75%,100%{transform:scale(2.6);opacity:0;}}
+
+  /* ---------- 按钮 ---------- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-sm);
+    font-weight:600;transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),background var(--dur) var(--ease),opacity var(--dur) var(--ease);}
+  .btn:active{transform:translateY(1px);}
+  .btn-primary{background-color:var(--secondary);
+    background-image:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,0) 64%);
+    color:#fff;box-shadow:var(--sh-secondary);}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(var(--secondary-rgb),.6);}
+  .btn-solid{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;box-shadow:var(--sh-primary);}
+  .btn-solid:hover{transform:translateY(-2px);box-shadow:0 14px 32px -8px rgba(var(--primary-rgb),.6);}
+  .btn-outline{background:#fff;color:var(--primary);border:1.5px solid rgba(var(--primary-rgb),.35);}
+  .btn-outline:hover{border-color:var(--primary);background:var(--primary-light);}
+  /* 掠光 */
+  .btn-shine{position:relative;overflow:hidden;}
+  .btn-shine::after{content:"";position:absolute;top:0;left:-130%;width:55%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.42),transparent);
+    transform:skewX(-22deg);transition:left .65s var(--ease);}
+  .btn-shine:hover::after{left:150%;}
+
+  /* ---------- 标签 ---------- */
+  .spec-tag{display:inline-block;padding:3px 9px;border-radius:6px;font-size:12px;margin:0 5px 5px 0;
+    background:var(--primary-light);color:var(--primary);border:1px solid rgba(var(--primary-rgb),.10);}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:var(--r-full);
+    font-size:12px;border:1px solid var(--border);background:#fff;color:var(--text-secondary);
+    transition:all var(--dur) var(--ease);cursor:pointer;}
+  .chip:hover{border-color:rgba(var(--primary-rgb),.4);color:var(--primary);background:var(--primary-light);}
+
+  /* ---------- 行情色 ---------- */
+  .t-up{color:var(--price-up);} .t-down{color:var(--price-down);} .t-flat{color:var(--price-flat);}
+  .t-up-d{color:var(--up-on-dark);} .t-down-d{color:var(--down-on-dark);}
+
+  /* ---------- 导航 ---------- */
+  .nav-tab{position:relative;cursor:pointer;padding:14px 24px;font-weight:600;font-size:15px;
+    color:var(--text-secondary);transition:color var(--dur) var(--ease);}
+  .nav-tab::after{content:"";position:absolute;left:24px;right:24px;bottom:0;height:3px;border-radius:3px 3px 0 0;
+    background:var(--secondary);transform:scaleX(0);transition:transform var(--dur) var(--ease);}
+  .nav-tab.active{color:var(--primary);}
+  .nav-tab.active::after{transform:scaleX(1);}
+
+  /* ---------- 产品图区 ---------- */
+  .thumb{
+    position:relative;overflow:hidden;
+    background:
+      radial-gradient(130px 90px at 50% 0%,rgba(var(--primary-rgb),.20),transparent 72%),
+      linear-gradient(155deg,var(--primary-light),#FFFFFF);
+  }
+  .thumb::after{content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(var(--primary-rgb),.055) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(var(--primary-rgb),.055) 1px,transparent 1px);
+    background-size:22px 22px;
+    -webkit-mask-image:radial-gradient(circle at 50% 45%,#000 20%,transparent 76%);
+    mask-image:radial-gradient(circle at 50% 45%,#000 20%,transparent 76%);}
+  .thumb::before{content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:92px;height:92px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle,rgba(var(--primary-rgb),.16),transparent 68%);}
+  /* 图标用主题渐变填充：左上主色 → 右下强调色，比单色更有质感 */
+  .thumb i{position:relative;z-index:1;
+    background:linear-gradient(145deg,var(--primary) 4%,var(--primary) 42%,var(--secondary) 122%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 8px 22px rgba(var(--primary-rgb),.38));
+    transition:transform .45s var(--ease),filter .45s var(--ease);}
+  .card-lift:hover .thumb i{transform:scale(1.12) translateY(-4px);
+    filter:drop-shadow(0 14px 32px rgba(var(--primary-rgb),.55));}
+
+  /* ---------- 区块小节 ---------- */
+  .sec-bar{display:inline-block;width:4px;height:22px;border-radius:3px;background:linear-gradient(180deg,var(--secondary),var(--primary));}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--secondary-text);}
+
+  /* ---------- 滚动进场（带 3D 纵深，比纯位移更有层次） ----------
+     隐藏态挂在 .fx-anim 下，该根类由 initReveal 在确认能观察之后才添加。
+     这样 JS 挂掉时元素保持默认可见，不会出现「内容永远不显现」。 */
+  .fx-anim .reveal{--d:0ms;opacity:0;transform:perspective(1200px) translate3d(0,34px,0) rotateX(-6deg);
+    transform-origin:50% 0;
+    transition:opacity .8s var(--ease),transform .9s var(--ease);
+    transition-delay:var(--d);}
+  .fx-anim .reveal.in{opacity:1;transform:perspective(1200px) translate3d(0,0,0) rotateX(0deg);}
+
+  /* ============================================================
+     动效层：3D / 视差 / 光效（规范见 html-prototype-spec §5）
+     原则：渐进增强。无 JS、触屏、prefers-reduced-motion 任一成立即
+     自动降级为静态；内容永不依赖动效才可见。
+     ============================================================ */
+  .fx-layer{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .fx-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+
+  /* 极光光斑：柔边径向渐变 + 只动 transform。
+     不用 filter:blur —— 这个尺寸的模糊会把合成开销推高一个量级。 */
+  .fx-aurora{position:absolute;inset:-12%;pointer-events:none;}
+  .fx-aurora span{position:absolute;aspect-ratio:1/1;border-radius:50%;will-change:transform;}
+  .fx-a1{width:min(720px,60%);left:-9%;top:-26%;background:radial-gradient(circle,rgba(var(--primary-rgb),.60),rgba(var(--primary-rgb),0) 66%);animation:fxAuroraA 28s var(--ease) infinite alternate;}
+  .fx-a2{width:min(500px,42%);right:-4%;top:-10%;background:radial-gradient(circle,rgba(var(--secondary-rgb),.24),rgba(var(--secondary-rgb),0) 64%);animation:fxAuroraB 22s var(--ease) infinite alternate;}
+  .fx-a3{width:min(480px,42%);left:36%;bottom:-30%;background:radial-gradient(circle,rgba(126,184,255,.20),rgba(126,184,255,0) 66%);animation:fxAuroraC 34s var(--ease) infinite alternate;}
+  @keyframes fxAuroraA{from{transform:translate3d(0,0,0) scale(1);}to{transform:translate3d(9%,7%,0) scale(1.16);}}
+  @keyframes fxAuroraB{from{transform:translate3d(0,0,0) scale(1.08);}to{transform:translate3d(-11%,9%,0) scale(.93);}}
+  @keyframes fxAuroraC{from{transform:translate3d(0,0,0) scale(.96);}to{transform:translate3d(-7%,-9%,0) scale(1.2);}}
+
+  /* 雷达扫描线 */
+  .fx-scan{position:absolute;left:0;right:0;top:-36%;height:36%;pointer-events:none;
+    background:linear-gradient(180deg,transparent,rgba(var(--secondary-rgb),.05) 58%,rgba(190,220,255,.055) 88%,transparent);
+    animation:fxScan 9.5s linear infinite;}
+  @keyframes fxScan{from{transform:translate3d(0,0,0);}to{transform:translate3d(0,378%,0);}}
+
+  /* 区域聚光：跟随指针，坐标由 JS 写入宿主上的 --sx / --sy */
+  .fx-spot{--sx:50%;--sy:50%;position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .55s var(--ease);
+    background:radial-gradient(560px circle at var(--sx) var(--sy),rgba(255,255,255,.085),transparent 60%);}
+  .fx-spot.on{opacity:1;}
+
+  /* 顶部滚动进度 */
+  #fxProgress{--p:0;position:fixed;top:0;left:0;width:100%;height:2px;z-index:60;pointer-events:none;
+    background:linear-gradient(90deg,var(--primary),var(--secondary));
+    box-shadow:0 0 10px rgba(var(--secondary-rgb),.75);transform:scaleX(var(--p));transform-origin:0 50%;}
+
+  /* 3D 倾斜 + 指针光斑。用 CSS 变量而非直接改 transform，
+     这样 .card-lift 的悬浮上抬与 tilt 能共存（同权重时后者靠源序胜出）。 */
+  [data-tilt]{--rx:0deg;--ry:0deg;--ty:0px;--mx:50%;--my:50%;position:relative;
+    transform:perspective(1100px) rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0,var(--ty),0);
+    transition:transform .55s var(--ease),box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+  [data-tilt].fx-live{transition:transform .13s linear,box-shadow var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+  [data-tilt]:hover{--ty:-4px;box-shadow:var(--sh-lg);border-color:rgba(var(--primary-rgb),.26);}
+  [data-tilt]::after{content:"";position:absolute;inset:0;border-radius:inherit;z-index:3;pointer-events:none;
+    background:radial-gradient(340px circle at var(--mx) var(--my),rgba(255,255,255,.14),transparent 64%);
+    opacity:0;transition:opacity .4s var(--ease);}
+  [data-tilt]:hover::after{opacity:1;}
+
+  /* 深色面板掠光：出栈瞬间回位（transition 0s），避免离场时反向扫一遍 */
+  .fx-sheen{position:relative;overflow:hidden;}
+  .fx-sheen::before{content:"";position:absolute;top:-60%;left:-70%;width:58%;height:220%;z-index:4;pointer-events:none;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent);
+    transform:skewX(-20deg) translate3d(-150%,0,0);transition:transform 0s;}
+  .fx-sheen:hover::before{transform:skewX(-20deg) translate3d(330%,0,0);transition:transform .9s var(--ease);}
+
+  /* 流光边框：一道光沿面板边沿循环（@property 不被支持时退化为静态描边，不影响可读性） */
+  @property --fx-ang{syntax:"<angle>";initial-value:0deg;inherits:false;}
+  .fx-ring{--fx-ang:0deg;position:relative;}
+  .fx-ring::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;z-index:2;pointer-events:none;
+    background:conic-gradient(from var(--fx-ang),transparent 0deg,transparent 248deg,rgba(var(--secondary-rgb),.85) 296deg,rgba(214,235,255,.9) 322deg,transparent 352deg);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+            mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    animation:fxSpin 7.5s linear infinite;}
+  @keyframes fxSpin{to{--fx-ang:360deg;}}
+
+  /* 磁吸按钮：仅精确指针设备启用（JS 写入 --mgx / --mgy）。
+     用双类选择器提高权重，才能压过同权重的 :hover 位移规则。 */
+  .btn-primary.fx-magnet{--mgx:0px;--mgy:0px;transform:translate3d(var(--mgx),var(--mgy),0);
+    transition:transform .2s var(--ease),box-shadow var(--dur) var(--ease);}
+  .btn-primary.fx-magnet:hover{transform:translate3d(var(--mgx),calc(var(--mgy) - 2px),0);}
+  .btn-primary.fx-magnet:active{transform:translate3d(var(--mgx),calc(var(--mgy) + 1px),0);}
+
+  /* 迷你趋势线绘制入场（polyline 需带 pathLength="100"） */
+  .spark{stroke-dasharray:100;stroke-dashoffset:100;animation:fxDraw 1.5s var(--ease) forwards;}
+  @keyframes fxDraw{to{stroke-dashoffset:0;}}
+
+  /* 数字滚动结束时的光晕脉冲 */
+  .fx-glow{animation:fxGlow 1.7s var(--ease);}
+  @keyframes fxGlow{35%{text-shadow:0 0 22px rgba(var(--secondary-rgb),.9);}}
+
+  /* 全息地球（投影计算在 JS，见 §⑤ 动效层） */
+  .globe-wrap{position:relative;aspect-ratio:1/1;max-width:520px;margin:0 auto;}
+  .globe-halo{position:absolute;inset:-8%;border-radius:50%;
+    background:radial-gradient(circle,rgba(var(--primary-rgb),.34),rgba(var(--secondary-rgb),.10) 46%,transparent 68%);}
+  .globe-orbit{position:absolute;inset:-2%;border-radius:50%;border:1px dashed rgba(255,255,255,.18);animation:fxSpinSlow 70s linear infinite;}
+  .globe-orbit-2{position:absolute;inset:6%;border-radius:50%;border:1px solid rgba(var(--secondary-rgb),.24);animation:fxSpinSlow 46s linear infinite reverse;}
+  @keyframes fxSpinSlow{to{transform:rotate(360deg);}}
+  #globeCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;}
+  .globe-tip{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);white-space:nowrap;}
+
+  /* 错峰进场：宿主类 .fx-stagger 由 JS 添加。
+     这样 JS 失效时子项保持默认可见，不会出现「内容永远不显现」。 */
+  .fx-stagger>*{opacity:0;transform:translate3d(0,22px,0);
+    transition:opacity .6s var(--ease),transform .7s var(--ease);}
+  .fx-stagger>*.fx-in{opacity:1;transform:none;}
+
+  /* 降级：尊重系统「减少动态效果」偏好 */
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;}
+    .reveal,.fx-stagger>*{opacity:1!important;transform:none!important;}
+    [data-tilt]{transform:none!important;}
+    .fx-aurora,.fx-scan,.fx-canvas,.fx-spot,.globe-orbit,.globe-orbit-2,#fxProgress{display:none!important;}
+  }
+
+  /* ---------- 移动端抽屉 ---------- */
+  #drawer{transform:translateX(-100%);transition:transform .34s var(--ease);}
+  #drawer.open{transform:translateX(0);}
+  #mobileBar{display:none;}
+  @media (max-width:767px){ body{padding-bottom:60px;} #mobileBar{display:flex;} }
+</style>
+</head>
+<body>
+
+<!-- 顶部滚动进度（纯装饰，动效降级时隐藏） -->
+<div id="fxProgress"></div>
+
+<!-- Toast -->
+<div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[100] hidden">
+  <div class="px-4 py-2 rounded-lg text-white text-sm shadow-lg" id="toastBody"></div>
+</div>
+
+<!-- ===== A 顶部通栏 ===== -->
+<div style="background:#081420;color:#8FA6C0;">
+  <div class="container-x h-9 flex items-center justify-between text-xs">
+    <div class="flex items-center gap-5">
+      <span class="flex items-center gap-1.5" style="color:var(--up-on-dark);"><span class="pulse"></span>实时报价中</span>
+      <span class="hidden md:inline opacity-80"><i class="fa fa-phone mr-1.5"></i>400-000-0000</span>
+      <span class="hidden lg:inline opacity-60" id="topSlogan">行业slogan（虚构）</span>
+    </div>
+    <div class="flex items-center gap-5">
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">中文 / EN</a>
+      <a href="#" onclick="return false" class="hidden sm:inline hover:text-white transition-colors">手机版</a>
+      <a href="#" onclick="return false" class="hidden md:inline hover:text-white transition-colors">帮助中心</a>
+      <span class="hidden sm:inline pl-5 border-l" style="border-color:rgba(255,255,255,.14);">
+        <a href="#" onclick="return false" class="hover:text-white transition-colors">登录</a>
+        <span class="opacity-40 mx-1">/</span>
+        <a href="#" onclick="return false" class="hover:text-white transition-colors">注册</a>
+      </span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== B 粘性头部 ===== -->
+<header class="sticky top-0 z-50 bg-white/95" style="-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-soft);">
+  <div class="container-x flex items-center justify-between gap-4 py-3.5 flex-wrap">
+    <div class="flex items-center gap-3 shrink-0">
+      <button type="button" class="md:hidden text-xl mr-0.5" style="color:var(--primary);" onclick="openDrawer()" aria-label="打开分类"><i class="fa fa-bars"></i></button>
+      <div class="w-11 h-11 rounded-xl flex items-center justify-center text-white text-xl"
+           style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:var(--sh-primary);"><i class="fa fa-cube"></i></div>
+      <div>
+        <div class="text-[22px] font-extrabold leading-6 tracking-tight" style="color:var(--primary);" id="brandName">平台名</div>
+        <div class="text-[11px] mt-0.5" style="color:var(--text-tertiary);" id="brandSlogan">行业定位短语</div>
+      </div>
+    </div>
+    <div class="flex-1 lg:max-w-[600px] order-3 w-full lg:order-none">
+      <div class="relative group">
+        <input id="searchInput" type="text" class="w-full h-11 lg:h-12 rounded-xl pl-4 pr-24 text-sm outline-none transition-all"
+               style="border:1.5px solid var(--border);background:var(--bg);" placeholder="搜索">
+        <button type="button" onclick="doSearch()" class="btn btn-solid btn-shine absolute right-1.5 top-1.5 h-8 lg:h-9 px-5 text-sm">
+          <i class="fa fa-search"></i><span id="searchBtnText">搜索</span>
+        </button>
+      </div>
+      <div class="flex gap-2 mt-2.5 flex-wrap" id="hotwords"></div>
+    </div>
+    <div class="flex items-center gap-5 text-xs shrink-0" style="color:var(--text-secondary);">
+      <button type="button" class="flex flex-col items-center gap-0.5 transition-colors hover:text-[var(--secondary-text)]">
+        <span class="relative"><i class="fa fa-file-invoice text-xl"></i>
+          <span class="absolute -top-1.5 -right-2.5 text-white rounded-full px-1 text-[10px] leading-4 tnum"
+                style="background:var(--secondary);" id="inquiryBadge">0</span></span>
+        <span class="text-[11px]">询价单</span>
+      </button>
+      <button type="button" class="hidden sm:flex flex-col items-center gap-0.5 transition-colors hover:text-[var(--secondary-text)]">
+        <i class="fa fa-cart-shopping text-xl"></i><span class="text-[11px]">购物车</span>
+      </button>
+      <button type="button" class="hidden md:flex flex-col items-center gap-0.5 transition-colors hover:text-[var(--secondary-text)]">
+        <i class="fa fa-envelope text-xl"></i><span class="text-[11px]">消息</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== C 主导航 ===== -->
+<nav class="text-white relative z-40" style="background:linear-gradient(180deg,var(--primary),var(--primary-dark));">
+  <div class="container-x flex items-center h-12">
+    <button type="button" onclick="togglePanel('catPanel')" class="hidden md:flex items-center gap-2 px-5 h-full font-semibold text-sm"
+            style="background:rgba(0,0,0,.22);"><i class="fa fa-bars"></i>全部分类</button>
+    <div class="flex items-center overflow-x-auto whitespace-nowrap flex-1 text-[14px]">
+      <a href="#" onclick="return false" class="px-5 h-12 flex items-center transition-colors hover:bg-white/10">首页</a>
+      <a href="#" onclick="return false" class="px-5 h-12 flex items-center transition-colors hover:bg-white/10">找货源</a>
+      <a href="#" onclick="return false" class="px-5 h-12 flex items-center transition-colors hover:bg-white/10">行情中心</a>
+      <a href="#" onclick="return false" class="px-5 h-12 flex items-center transition-colors hover:bg-white/10">求购大厅</a>
+      <a href="#" onclick="return false" class="px-5 h-12 flex items-center transition-colors hover:bg-white/10">供应商</a>
+      <a href="#" onclick="return false" class="hidden lg:flex px-5 h-12 items-center transition-colors hover:bg-white/10">物流仓储</a>
+      <a href="#" onclick="return false" class="hidden lg:flex px-5 h-12 items-center transition-colors hover:bg-white/10">供应链金融</a>
+    </div>
+    <span class="hidden md:flex items-center gap-1.5 text-xs shrink-0 pl-4" style="color:var(--secondary-on-dark);">
+      <i class="fa fa-bolt"></i>今日新增 <b class="tnum">328</b> 条现货
+    </span>
+  </div>
+  <div id="catPanel" class="hidden container-x">
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-5 py-5 px-5 bg-white rounded-b-2xl shadow-2xl text-xs" style="color:var(--text-secondary);" id="catPanelBody"></div>
+  </div>
+</nav>
+
+<!-- ===== D Hero（深色数据区） ===== -->
+<section class="hero py-6 lg:py-10" id="heroSec">
+  <!-- 动效层：视差网格 + 极光光斑 + 粒子网络 + 雷达扫描 + 区域聚光 -->
+  <div class="fx-layer">
+    <div class="hero-grid" data-parallax="-.16"></div>
+    <div class="fx-aurora"><span class="fx-a1"></span><span class="fx-a2"></span><span class="fx-a3"></span></div>
+    <canvas class="fx-canvas" id="fxNet"></canvas>
+    <div class="fx-scan"></div>
+    <div class="fx-spot"></div>
+  </div>
+  <div class="container-x relative z-10">
+    <div class="grid grid-cols-12 gap-4 lg:gap-5">
+
+      <!-- D1 品类侧栏 -->
+      <aside class="col-span-12 lg:col-span-3 xl:col-span-2 hidden lg:flex">
+        <div class="glass overflow-hidden flex flex-col w-full" id="heroCats"></div>
+      </aside>
+
+      <!-- D2 主视觉轮播 -->
+      <div class="col-span-12 lg:col-span-6 xl:col-span-7">
+        <div class="relative overflow-hidden h-[286px] lg:h-[432px] rounded-2xl" id="bannerBox"
+             style="box-shadow:0 28px 60px -20px rgba(0,0,0,.6);"></div>
+      </div>
+
+      <!-- D3 实时数据驾驶舱 -->
+      <div class="col-span-12 lg:col-span-3">
+        <div class="grid grid-cols-4 lg:grid-cols-2 gap-2.5 mb-2.5">
+          <button type="button" class="glass glass-hover py-3 flex flex-col items-center gap-1.5">
+            <i class="fa fa-file-circle-plus text-xl" style="color:var(--secondary-on-dark);"></i><span class="text-[11px] text-white/85">发布采购</span></button>
+          <button type="button" class="glass glass-hover py-3 flex flex-col items-center gap-1.5">
+            <i class="fa fa-store text-xl" style="color:var(--secondary-on-dark);"></i><span class="text-[11px] text-white/85">免费开店</span></button>
+          <button type="button" class="glass glass-hover py-3 flex flex-col items-center gap-1.5">
+            <i class="fa fa-envelopes-bulk text-xl" style="color:var(--secondary-on-dark);"></i><span class="text-[11px] text-white/85">我要报价</span></button>
+          <button type="button" class="glass glass-hover py-3 flex flex-col items-center gap-1.5">
+            <i class="fa fa-scale-balanced text-xl" style="color:var(--secondary-on-dark);"></i><span class="text-[11px] text-white/85">阳光采购</span></button>
+        </div>
+
+        <div class="glass fx-ring fx-sheen p-4 lg:p-5" data-tilt="4">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[11px] font-semibold tracking-wider" style="color:var(--panel-dim);">平台实时数据</span>
+            <span class="flex items-center gap-1.5 text-[11px]" style="color:var(--up-on-dark);"><span class="pulse"></span>LIVE</span>
+          </div>
+          <div class="mb-3 pb-3" style="border-bottom:1px solid rgba(255,255,255,.09);">
+            <div class="text-[11px] mb-1" style="color:var(--panel-dim);">今日成交额</div>
+            <div class="metric text-3xl lg:text-[34px] font-extrabold text-white leading-none">
+              <span class="text-lg align-top opacity-70">¥</span><span data-count="8.42" data-dec="2">0</span>
+              <span class="text-base font-semibold opacity-70">亿</span>
+            </div>
+            <div class="text-[11px] mt-1.5 t-up-d flex items-center gap-1"><i class="fa fa-arrow-trend-up"></i>较昨日 +12.4%</div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <div class="text-[11px]" style="color:var(--panel-dim);">在线供应商</div>
+              <div class="metric text-lg font-bold text-white"><span data-count="1286">0</span><span class="text-[11px] opacity-60 ml-1">家</span></div>
+            </div>
+            <div>
+              <div class="text-[11px]" style="color:var(--panel-dim);">实时报价</div>
+              <div class="metric text-lg font-bold text-white"><span data-count="3420">0</span><span class="text-[11px] opacity-60 ml-1">条</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- D4 悬浮行情胶囊 -->
+    <div class="mt-4 lg:mt-5 glass overflow-hidden flex items-center" style="border-left:3px solid var(--secondary);">
+      <div class="px-4 py-3 font-bold text-white shrink-0 text-xs flex items-center gap-1.5" style="background:var(--secondary);">
+        <i class="fa fa-bolt"></i>行情快报</div>
+      <div class="overflow-hidden flex-1"><div id="ticker" class="flex whitespace-nowrap text-xs py-3"></div></div>
+      <a href="#" onclick="return false" class="px-4 shrink-0 text-xs transition-colors hover:text-white" style="color:var(--panel-dim);">更多 <i class="fa fa-angle-right"></i></a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== E 采购/供应专区 ===== -->
+<section class="container-x py-10 reveal">
+  <div class="card overflow-hidden">
+    <div class="flex items-center px-2" style="border-bottom:1px solid var(--border-soft);">
+      <div class="nav-tab active" onclick="switchBoard(this,'purchase')">采购专区</div>
+      <div class="nav-tab" onclick="switchBoard(this,'supply')">供应专区</div>
+      <a href="#" onclick="return false" class="ml-auto text-xs mr-4 transition-colors hover:text-[var(--secondary-text)]" style="color:var(--text-tertiary);">发布询价 <i class="fa fa-angle-right"></i></a>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-5" id="boardPurchase"></div>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-5 hidden" id="boardSupply"></div>
+  </div>
+</section>
+
+<!-- ===== F 热卖现货 ===== -->
+<section class="container-x pb-10 reveal">
+  <div class="flex items-end justify-between mb-5">
+    <div>
+      <div class="eyebrow mb-1.5">HOT SPOT</div>
+      <h2 class="text-[26px] font-extrabold tracking-tight flex items-center gap-2.5">
+        <span class="sec-bar"></span>热卖现货</h2>
+    </div>
+    <a href="#" onclick="return false" class="text-xs mb-1 transition-colors hover:text-[var(--secondary-text)]" style="color:var(--text-tertiary);">查看全部 4,280 条 <i class="fa fa-angle-right"></i></a>
+  </div>
+  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4" id="productGrid"></div>
+</section>
+
+<!-- ===== G 行情驾驶舱（深色视觉高潮） ===== -->
+<section class="py-14 relative overflow-hidden" style="background:linear-gradient(170deg,#0A1420,#101E2E 60%,#0A1420);">
+  <div class="hero-grid" style="background-size:48px 48px;opacity:.7;" data-parallax="-.1"></div>
+  <div class="fx-spot"></div>
+  <div class="container-x relative z-10">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+      <div>
+        <div class="eyebrow mb-1.5" style="color:var(--secondary-on-dark);">MARKET TERMINAL</div>
+        <h2 class="text-[26px] font-extrabold tracking-tight text-white flex items-center gap-2.5">
+          <span class="sec-bar"></span>行情驾驶舱</h2>
+      </div>
+      <div class="flex gap-2">
+        <span class="glass px-3 py-1.5 text-[11px] text-white/80 flex items-center gap-1.5"><span class="pulse" style="color:var(--up-on-dark);"></span>数据延迟 &lt;1s</span>
+        <span class="glass px-3 py-1.5 text-[11px] text-white/80">更新于 <span class="tnum" id="clockNow">--:--:--</span></span>
+      </div>
+    </div>
+
+    <!-- G1 品种速览网格 -->
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-5" id="quoteGrid"></div>
+
+    <!-- G2 走势图 + 关键指标 -->
+    <div class="grid grid-cols-12 gap-4">
+      <div class="col-span-12 lg:col-span-8 glass fx-sheen p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="font-bold text-white text-[15px]"><i class="fa fa-chart-line mr-2" style="color:var(--secondary-on-dark);"></i><span id="chartTitle">主力品种价格走势</span></h3>
+          <div class="flex gap-1 p-1 rounded-lg" style="background:rgba(255,255,255,.06);" id="rangeTabs"></div>
+        </div>
+        <div class="h-[260px] lg:h-[300px]"><canvas id="priceChart"></canvas></div>
+      </div>
+      <div class="col-span-12 lg:col-span-4 glass fx-sheen p-5">
+        <h3 class="font-bold text-white text-[15px] mb-4"><i class="fa fa-gauge-high mr-2" style="color:var(--secondary-on-dark);"></i>市场热度</h3>
+        <div class="grid gap-3.5" id="heatList"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== H 认证供应商 ===== -->
+<section class="container-x py-10 reveal">
+  <div class="flex items-end justify-between mb-5">
+    <div>
+      <div class="eyebrow mb-1.5">VERIFIED</div>
+      <h2 class="text-[26px] font-extrabold tracking-tight flex items-center gap-2.5">
+        <span class="sec-bar"></span>认证供应商</h2>
+    </div>
+    <a href="#" onclick="return false" class="text-xs mb-1 transition-colors hover:text-[var(--secondary-text)]" style="color:var(--text-tertiary);">招商开店 <i class="fa fa-angle-right"></i></a>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="supplierGrid"></div>
+</section>
+
+<!-- ===== H2 全球货源网络（3D 全息地球） ===== -->
+<section class="py-14 relative overflow-hidden" style="background:linear-gradient(200deg,#050D16,#0C1D2F 44%,#0A1420);">
+  <div class="hero-grid" style="background-size:44px 44px;opacity:.55;" data-parallax="-.08"></div>
+  <div class="fx-spot"></div>
+  <div class="container-x relative z-10">
+    <div class="grid grid-cols-12 gap-8 lg:gap-12 items-center">
+
+      <!-- 全息地球：球面网格 / 枢纽光点 / 航线弧与在途光标，全部 canvas 投影绘制 -->
+      <div class="col-span-12 lg:col-span-6">
+        <div class="globe-wrap">
+          <div class="globe-halo"></div>
+          <div class="globe-orbit"></div>
+          <div class="globe-orbit-2"></div>
+          <canvas id="globeCanvas" aria-label="全球货源网络示意（装饰性）"></canvas>
+          <span class="globe-tip glass px-3 py-1.5 text-[11px] text-white/85">
+            <span class="pulse mr-1.5" style="color:var(--up-on-dark);"></span><span id="globeTip">航线实时更新</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- 数据侧 -->
+      <div class="col-span-12 lg:col-span-6">
+        <div class="eyebrow mb-1.5" style="color:var(--secondary-on-dark);">GLOBAL SUPPLY NETWORK</div>
+        <h2 class="text-[26px] font-extrabold tracking-tight text-white flex items-center gap-2.5 mb-3">
+          <span class="sec-bar"></span>全球货源网络</h2>
+        <p class="text-[13px] lg:text-sm mb-6" style="color:#9DB2C8;">海外矿口与口岸直连，在途运力、到港计划、跨境结算一条链路可视（示范数据，全部虚构）</p>
+
+        <div class="grid grid-cols-3 gap-3 mb-5" data-stagger id="netKpi"></div>
+
+        <div class="glass fx-ring fx-sheen p-2" data-tilt="3">
+          <div class="grid gap-1" id="netRoutes"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ===== I 平台服务 ===== -->
+<section class="container-x pb-10 reveal">
+  <div class="grid grid-cols-2 md:grid-cols-5 gap-4" id="serviceGrid"></div>
+</section>
+
+<!-- ===== J 行业资讯 ===== -->
+<section class="container-x pb-12 reveal">
+  <div class="flex items-end justify-between mb-5">
+    <div>
+      <div class="eyebrow mb-1.5">INSIGHT</div>
+      <h2 class="text-[26px] font-extrabold tracking-tight flex items-center gap-2.5">
+        <span class="sec-bar"></span>行业资讯</h2>
+    </div>
+    <a href="#" onclick="return false" class="text-xs mb-1 transition-colors hover:text-[var(--secondary-text)]" style="color:var(--text-tertiary);">更多资讯 <i class="fa fa-angle-right"></i></a>
+  </div>
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="newsGrid"></div>
+</section>
+
+<!-- ===== K 页脚 ===== -->
+<footer style="background:linear-gradient(180deg,#0A1420,#050D15);color:#8199B0;">
+  <div class="container-x grid grid-cols-2 md:grid-cols-5 gap-6 py-12 text-xs">
+    <div class="col-span-2 md:col-span-1">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-9 h-9 rounded-lg flex items-center justify-center text-white" style="background:var(--primary);"><i class="fa fa-cube"></i></div>
+        <div class="text-white font-extrabold text-base footerBrand">平台名</div>
+      </div>
+      <div class="leading-relaxed opacity-70">行业一站式交易与供应链服务平台（虚构示范）</div>
+    </div>
+    <div><div class="text-white font-bold mb-3.5 text-[13px]">平台服务</div><div class="grid gap-2.5 opacity-80">
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">帮助中心</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">交易保障</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">商家入驻</a></div></div>
+    <div><div class="text-white font-bold mb-3.5 text-[13px]">采购支持</div><div class="grid gap-2.5 opacity-80">
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">发布询价</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">阳光采购</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">招投标</a></div></div>
+    <div><div class="text-white font-bold mb-3.5 text-[13px]">关于平台</div><div class="grid gap-2.5 opacity-80">
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">公司介绍</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">联系我们</a>
+      <a href="#" onclick="return false" class="hover:text-white transition-colors">加入我们</a></div></div>
+    <div><div class="text-white font-bold mb-3.5 text-[13px]">联系我们</div><div class="grid gap-2.5 opacity-80">
+      <span><i class="fa fa-phone mr-1.5"></i>400-000-0000</span>
+      <span><i class="fa fa-location-dot mr-1.5"></i>城市 · 产业园（虚构）</span>
+      <span><i class="fa fa-clock mr-1.5"></i>工作日 9:00-18:00</span></div></div>
+  </div>
+  <div style="border-top:1px solid rgba(255,255,255,.07);">
+    <div class="container-x py-4 text-[11px] text-center opacity-60">© 2026 <span class="footerBrand">平台名</span> · 行业B2B平台 某ICP备0000000000号-1（虚构）</div>
+  </div>
+</footer>
+
+<!-- 移动端底部操作条 -->
+<div id="mobileBar" class="fixed bottom-0 left-0 w-full h-[56px] bg-white z-40 items-center px-3 gap-2" style="border-top:1px solid var(--border);">
+  <button type="button" class="flex flex-col items-center gap-0.5 text-[11px] px-2" style="color:var(--text-tertiary);"><i class="fa fa-headset text-base"></i>客服</button>
+  <button type="button" class="flex flex-col items-center gap-0.5 text-[11px] px-2" style="color:var(--text-tertiary);"><i class="fa fa-store text-base"></i>店铺</button>
+  <button type="button" class="btn btn-primary btn-shine flex-1 h-10 text-sm" onclick="showToast('进入询价流程（原型演示）','info')">立即询价</button>
+</div>
+
+<!-- 移动端抽屉 -->
+<div id="drawerMask" class="fixed inset-0 bg-black/50 z-[80] hidden" onclick="closeDrawer()"></div>
+<div id="drawer" class="fixed left-0 top-0 h-full w-4/5 max-w-xs bg-white z-[85] flex flex-col shadow-2xl">
+  <div class="p-4 font-bold flex items-center justify-between" style="border-bottom:1px solid var(--border-soft);">全部分类
+    <button type="button" onclick="closeDrawer()" aria-label="关闭"><i class="fa fa-xmark text-gray-400"></i></button></div>
+  <div class="p-4 overflow-y-auto flex-1 text-sm" id="drawerBody"></div>
+</div>
+
+<script>
+/* ============================================================
+ * ① 行业主题（取自 references/industry-profiles.md）
+ * ============================================================ */
+var THEME = {
+  primary:'#1E3A5F',
+  primaryLight:'#E8EEF4',
+  primaryDark:'#0F1D2F',
+  secondary:'#FF6A00'
+};
+
+/* ============================================================
+ * ② 平台配置
+ * ============================================================ */
+var PLATFORM = {
+  name:'钢信汇',
+  slogan:'钢铁一站式交易平台',
+  topSlogan:'钢厂采购 · 一手价格',
+  searchBtn:'搜钢',
+  placeholder:'搜索钢材牌号、规格、供应商，如 HRB400 / Φ20 / 沙钢',
+  hotwords:['HRB400','镀锌板','无缝管','冷轧卷','中厚板'],
+  chartTitle:'螺纹钢 (HRB400) 价格走势'
+};
+
+/* ============================================================
+ * ③ Mock 数据（Schema 见 html-prototype-spec.md §4，全部虚构）
+ * ============================================================ */
+var categories = [
+  {name:'建筑钢材', children:['螺纹钢','盘螺','高线','圆钢']},
+  {name:'板材', children:['热轧板卷','冷轧板卷','镀锌板','中厚板']},
+  {name:'管材', children:['无缝管','焊管','镀锌管','方矩管']},
+  {name:'型材', children:['H型钢','工字钢','角钢','槽钢']},
+  {name:'不锈钢', children:['304/316卷板','不锈钢管','不锈钢棒']}
+];
+
+var banners = [
+  {kicker:'钢厂直发 · 当日可提', title:'螺纹钢现货', titleAccent:'沙钢直供', desc:'HRB400E Φ16-25mm · 理重计价 · 支持过磅', cta:'立即询价'},
+  {kicker:'板材专场 · 整单优惠', title:'热轧板卷', titleAccent:'首钢现货', desc:'Q235B 4.75×1500 · 上海宝山库 · 48h 发货', cta:'马上找货'},
+  {kicker:'定轧服务 · 按需交付', title:'无缝管', titleAccent:'支持定制轧制', desc:'20# Φ89×4 · 过磅结算 · 批量从优', cta:'发布采购'}
+];
+
+var ticker = [
+  {name:'螺纹钢 HRB400', price:4500, chg:2.0, dir:'up', vol:'12.6万'},
+  {name:'热卷 Q235B', price:4620, chg:-1.0, dir:'down', vol:'8.4万'},
+  {name:'铁矿石 62%', price:950, chg:0.0, dir:'flat', vol:'3.1万'},
+  {name:'中厚板 Q345B', price:4780, chg:1.2, dir:'up', vol:'5.7万'},
+  {name:'角钢 Q235B', price:4120, chg:-0.6, dir:'down', vol:'2.2万'},
+  {name:'不锈钢304', price:15800, chg:0.5, dir:'up', vol:'1.8万'}
+];
+
+var boards = {
+  purchase:[
+    {type:'采购螺纹钢', spec:'HRB400E Φ20', qty:'500 吨', city:'江苏南京', note:'钢厂直提', time:'11小时前'},
+    {type:'采购热卷', spec:'4.75×1500 Q235B', qty:'300 吨', city:'上海', note:'报含税价', time:'3小时前'},
+    {type:'采购不锈钢板', spec:'304 2.0×1219', qty:'50 吨', city:'广东佛山', note:'可电解', time:'1天前'},
+    {type:'采购无缝管', spec:'Φ89×4 20#', qty:'120 吨', city:'河北沧州', note:'过磅', time:'2天前'}
+  ],
+  supply:[
+    {type:'供应盘螺', spec:'HRB400 Φ8', qty:'200 吨', city:'江苏苏州', note:'理计·当日可提', time:'1小时前'},
+    {type:'供应镀锌板', spec:'SGCC 1.0×1250', qty:'80 吨', city:'山东济南', note:'无花环保', time:'5小时前'},
+    {type:'供应H型钢', spec:'Q235B 200×200', qty:'150 吨', city:'天津', note:'12m定尺', time:'8小时前'},
+    {type:'供应焊管', spec:'Q235B Φ114×4', qty:'60 吨', city:'河北唐山', note:'过磅', time:'1天前'}
+  ]
+};
+
+var products = [
+  {icon:'fa-layer-group', title:'螺纹钢 HRB400E Φ20', price:'¥3,650 ~ 3,720 /吨', specs:['HRB400','Φ20','9m'], supplier:'沙钢 · 已成交 1200 笔', tags:['认证','直供']},
+  {icon:'fa-bars', title:'热轧板卷 Q235B 4.75×1500', price:'¥3,820 ~ 3,860 /吨', specs:['Q235B','4.75×1500','理重'], supplier:'首钢 · 已成交 860 笔', tags:['认证','现货']},
+  {icon:'fa-circle-notch', title:'无缝管 20# Φ89×4', price:'¥5,180 ~ 5,240 /吨', specs:['20#','Φ89','过磅'], supplier:'包钢 · 已成交 450 笔', tags:['认证','定轧']},
+  {icon:'fa-cube', title:'H型钢 Q235B 200×200', price:'¥4,280 ~ 4,330 /吨', specs:['Q235B','200×200','12m'], supplier:'莱钢 · 已成交 312 笔', tags:['直供']},
+  {icon:'fa-shield', title:'不锈钢304 2.0×1219 卷板', price:'¥15,600 ~ 15,900 /吨', specs:['304','2.0mm','1219'], supplier:'太钢 · 已成交 268 笔', tags:['认证']},
+  {icon:'fa-table-cells-large', title:'中厚板 Q345B 20mm', price:'¥4,050 ~ 4,120 /吨', specs:['Q345B','20mm','四切边'], supplier:'湘钢 · 已成交 420 笔', tags:['现货']},
+  {icon:'fa-grip', title:'盘螺 HRB400 Φ8', price:'¥3,780 ~ 3,840 /吨', specs:['HRB400','Φ8','盘卷'], supplier:'永钢 · 已成交 680 笔', tags:['认证','直供']},
+  {icon:'fa-square', title:'镀锌板 SGCC 1.0×1250', price:'¥4,560 ~ 4,620 /吨', specs:['SGCC','1.0mm','锌层80g'], supplier:'鞍钢 · 已成交 350 笔', tags:['现货']}
+];
+
+var suppliers = [
+  {name:'沙钢集团 · 华东直营', cert:'金牌供应商', year:'成立于1975年', auth:'ISO9001 · 深度验厂', main:'螺纹钢 / 线材 / 盘螺', deal:'已成交 3000 笔', rate:'98%'},
+  {name:'首钢京唐 · 板材现货', cert:'厂商直供', year:'成立于1964年', auth:'ISO14001 · 实体认证', main:'热卷 / 冷卷 / 镀锌', deal:'已成交 2200 笔', rate:'99%'},
+  {name:'包钢钢管 · 无缝管基地', cert:'金牌供应商', year:'成立于1954年', auth:'IATF16949 · 深度验厂', main:'无缝管 / 焊管 / 方矩管', deal:'已成交 1500 笔', rate:'97%'},
+  {name:'太钢不锈 · 板材专营', cert:'认证商家', year:'成立于1934年', auth:'ISO9001 · 实体认证', main:'304/316 / 不锈钢管', deal:'已成交 980 笔', rate:'99%'}
+];
+
+var services = [
+  {icon:'fa-shield-halved', name:'钢厂直供', desc:'源头价格·品质保障'},
+  {icon:'fa-truck-fast', name:'当日可提', desc:'全国仓配·48h发货'},
+  {icon:'fa-shield', name:'交易保障', desc:'担保交易·先行赔付'},
+  {icon:'fa-hand-holding-dollar', name:'金融支持', desc:'随借随还·账期融资'},
+  {icon:'fa-headset', name:'专属客服', desc:'1v1询价·代采代销'}
+];
+
+var news = [
+  {tag:'行情分析', title:'期螺震荡走强，宏观利好带动现货需求回暖', date:'2026-09-19', source:'钢联', hot:true},
+  {tag:'行业政策', title:'多家钢厂发布10月出厂价政策，螺纹上调50元', date:'2026-09-18', source:'找钢网', hot:false},
+  {tag:'数据报告', title:'本周钢材社会库存去化12万吨，表观需求回升', date:'2026-09-17', source:'Mysteel', hot:false}
+];
+
+/* 全球货源网络（Schema 见 html-prototype-spec.md §4.8）
+   换行业只改这里：hubs 填真实经纬度与体量，routes 填「起点→终点」的货源流向。
+   tone：run=在途（强调色）/ done=已到港（绿）/ wait=待装船（灰） */
+var TRADE = {
+  kpi:[
+    {label:'在途运力', value:42.8, dec:1, unit:'万吨'},
+    {label:'海外货源点', value:18, dec:0, unit:'个'},
+    {label:'平均在途', value:11, dec:0, unit:'天'}
+  ],
+  hubs:[
+    {name:'黑德兰港', lat:-20.3, lng:118.6, size:1.0},
+    {name:'图巴朗港', lat:-20.5, lng:-43.9, size:1.0},
+    {name:'上海港',   lat:31.2,  lng:121.5, size:1.5},
+    {name:'唐山港',   lat:39.2,  lng:118.1, size:1.3},
+    {name:'釜山港',   lat:35.1,  lng:129.0, size:.8},
+    {name:'新加坡港', lat:1.3,   lng:103.8, size:.9},
+    {name:'鹿特丹港', lat:51.9,  lng:4.5,   size:.8}
+  ],
+  routes:[
+    {from:'黑德兰港', to:'唐山港', cargo:'铁矿石 TFe61.5%', qty:'12.4 万吨', eta:'在途 6 天',  tone:'run'},
+    {from:'图巴朗港', to:'上海港', cargo:'铁矿石 TFe65%',   qty:'8.6 万吨',  eta:'在途 21 天', tone:'run'},
+    {from:'新加坡港', to:'上海港', cargo:'焦煤 主焦煤',      qty:'2.2 万吨',  eta:'待装船',    tone:'wait'},
+    {from:'釜山港',   to:'上海港', cargo:'冷轧卷 SPCC',     qty:'1.8 万吨',  eta:'已到港',    tone:'done'}
+  ]
+};
+
+var chartData = {
+  labels:['08-20','08-24','08-28','09-01','09-05','09-09','09-13','09-17','09-19'],
+  spot:[4320,4350,4380,4410,4390,4430,4460,4480,4500],
+  future:[4290,4330,4360,4400,4370,4410,4440,4470,4490]
+};
+
+/* ============================================================
+ * ④ 渲染函数
+ * ============================================================ */
+function applyTheme(){
+  var r=document.documentElement.style;
+  r.setProperty('--primary',THEME.primary);
+  r.setProperty('--primary-light',THEME.primaryLight);
+  r.setProperty('--primary-dark',THEME.primaryDark);
+  r.setProperty('--secondary',THEME.secondary);
+  r.setProperty('--primary-rgb', hexToRgbArr(THEME.primary).join(','));
+  r.setProperty('--secondary-rgb', hexToRgbArr(THEME.secondary).join(','));
+  r.setProperty('--secondary-text', THEME.secondaryText || shade(THEME.secondary,.35));
+  r.setProperty('--secondary-on-dark', THEME.secondaryOnDark || shade(THEME.secondary,-.28));
+}
+
+/* 强调色的两个可读变体：同色相调明暗。
+   --secondary 本身不是可读文字色——对白底仅 2.87:1、对深色底仅 4.0:1，都不达 4.5:1。
+   承载文字时一律用变体：白底上用 --secondary-text，深色底上用 --secondary-on-dark；
+   只有纯色块填充、白字底、或 ≥18px 粗体 CTA 才直接用 --secondary。 */
+function shade(hex,amt){           /* amt>0 变暗，amt<0 变亮 */
+  var c=hexToRgbArr(hex);
+  return '#'+c.map(function(v){
+    v = amt>=0 ? v*(1-amt) : v+(255-v)*(-amt);
+    v=Math.max(0,Math.min(255,Math.round(v))).toString(16);
+    return v.length<2?'0'+v:v;
+  }).join('');
+}
+function hexToRgbArr(hex){
+  var h=String(hex).replace('#','');
+  if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+}
+function rgbaVar(rgb, a){ return 'rgba('+rgb+','+a+')'; }
+
+function renderPlatform(){
+  document.title = PLATFORM.name+' · B2B门户';
+  document.getElementById('brandName').textContent=PLATFORM.name;
+  document.getElementById('brandSlogan').textContent=PLATFORM.slogan;
+  document.getElementById('topSlogan').textContent=PLATFORM.topSlogan;
+  document.getElementById('searchBtnText').textContent=PLATFORM.searchBtn;
+  document.getElementById('searchInput').placeholder=PLATFORM.placeholder;
+  document.getElementById('chartTitle').textContent=PLATFORM.chartTitle;
+  document.querySelectorAll('.footerBrand').forEach(function(el){el.textContent=PLATFORM.name;});
+  document.getElementById('hotwords').innerHTML='<span class="text-xs self-center" style="color:var(--text-tertiary);">热搜</span>'
+    +PLATFORM.hotwords.map(function(w){return '<span class="chip">'+w+'</span>';}).join('');
+}
+
+function renderCatPanel(){
+  document.getElementById('catPanelBody').innerHTML=categories.map(function(c){
+    return '<div><div class="font-bold mb-2.5 text-[13px]" style="color:var(--primary);">'+c.name+'</div>'
+      +'<div class="grid gap-1.5">'+c.children.map(function(s){return '<a href="#" onclick="return false" class="transition-colors hover:text-[var(--secondary-text)]">'+s+'</a>';}).join('')+'</div></div>';
+  }).join('');
+}
+
+function renderHeroCats(){
+  var cats=categories.slice(0,7).map(function(c){return c.name;});
+  document.getElementById('heroCats').innerHTML=
+    '<div class="px-4 py-3 text-[13px] font-bold text-white" style="background:rgba(255,255,255,.07);border-bottom:1px solid rgba(255,255,255,.08);">'
+    +'<i class="fa fa-bars mr-2" style="color:var(--secondary-on-dark);"></i>全部分类</div>'
+    +cats.map(function(c,i){
+      return '<a href="#" onclick="return false" class="flex items-center justify-between px-4 py-2.5 text-[13px] text-white/80 transition-colors'
+        +' hover:bg-white/10 hover:text-white'+(i<cats.length-1?'':'')+'" style="border-bottom:1px solid rgba(255,255,255,.055);">'
+        +'<span>'+c+'</span><i class="fa fa-angle-right text-white/25"></i></a>';
+    }).join('')
+    +'<a href="#" onclick="return false" class="block mt-auto px-4 py-3 text-[12px] text-center transition-colors hover:text-white" style="color:var(--secondary-on-dark);border-top:1px solid rgba(255,255,255,.08);">查看全部 <i class="fa fa-angle-right"></i></a>';
+}
+
+function renderDrawer(){
+  document.getElementById('drawerBody').innerHTML=categories.map(function(c){
+    return '<div class="mb-5"><div class="font-bold mb-2.5" style="color:var(--primary);">'+c.name+'</div>'
+      +'<div class="grid grid-cols-2 gap-2" style="color:var(--text-secondary);">'+c.children.map(function(s){return '<a href="#" onclick="return false">'+s+'</a>';}).join('')+'</div></div>';
+  }).join('');
+}
+
+var bannerIndex=0;
+function renderBanner(){
+  var box=document.getElementById('bannerBox');
+  box.innerHTML=banners.map(function(b,i){
+    var t=ticker[i]||ticker[0];
+    var dirCls=t.dir==='up'?'t-up-d':(t.dir==='down'?'t-down-d':'opacity-70');
+    return '<div class="banner-slide'+(i?' off':'')+'"'
+      +' style="background:radial-gradient(560px 300px at 82% 22%,'+rgbaVar(hexToRgbArr(THEME.secondary).join(','),.22)+',transparent 66%),linear-gradient(135deg,#0C1D2F,var(--primary-dark));">'
+      /* 装饰性同心圆 */
+      +'<div class="absolute -right-16 -top-16 w-[320px] h-[320px] rounded-full pointer-events-none" style="border:1px solid rgba(255,255,255,.09);"></div>'
+      +'<div class="absolute -right-4 top-8 w-[230px] h-[230px] rounded-full pointer-events-none" style="border:1px solid rgba(255,255,255,.07);"></div>'
+      +'<div class="absolute right-10 top-24 w-[130px] h-[130px] rounded-full pointer-events-none" style="border:1px solid '+rgbaVar(hexToRgbArr(THEME.secondary).join(','),.28)+';"></div>'
+      /* 内容 */
+      +'<div class="absolute left-0 top-0 h-full w-full flex flex-col justify-center px-7 lg:px-14">'
+      +'<div class="flex items-center gap-2 mb-3"><span class="pulse" style="color:var(--secondary-on-dark);"></span>'
+      +'<span class="text-[12px] font-semibold tracking-widest" style="color:var(--secondary-on-dark);">'+b.kicker+'</span></div>'
+      +'<h1 class="text-[32px] lg:text-[54px] font-extrabold leading-[1.12] tracking-tight mb-3 text-white">'+b.title+'<br class="hidden lg:block"> <span style="color:var(--secondary-on-dark);">'+b.titleAccent+'</span></h1>'
+      +'<p class="text-[13px] lg:text-[15px] mb-6 lg:mb-8 max-w-md" style="color:#A8BDD3;">'+b.desc+'</p>'
+      +'<div class="flex items-center gap-3 lg:gap-4">'
+      +'<button type="button" class="btn btn-primary btn-shine fx-magnet px-6 lg:px-8 py-2.5 lg:py-3 text-sm" onclick="showToast(\'进入询价流程（原型演示）\',\'info\')">'+b.cta+'<i class="fa fa-arrow-right text-xs"></i></button>'
+      +'<div class="hidden sm:flex items-baseline gap-2 pl-4" style="border-left:1px solid rgba(255,255,255,.18);">'
+      +'<span class="metric text-2xl font-bold text-white">'+t.price.toLocaleString()+'</span>'
+      +'<span class="text-[12px] '+dirCls+'"><i class="fa fa-arrow-trend-'+(t.dir==='down'?'down':'up')+' mr-0.5"></i>'+(t.chg>0?'+':'')+t.chg+'%</span>'
+      +'</div></div></div></div>';
+  }).join('')
+  /* 指示器 */
+  +'<div class="absolute bottom-4 lg:bottom-5 left-1/2 -translate-x-1/2 flex gap-2 z-10">'
+  +banners.map(function(b,i){return '<span class="banner-dot'+(i?'':' on')+'"></span>';}).join('')
+  +'</div>';
+}
+function startBanner(){
+  setInterval(function(){
+    bannerIndex=(bannerIndex+1)%banners.length;
+    document.querySelectorAll('.banner-slide').forEach(function(el,i){
+      el.classList.toggle('off', i!==bannerIndex);
+    });
+    document.querySelectorAll('.banner-dot').forEach(function(el,i){
+      el.classList.toggle('on', i===bannerIndex);
+    });
+  },4500);
+}
+
+function renderTickerBar(){
+  var html=ticker.map(function(t){
+    var cls=t.dir==='up'?'t-up-d':(t.dir==='down'?'t-down-d':'text-white/50');
+    var icon=t.dir==='up'?'fa-arrow-trend-up':(t.dir==='down'?'fa-arrow-trend-down':'fa-minus');
+    return '<div class="px-6 flex items-center gap-2">'
+      +'<span style="color:var(--panel-dim);">'+t.name+'</span>'
+      +'<span class="metric font-bold text-white">'+t.price.toLocaleString()+'</span>'
+      +'<span class="'+cls+' tnum text-[11px]"><i class="fa '+icon+' mr-0.5"></i>'+(t.chg>0?'+':'')+t.chg.toFixed(1)+'%</span>'
+      +'</div>';
+  }).join('');
+  var el=document.getElementById('ticker');
+  el.innerHTML=html+html;
+  var x=0;
+  setInterval(function(){ x-=0.6; if(-x>=el.scrollWidth/2) x=0; el.style.transform='translateX('+x+'px)'; },30);
+}
+
+/* 行情驾驶舱：品种速览卡 */
+function renderQuotes(){
+  document.getElementById('quoteGrid').innerHTML=ticker.map(function(t,qi){
+    var up=t.dir==='up', down=t.dir==='down';
+    var col=up?'var(--up-on-dark)':(down?'var(--down-on-dark)':'#9DB2C8');
+    var icon=up?'fa-caret-up':(down?'fa-caret-down':'fa-minus');
+    return '<div class="glass glass-hover p-3.5 cursor-pointer" data-tilt="6">'
+      +'<div class="text-[11px] mb-1.5 truncate" style="color:var(--panel-dim);">'+t.name+'</div>'
+      +'<div class="metric text-[19px] font-extrabold text-white leading-none mb-2">'+t.price.toLocaleString()+'</div>'
+      +'<div class="flex items-center justify-between">'
+      +'<span class="text-[11px] font-semibold tnum" style="color:'+col+'"><i class="fa '+icon+' mr-0.5"></i>'+(t.chg>0?'+':'')+t.chg.toFixed(1)+'%</span>'
+      +'<span class="text-[11px]" style="color:var(--panel-dim-2);">'+t.vol+' 吨</span>'
+      +'</div>'
+      /* 迷你趋势线：pathLength=100 让各卡折线长度归一，绘制动画才能对齐 */
+      +'<svg viewBox="0 0 100 22" class="w-full h-[22px] mt-2" preserveAspectRatio="none">'
+      +'<polyline points="'+sparkPoints(t)+'" pathLength="100" class="spark" style="animation-delay:'+(qi*90)+'ms"'
+      +' fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/>'
+      +'</svg></div>';
+  }).join('');
+}
+/* 由涨跌方向生成稳定的迷你趋势折线 */
+function sparkPoints(t){
+  var n=10, pts=[], base=10, seed=Math.abs(Math.round(t.price));
+  for(var i=0;i<n;i++){
+    seed=(seed*9301+49297)%233280;
+    var rnd=seed/233280;
+    var trend=(t.dir==='up'?1:(t.dir==='down'?-1:0)) * i * 0.55;
+    var v=base-trend+(rnd-0.5)*4.2;
+    pts.push((i*(100/(n-1))).toFixed(1)+','+Math.max(2,Math.min(20,v)).toFixed(1));
+  }
+  return pts.join(' ');
+}
+
+/* 市场热度 */
+function renderHeat(){
+  var rows=[
+    {name:'询价活跃度', v:86, txt:'高'},
+    {name:'报价响应率', v:72, txt:'良好'},
+    {name:'现货充足度', v:64, txt:'正常'},
+    {name:'物流时效', v:91, txt:'优'}
+  ];
+  document.getElementById('heatList').innerHTML=rows.map(function(r){
+    return '<div>'
+      +'<div class="flex items-center justify-between text-[12px] mb-1.5"><span style="color:var(--panel-dim);">'+r.name+'</span>'
+      +'<span class="font-semibold tnum text-white">'+r.v+'% <span class="text-[11px] font-normal" style="color:var(--secondary-on-dark);">'+r.txt+'</span></span></div>'
+      +'<div class="h-1.5 rounded-full overflow-hidden" style="background:rgba(255,255,255,.08);">'
+      +'<div class="h-full rounded-full" style="width:'+r.v+'%;background:linear-gradient(90deg,var(--primary),var(--secondary));"></div></div></div>';
+  }).join('');
+}
+
+function boardItem(b){
+  return '<div class="p-3.5 rounded-xl cursor-pointer transition-all card-lift" style="background:var(--bg);border:1px solid var(--border-soft);">'
+    +'<div class="text-[11px] mb-1.5 flex items-center gap-1.5" style="color:var(--text-tertiary);">'
+    +'<span class="w-1.5 h-1.5 rounded-full" style="background:var(--primary);"></span>'+b.type+'</div>'
+    +'<div class="font-bold text-[14px]">'+b.spec+'<span class="text-[11px] font-normal ml-1.5" style="color:var(--text-tertiary);">×'+b.qty+'</span></div>'
+    +'<div class="text-[11px] mt-1.5" style="color:var(--text-tertiary);">'+b.city+' · '+b.note
+    +' <span class="ml-2 font-medium" style="color:var(--secondary-text);">'+b.time+'</span></div></div>';
+}
+function renderBoards(){
+  document.getElementById('boardPurchase').innerHTML=boards.purchase.map(boardItem).join('');
+  document.getElementById('boardSupply').innerHTML=boards.supply.map(boardItem).join('');
+}
+function switchBoard(tab,key){
+  tab.parentNode.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');});
+  tab.classList.add('active');
+  document.getElementById('boardPurchase').classList.toggle('hidden',key!=='purchase');
+  document.getElementById('boardSupply').classList.toggle('hidden',key!=='supply');
+}
+
+function productCard(p){
+  return '<div class="card card-lift cursor-pointer overflow-hidden group" data-tilt="7">'
+    +'<div class="thumb aspect-[5/4] flex items-center justify-center">'
+    +'<i class="fa '+p.icon+' text-[52px] lg:text-[64px]"></i>'
+    +'<div class="absolute top-2.5 left-2.5 flex gap-1.5 z-[2]">'
+    +p.tags.map(function(t,i){
+      return '<span class="text-[10px] px-2 py-0.5 rounded-md font-semibold text-white" style="background:'+(i?'var(--secondary)':'var(--primary)')+';box-shadow:0 2px 8px rgba(0,0,0,.18);">'+t+'</span>';
+    }).join('')
+    +'</div></div>'
+    +'<div class="p-3.5">'
+    +'<div class="font-bold text-[13px] leading-snug h-10 line-clamp-2 transition-colors group-hover:text-[var(--primary)]">'+p.title+'</div>'
+    +'<div class="mt-2 metric font-extrabold text-[16px]" style="color:var(--text-price);">'+p.price+'</div>'
+    +'<div class="mt-2.5 flex flex-wrap">'+p.specs.map(function(s){return '<span class="spec-tag">'+s+'</span>';}).join('')+'</div>'
+    +'<div class="mt-2.5 text-[11px] truncate flex items-center gap-1" style="color:var(--text-tertiary);"><i class="fa fa-circle-check" style="color:var(--primary);"></i>'+p.supplier+'</div>'
+    +'<div class="mt-3 grid grid-cols-2 gap-2">'
+    +'<button type="button" onclick="event.stopPropagation();showToast(\'进入询价流程（原型演示）\',\'info\')" class="btn btn-solid py-2 text-xs">立即询价</button>'
+    +'<button type="button" onclick="event.stopPropagation();addInquiry(this)" class="btn btn-outline py-2 text-xs">加入询盘</button>'
+    +'</div></div></div>';
+}
+function renderProducts(){
+  document.getElementById('productGrid').innerHTML=products.map(productCard).join('');
+}
+
+function supplierCard(s){
+  return '<div class="card card-lift p-4 cursor-pointer" data-tilt="6">'
+    +'<div class="flex items-center gap-3 mb-3.5">'
+    +'<div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg shrink-0"'
+    +' style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:var(--sh-primary);"><i class="fa fa-warehouse"></i></div>'
+    +'<div class="min-w-0"><div class="font-bold text-[13.5px] leading-tight truncate">'+s.name+'</div>'
+    +'<div class="text-[11px] mt-1 flex items-center gap-1.5"><i class="fa fa-certificate" style="color:var(--secondary-text);"></i>'
+    +'<span style="color:var(--secondary-text);">'+s.cert+'</span><span style="color:var(--text-tertiary);">· '+s.year+'</span></div></div></div>'
+    +'<div class="grid gap-1.5 text-xs mb-3.5" style="color:var(--text-secondary);">'
+    +'<div class="flex gap-2"><span class="shrink-0" style="color:var(--text-tertiary);">认证</span><span class="truncate">'+s.auth+'</span></div>'
+    +'<div class="flex gap-2"><span class="shrink-0" style="color:var(--text-tertiary);">主营</span><span class="truncate">'+s.main+'</span></div></div>'
+    +'<div class="flex items-center gap-4 py-2.5 mb-3" style="border-top:1px solid var(--border-soft);border-bottom:1px solid var(--border-soft);">'
+    +'<div><div class="metric text-[15px] font-extrabold" style="color:var(--primary);">'+s.deal.replace('已成交 ','')+'</div>'
+    +'<div class="text-[10px]" style="color:var(--text-tertiary);">累计成交</div></div>'
+    +'<div class="w-px h-7" style="background:var(--border);"></div>'
+    +'<div><div class="metric text-[15px] font-extrabold" style="color:var(--primary);">'+s.rate+'</div>'
+    +'<div class="text-[10px]" style="color:var(--text-tertiary);">好评率</div></div></div>'
+    +'<div class="grid grid-cols-2 gap-2">'
+    +'<button type="button" class="btn btn-solid py-2 text-xs">进入店铺</button>'
+    +'<button type="button" class="btn btn-outline py-2 text-xs">立即联系</button></div></div>';
+}
+function renderSuppliers(){
+  document.getElementById('supplierGrid').innerHTML=suppliers.map(supplierCard).join('');
+}
+
+function renderServices(){
+  document.getElementById('serviceGrid').innerHTML=services.map(function(s){
+    return '<div class="card card-lift p-5 text-center cursor-pointer" data-tilt="6">'
+      +'<div class="w-14 h-14 mx-auto rounded-2xl flex items-center justify-center text-white text-2xl mb-3"'
+      +' style="background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:var(--sh-primary);"><i class="fa '+s.icon+'"></i></div>'
+      +'<div class="font-bold text-[14px]">'+s.name+'</div>'
+      +'<div class="text-xs mt-1.5" style="color:var(--text-tertiary);">'+s.desc+'</div></div>';
+  }).join('');
+}
+
+function renderNews(){
+  document.getElementById('newsGrid').innerHTML=news.map(function(n,i){
+    return '<div class="card card-lift p-5 cursor-pointer group'+(i===0?' lg:col-span-1':'')+'" data-tilt="5">'
+      +'<div class="flex items-center gap-2 mb-2.5">'
+      +'<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md" style="background:var(--primary-light);color:var(--primary);">'+n.tag+'</span>'
+      +(n.hot?'<span class="text-[11px] font-semibold px-2 py-0.5 rounded-md text-white" style="background:var(--error);">热点</span>':'')
+      +'</div>'
+      +'<div class="font-bold text-[14.5px] leading-relaxed mb-3 transition-colors group-hover:text-[var(--primary)]">'+n.title+'</div>'
+      +'<div class="text-[11px] flex items-center gap-3" style="color:var(--text-tertiary);">'
+      +'<span><i class="fa fa-calendar-day mr-1"></i>'+n.date+'</span>'
+      +'<span><i class="fa fa-newspaper mr-1"></i>'+n.source+'</span></div></div>';
+  }).join('');
+}
+
+/* 全球货源网络：KPI + 航线列表（与全息地球共用 TRADE 数据） */
+function renderTrade(){
+  document.getElementById('netKpi').innerHTML=TRADE.kpi.map(function(k){
+    return '<div class="glass p-3.5">'
+      +'<div class="text-[11px] mb-1.5" style="color:var(--panel-dim);">'+k.label+'</div>'
+      +'<div class="metric text-[22px] lg:text-[24px] font-extrabold text-white leading-none">'
+      +'<span data-count="'+k.value+'" data-dec="'+(k.dec||0)+'">0</span>'
+      +'<span class="text-[11px] font-medium opacity-65 ml-1">'+k.unit+'</span></div></div>';
+  }).join('');
+
+  var tone={run:'var(--secondary-on-dark)',done:'var(--down-on-dark)',wait:'var(--panel-dim)'};
+  var toneTxt={run:'在途',done:'已到港',wait:'待装船'};
+  document.getElementById('netRoutes').innerHTML=TRADE.routes.map(function(r){
+    return '<div class="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors hover:bg-white/5">'
+      +'<i class="fa fa-ship w-4 text-center text-[13px]" style="color:var(--panel-dim-2);"></i>'
+      +'<div class="min-w-0 flex-1">'
+      +'<div class="text-[13px] text-white/90 truncate">'+r.from
+      +'<i class="fa fa-arrow-right-long mx-2 text-[10px]" style="color:var(--secondary-on-dark);"></i>'+r.to+'</div>'
+      +'<div class="text-[11px] mt-0.5 truncate" style="color:var(--panel-dim);">'+r.cargo+' · '+r.qty+'</div></div>'
+      +'<div class="text-right shrink-0">'
+      +'<div class="text-[11px] font-semibold" style="color:'+tone[r.tone]+';">'+r.eta+'</div>'
+      +'<div class="text-[10px] mt-0.5" style="color:var(--panel-dim-2);">'+toneTxt[r.tone]+'</div>'
+      +'</div></div>';
+  }).join('');
+  document.getElementById('globeTip').textContent=TRADE.routes.length+' 条航线在途 · 实时更新';
+}
+
+function renderRangeTabs(){
+  document.getElementById('rangeTabs').innerHTML=['日','月','季','年'].map(function(t,i){
+    return '<button type="button" class="px-3 py-1 rounded-md text-[12px] font-medium transition-all"'
+      +' style="'+(i===1?'background:var(--secondary);color:#fff;':'color:var(--panel-dim);')+'">'+t+'</button>';
+  }).join('');
+}
+
+function renderChart(){
+  var cv=document.getElementById('priceChart');
+  if(typeof Chart==='undefined'){
+    cv.outerHTML='<div class="text-sm text-center py-10" style="color:var(--panel-dim);">行情图表（加载失败）</div>';
+    return;
+  }
+  var ctx=cv.getContext('2d');
+  var g=ctx.createLinearGradient(0,0,0,300);
+  g.addColorStop(0, rgbaVar(hexToRgbArr(THEME.primary).join(','),.55));
+  g.addColorStop(1, rgbaVar(hexToRgbArr(THEME.primary).join(','),0));
+  new Chart(cv,{
+    type:'line',
+    data:{labels:chartData.labels,datasets:[
+      {label:'现货价',data:chartData.spot,borderColor:'#6FB1FF',backgroundColor:g,fill:true,tension:.4,borderWidth:2.5,
+       pointRadius:0,pointHoverRadius:5,pointHoverBackgroundColor:'#6FB1FF',pointHoverBorderColor:'#fff',pointHoverBorderWidth:2},
+      {label:'期货价',data:chartData.future,borderColor:THEME.secondary,borderDash:[6,5],fill:false,tension:.4,borderWidth:2,pointRadius:0}
+    ]},
+    options:{maintainAspectRatio:false,responsive:true,interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{position:'top',align:'end',labels:{boxWidth:10,boxHeight:10,usePointStyle:true,pointStyle:'circle',color:'#8AA0B8',font:{size:11}}},
+        tooltip:{backgroundColor:'rgba(8,18,30,.96)',borderColor:'rgba(255,255,255,.12)',borderWidth:1,
+          titleColor:'#fff',bodyColor:'#C4D4E4',padding:11,cornerRadius:10,displayColors:true,boxWidth:8,boxHeight:8,usePointStyle:true}
+      },
+      scales:{
+        y:{ticks:{color:'#5E7590',font:{size:11},padding:8,callback:function(v){return v.toLocaleString();}},
+           grid:{color:'rgba(255,255,255,.055)',drawBorder:false},border:{display:false}},
+        x:{ticks:{color:'#5E7590',font:{size:11},padding:6},grid:{display:false},border:{display:false}}
+      }}
+  });
+}
+
+/* ============================================================
+ * ⑤ 交互
+ * ============================================================ */
+function showToast(msg,type){
+  var k=type||'info';
+  // 底色与前景色必须成对：success/warn 底色偏亮，白字对比度不足 4.5:1，须用深色字
+  // info 底色跟随行业主题，不写死钢铁蓝（spec §3.2：主题色一律走变量）
+  var css=getComputedStyle(document.documentElement);
+  var themeDark=css.getPropertyValue('--primary-dark').trim()||'#1E3A5F';
+  var bg={success:'#52C41A',warn:'#FAAD14',error:'#CF1322',info:themeDark};
+  var fg={success:'#0B2E00',warn:'#3D2A00',error:'#FFFFFF',info:'#FFFFFF'};
+  var icons={success:'fa-circle-check',warn:'fa-triangle-exclamation',error:'fa-circle-xmark',info:'fa-circle-info'};
+  var body=document.getElementById('toastBody');
+  body.style.background=bg[k]; body.style.color=fg[k];
+  body.innerHTML='<i class="fa '+icons[k]+' mr-1"></i>'+msg;
+  document.getElementById('toast').classList.remove('hidden');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(function(){document.getElementById('toast').classList.add('hidden');},2500);
+}
+
+function doSearch(){
+  var v=document.getElementById('searchInput').value.trim();
+  if(!v){showToast('请输入搜索内容','warn');return;}
+  showToast('搜索：'+v+'（原型演示）','info');
+}
+document.getElementById('searchInput').addEventListener('keydown',function(e){
+  if(e.key==='Enter') doSearch();
+});
+
+var inquiryCount=0;
+function addInquiry(btn){
+  inquiryCount++;
+  document.getElementById('inquiryBadge').textContent=inquiryCount;
+  btn.textContent='已加入 ✓'; btn.style.opacity=.55; btn.disabled=true;
+  showToast('已加入询盘单','success');
+}
+
+function togglePanel(id){
+  document.getElementById(id).classList.toggle('hidden');
+}
+
+function openDrawer(){
+  document.getElementById('drawerMask').classList.remove('hidden');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawerMask').classList.add('hidden');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+/* ============================================================
+ * ⑥ 动效：数字滚动 + 滚动进场 + 时钟
+ * ============================================================ */
+function countUp(el){
+  var to=parseFloat(el.getAttribute('data-count'));
+  var dec=parseInt(el.getAttribute('data-dec')||'0',10);
+  var dur=1400, t0=null;
+  function step(ts){
+    if(!t0) t0=ts;
+    var p=Math.min((ts-t0)/dur,1);
+    var e=1-Math.pow(1-p,3);                 /* easeOutCubic */
+    el.textContent=(to*e).toLocaleString('zh-CN',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+    if(p<1){ requestAnimationFrame(step); }
+    else if(!FX.reduced){ el.classList.add('fx-glow'); }   /* 收尾光晕，让数字「落地」有重量 */
+  }
+  requestAnimationFrame(step);
+}
+
+function initReveal(){
+  var els=document.querySelectorAll('.reveal');
+  if(!els.length) return;
+  /* 确认环境真的能观察，再挂隐藏态——否则宁可不动，也不能让内容消失 */
+  if(!FX.on||!('IntersectionObserver' in window)) return;
+  document.documentElement.classList.add('fx-anim');
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add('in'); io.unobserve(en.target); } });
+  },{threshold:.08, rootMargin:'0px 0px -40px 0px'});
+  els.forEach(function(e){ io.observe(e); });
+}
+
+function initClock(){
+  var el=document.getElementById('clockNow');
+  function tick(){
+    var d=new Date();
+    el.textContent=[d.getHours(),d.getMinutes(),d.getSeconds()]
+      .map(function(n){return n<10?'0'+n:n;}).join(':');
+  }
+  tick(); setInterval(tick,1000);
+}
+
+/* ============================================================
+ * ⑦ 动效层：粒子网络 / 滚动视差 / 3D 倾斜 / 光效 / 全息地球
+ * 渐进增强：无 canvas、无 rAF、或系统开启「减少动态效果」时整体跳过。
+ * 页面信息不依赖本模块——动效全部失效时内容仍完整可读（spec §5 / §8）。
+ * 性能约定：离屏即暂停、DPR 封顶 2、指针效果仅精确指针设备启用。
+ * ============================================================ */
+var FX=(function(){
+  var rm=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var fine=window.matchMedia&&window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  return {reduced:rm, fine:fine, on:!rm&&!!window.requestAnimationFrame,
+          raf:window.requestAnimationFrame.bind(window)};
+})();
+/* 深色底取色：主题色本身太暗，canvas 里用提亮后的分量值 */
+function fxTint(hex,amt){ return hexToRgbArr(shade(hex,amt)).join(','); }
+
+/* ⑦-1 粒子网络（Hero 底层）：节点 + 就近连线 + 指针斥力 */
+function initNet(){
+  var cv=document.getElementById('fxNet');
+  if(!cv||!cv.getContext||!FX.on) return;
+  var ctx=cv.getContext('2d'), layer=cv.parentNode, sec=layer.parentNode;
+  var W=0,H=0,pts=[],mx=-1e4,my=-1e4,alive=true;
+  var C1=fxTint(THEME.primary,-.62), C2=fxTint(THEME.secondary,0), LINK=132;
+  function resize(){
+    var r=layer.getBoundingClientRect();
+    if(!r.width||!r.height) return;
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    W=r.width; H=r.height;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    var n=Math.max(26,Math.min(88,Math.round(W*H/15000)));
+    pts=[];
+    for(var i=0;i<n;i++) pts.push({
+      x:Math.random()*W, y:Math.random()*H,
+      vx:(Math.random()-.5)*.24, vy:(Math.random()-.5)*.24,
+      r:.8+Math.random()*1.4, hot:Math.random()<.18
+    });
+  }
+  function frame(){
+    if(!alive) return;
+    ctx.clearRect(0,0,W,H);
+    var i,j,p,a,b,dx,dy,d,al;
+    for(i=0;i<pts.length;i++){
+      p=pts[i];
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W) p.vx=-p.vx;
+      if(p.y<0||p.y>H) p.vy=-p.vy;
+      dx=p.x-mx; dy=p.y-my; d=dx*dx+dy*dy;
+      if(d<21000&&d>1){ d=Math.sqrt(d); p.x+=dx/d*(1-d/145)*1.1; p.y+=dy/d*(1-d/145)*1.1; }
+    }
+    ctx.lineWidth=.9;
+    for(i=0;i<pts.length;i++){
+      a=pts[i];
+      for(j=i+1;j<pts.length;j++){
+        b=pts[j]; dx=a.x-b.x; dy=a.y-b.y; d=Math.sqrt(dx*dx+dy*dy);
+        if(d<LINK){
+          al=(1-d/LINK)*.52;
+          ctx.strokeStyle='rgba('+C1+','+al.toFixed(3)+')';
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+      }
+    }
+    for(i=0;i<pts.length;i++){
+      p=pts[i];
+      if(p.hot){
+        ctx.shadowBlur=15; ctx.shadowColor='rgba('+C2+',.95)';
+        ctx.fillStyle='rgba('+C2+',.95)';
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r*1.8,0,6.2832); ctx.fill();
+        ctx.shadowBlur=0;
+      }else{
+        ctx.fillStyle='rgba('+C1+',.92)';
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.2832); ctx.fill();
+      }
+    }
+    FX.raf(frame);
+  }
+  resize();
+  FX.raf(frame);
+  window.addEventListener('resize',resize);
+  sec.addEventListener('pointermove',function(e){
+    var r=layer.getBoundingClientRect(); mx=e.clientX-r.left; my=e.clientY-r.top;
+  },{passive:true});
+  sec.addEventListener('pointerleave',function(){ mx=my=-1e4; });
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(function(es){
+      es.forEach(function(en){
+        if(en.isIntersecting&&!alive){ alive=true; FX.raf(frame); }
+        else if(!en.isIntersecting&&alive){ alive=false; }
+      });
+    },{threshold:0}).observe(sec);
+  }
+}
+
+/* ⑦-2 全息地球：球面网格 + 枢纽光点 + 大圆航线与在途光标
+   3D 投影手写在 canvas 2D 里完成（绕 Y 轴自转 + 轴向倾斜），不引第三方 3D 库。 */
+function hubByName(n){
+  for(var i=0;i<TRADE.hubs.length;i++){ if(TRADE.hubs[i].name===n) return TRADE.hubs[i]; }
+  return null;
+}
+function initGlobe(){
+  var cv=document.getElementById('globeCanvas');
+  if(!cv||!cv.getContext||typeof TRADE==='undefined') return;
+  var ctx=cv.getContext('2d'), W=0,H=0,R=0,rot=.6,pulse=0,alive=true, TILT=-.38;
+  var CL=fxTint(THEME.primary,-.66), C2=fxTint(THEME.secondary,0);
+  var routes=[];
+  (TRADE.routes||[]).forEach(function(r){
+    var a=hubByName(r.from), b=hubByName(r.to);
+    if(a&&b) routes.push({a:a,b:b});
+  });
+  function sph(lat,lng){
+    var la=lat*Math.PI/180, lo=lng*Math.PI/180;
+    return [Math.cos(la)*Math.sin(lo), Math.sin(la), Math.cos(la)*Math.cos(lo)];
+  }
+  function toScreen(v,rad){
+    var cs=Math.cos(rot), sn=Math.sin(rot);
+    var x=v[0]*cs-v[2]*sn, z=v[0]*sn+v[2]*cs, y=v[1];
+    var ty=y*Math.cos(TILT)-z*Math.sin(TILT), tz=y*Math.sin(TILT)+z*Math.cos(TILT);
+    return {x:W/2+x*R*rad, y:H/2-ty*R*rad, z:tz};
+  }
+  function proj(lat,lng,rad){ return toScreen(sph(lat,lng), rad||1); }
+  /* 球面线性插值：航线沿大圆走，不会穿过球体 */
+  function slerp(a,b,t){
+    var d=Math.max(-1,Math.min(1,a[0]*b[0]+a[1]*b[1]+a[2]*b[2]));
+    var om=Math.acos(d), so=Math.sin(om);
+    if(so<1e-5) return a.slice();
+    var u=Math.sin((1-t)*om)/so, v=Math.sin(t*om)/so;
+    return [a[0]*u+b[0]*v, a[1]*u+b[1]*v, a[2]*u+b[2]*v];
+  }
+  /* 逐段按深度衰减透明度：背面自然变淡，省掉手动裁半球 */
+  function poly(pts,color,base,width){
+    for(var i=1;i<pts.length;i++){
+      var a=pts[i-1], b=pts[i];
+      var al=base*(.30+.70*Math.max(0,((a.z+b.z)/2+1)/2));
+      ctx.strokeStyle='rgba('+color+','+al.toFixed(3)+')';
+      ctx.lineWidth=width;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+  }
+  function draw(){
+    var i,j,pts;
+    /* 球体轮廓高光：全息感的关键一笔（正交投影下球体轮廓恒为半径 R 的圆） */
+    ctx.strokeStyle='rgba('+C2+',.26)';
+    ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(W/2,H/2,R,0,6.2832); ctx.stroke();
+    ctx.strokeStyle='rgba('+CL+',.14)';
+    ctx.lineWidth=6;
+    ctx.beginPath(); ctx.arc(W/2,H/2,R*1.005,0,6.2832); ctx.stroke();
+
+    for(i=-60;i<=60;i+=30){
+      pts=[]; for(j=0;j<=60;j++) pts.push(proj(i,j*6));
+      poly(pts,CL,i===0?.62:.52,.7);
+    }
+    for(i=0;i<360;i+=30){
+      pts=[]; for(j=0;j<=24;j++) pts.push(proj(-90+j*7.5,i));
+      poly(pts,CL,.30,.55);
+    }
+    for(i=0;i<routes.length;i++){
+      var A=sph(routes[i].a.lat,routes[i].a.lng), B=sph(routes[i].b.lat,routes[i].b.lng);
+      pts=[];
+      for(j=0;j<=26;j++){ var u=j/26; pts.push(toScreen(slerp(A,B,u),1+Math.sin(Math.PI*u)*.34)); }
+      poly(pts,C2,.42,1.3);
+      var t=(pulse*.30+i*.27)%1;
+      var pos=toScreen(slerp(A,B,t),1+Math.sin(Math.PI*t)*.34);
+      if(pos.z>-.2){
+        ctx.shadowBlur=16; ctx.shadowColor='rgba('+C2+',.95)';
+        ctx.fillStyle='#FFFFFF';
+        ctx.beginPath(); ctx.arc(pos.x,pos.y,3,0,6.2832); ctx.fill();
+        ctx.shadowBlur=0;
+      }
+    }
+    (TRADE.hubs||[]).forEach(function(h,k){
+      var p=proj(h.lat,h.lng);
+      if(p.z<-.12) return;
+      var r=2.6*(h.size||1), hx=r*(3+Math.sin(pulse*1.5+k)*.7);
+      var g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,hx);
+      g.addColorStop(0,'rgba('+C2+',.68)');
+      g.addColorStop(1,'rgba('+C2+',0)');
+      ctx.fillStyle=g;
+      ctx.beginPath(); ctx.arc(p.x,p.y,hx,0,6.2832); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,.96)';
+      ctx.beginPath(); ctx.arc(p.x,p.y,r,0,6.2832); ctx.fill();
+    });
+  }
+  function resize(){
+    var r=cv.parentNode.getBoundingClientRect();
+    if(!r.width) return;
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    W=r.width; H=r.height; R=Math.min(W,H)*.36;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    draw();
+  }
+  function frame(){
+    if(!alive) return;
+    ctx.clearRect(0,0,W,H);
+    rot+=.0022; pulse+=.016;
+    draw();
+    FX.raf(frame);
+  }
+  resize();
+  window.addEventListener('resize',resize);
+  if(FX.on){
+    FX.raf(frame);
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(function(es){
+        es.forEach(function(en){
+          if(en.isIntersecting&&!alive){ alive=true; FX.raf(frame); }
+          else if(!en.isIntersecting&&alive){ alive=false; }
+        });
+      },{threshold:0}).observe(cv.parentNode);
+    }
+  }
+}
+
+/* ⑦-3 滚动视差：按 data-parallax 系数位移，位移量按容器高度封顶 */
+function initParallax(){
+  if(!FX.on) return;
+  var els=[].slice.call(document.querySelectorAll('[data-parallax]'));
+  if(!els.length) return;
+  var ticking=false;
+  function apply(){
+    ticking=false;
+    var vh=window.innerHeight;
+    for(var i=0;i<els.length;i++){
+      var el=els[i], r=el.parentNode.getBoundingClientRect();
+      if(!r.height) continue;
+      var max=r.height*.18;
+      var y=(r.top+r.height/2-vh/2)*(parseFloat(el.getAttribute('data-parallax'))||0);
+      y=Math.max(-max,Math.min(max,y));
+      el.style.transform='translate3d(0,'+y.toFixed(1)+'px,0)';
+    }
+  }
+  function onScroll(){ if(!ticking){ ticking=true; FX.raf(apply); } }
+  window.addEventListener('scroll',onScroll,{passive:true});
+  window.addEventListener('resize',onScroll);
+  apply();
+}
+
+/* ⑦-4 指针效果：3D 倾斜 + 区域聚光 + 磁吸按钮（统一走事件委托，
+   所以 JS 动态渲染出来的卡片无需重新绑定） */
+function initPointerFX(){
+  if(!FX.on||!FX.fine) return;
+  var spots=[].slice.call(document.querySelectorAll('.fx-spot'));
+  var mags=[].slice.call(document.querySelectorAll('.fx-magnet'));
+  var cur=null;
+  function leave(){
+    if(cur){ cur.classList.remove('fx-live'); cur.style.removeProperty('--rx'); cur.style.removeProperty('--ry'); cur=null; }
+  }
+  document.addEventListener('pointermove',function(e){
+    var t=e.target&&e.target.closest?e.target.closest('[data-tilt]'):null;
+    if(t!==cur){ leave(); if(t){ t.classList.add('fx-live'); cur=t; } }
+    if(cur){
+      var r=cur.getBoundingClientRect();
+      var mx=parseFloat(cur.getAttribute('data-tilt'))||7;
+      var px=(e.clientX-r.left)/r.width, py=(e.clientY-r.top)/r.height;
+      cur.style.setProperty('--ry',((px-.5)*2*mx).toFixed(2)+'deg');
+      cur.style.setProperty('--rx',((.5-py)*2*mx).toFixed(2)+'deg');
+      cur.style.setProperty('--mx',(px*100).toFixed(1)+'%');
+      cur.style.setProperty('--my',(py*100).toFixed(1)+'%');
+    }
+    var i,s,sr;
+    for(i=0;i<spots.length;i++){
+      s=spots[i]; sr=s.getBoundingClientRect();
+      if(e.clientY>=sr.top&&e.clientY<=sr.bottom&&e.clientX>=sr.left&&e.clientX<=sr.right){
+        s.style.setProperty('--sx',(e.clientX-sr.left).toFixed(0)+'px');
+        s.style.setProperty('--sy',(e.clientY-sr.top).toFixed(0)+'px');
+        s.classList.add('on');
+      }else if(s.classList.contains('on')){ s.classList.remove('on'); }
+    }
+    for(i=0;i<mags.length;i++){
+      var m=mags[i], mr=m.getBoundingClientRect();
+      var dx=e.clientX-(mr.left+mr.width/2), dy=e.clientY-(mr.top+mr.height/2);
+      var rad=Math.max(mr.width,mr.height)*.9;
+      if(Math.sqrt(dx*dx+dy*dy)<rad){
+        m.style.setProperty('--mgx',(dx*.22).toFixed(1)+'px');
+        m.style.setProperty('--mgy',(dy*.28).toFixed(1)+'px');
+      }else if(m.style.getPropertyValue('--mgx')){
+        m.style.removeProperty('--mgx'); m.style.removeProperty('--mgy');
+      }
+    }
+  },{passive:true});
+  document.documentElement.addEventListener('mouseleave',leave);
+  window.addEventListener('blur',leave);
+}
+
+/* ⑦-5 顶部滚动进度 */
+function initProgress(){
+  var el=document.getElementById('fxProgress');
+  if(!el) return;
+  function upd(){
+    var h=document.documentElement.scrollHeight-window.innerHeight;
+    var p=h>0?((window.pageYOffset||document.documentElement.scrollTop)/h):0;
+    el.style.setProperty('--p',Math.max(0,Math.min(1,p)).toFixed(4));
+  }
+  window.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('resize',upd);
+  upd();
+}
+
+/* ⑦-6 错峰进场：宿主类由 JS 添加，JS 失效时子项保持默认可见 */
+function initStagger(){
+  if(!FX.on||!('IntersectionObserver' in window)) return;
+  var hosts=[].slice.call(document.querySelectorAll('[data-stagger]'));
+  if(!hosts.length) return;
+  var io=new IntersectionObserver(function(es){
+    es.forEach(function(en){
+      if(!en.isIntersecting) return;
+      var kids=en.target.children;
+      for(var i=0;i<kids.length;i++){
+        kids[i].style.transitionDelay=(i*70)+'ms';
+        kids[i].classList.add('fx-in');
+      }
+      /* 数字滚动延到子项浮现时再触发，否则动画会在不可见状态下跑完 */
+      en.target.querySelectorAll('[data-count]').forEach(countUp);
+      io.unobserve(en.target);
+    });
+  },{threshold:.05,rootMargin:'0px 0px -30px 0px'});
+  hosts.forEach(function(h){ h.classList.add('fx-stagger'); io.observe(h); });
+}
+
+/* ============================================================
+ * ⑧ 初始化
+ * ============================================================ */
+applyTheme();
+renderPlatform();
+renderCatPanel();
+renderHeroCats();
+renderDrawer();
+renderBanner();
+startBanner();
+renderTickerBar();
+renderQuotes();
+renderHeat();
+renderRangeTabs();
+renderBoards();
+renderProducts();
+renderSuppliers();
+renderServices();
+renderNews();
+renderTrade();
+renderChart();
+initReveal();
+initClock();
+initProgress();
+initParallax();
+initPointerFX();
+initStagger();
+initNet();
+initGlobe();
+/* 错峰容器里的计数由 initStagger 在浮现时触发，这里跳过避免重复播放 */
+document.querySelectorAll('[data-count]').forEach(function(el){
+  if(!(el.closest&&el.closest('[data-stagger]'))) countUp(el);
+});
+</script>
+</body>
+</html>

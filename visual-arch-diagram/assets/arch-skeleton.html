@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>架构图骨架 · 复制即用</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: #EEF1F5;
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", system-ui, sans-serif;
+    color: #243043;
+    -webkit-font-smoothing: antialiased;
+    padding: 26px 20px 40px;
+  }
+
+  /* 画布：设计宽度 1740px，导出 2× 得 3720px */
+  .sheet {
+    width: 1740px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(24, 39, 65, .10), 0 2px 6px rgba(24, 39, 65, .06);
+    padding: 26px 28px 22px;
+  }
+
+  /* ---------- 头部 ---------- */
+  .hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; padding-bottom: 14px; border-bottom: 2px solid #E7EBF1; }
+  .hd h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .5px; color: #1B2739; }
+  .hd h1 em { font-style: normal; color: #C0504D; }
+  .hd .sub { margin-top: 8px; font-size: 13px; color: #5B6878; letter-spacing: .2px; }
+  .hd .sub b { color: #2C6FBE; font-weight: 700; }
+  .hd .sub i { font-style: normal; color: #98A3B2; padding: 0 4px; }
+
+  .legend { flex: 0 0 auto; border: 1px solid #E1E6ED; border-radius: 10px; background: #FAFBFD; padding: 10px 14px; }
+  .legend .lg-title { font-size: 11px; font-weight: 700; color: #8B96A5; letter-spacing: 1px; margin-bottom: 7px; }
+  .legend .lg-row { display: flex; align-items: center; gap: 7px; margin-top: 6px; }
+  .legend .lg-row span.k { font-size: 11.5px; color: #5B6878; }
+  .lang { display: inline-block; font-size: 10.5px; font-weight: 700; color: #fff; padding: 2px 7px; border-radius: 4px; letter-spacing: .4px; }
+  .lang.cpp { background: #C0504D; } .lang.go { background: #2E9E8F; } .lang.java { background: #C2803A; }
+  .lang.het { background: #2C5F8A; }
+  .line-sample { display: inline-block; width: 30px; height: 0; border-top: 2px solid #7C8CA0; }
+  .line-sample.dash { border-top-style: dashed; }
+
+  /* ---------- 层带 ---------- */
+  .stack { padding-top: 18px; }
+  .band { display: flex; border: 1.6px solid var(--line); background: var(--bg); border-radius: 14px; padding: 13px 16px 13px 0; position: relative; }
+  .rail { flex: 0 0 54px; display: flex; align-items: center; justify-content: center; }
+  .rail i { font-style: normal; writing-mode: vertical-rl; font-size: 19px; font-weight: 800; color: #fff; background: var(--rail); border-radius: 8px; padding: 16px 8px; letter-spacing: 3px; box-shadow: 0 2px 6px rgba(0,0,0,.14); }
+  .rail i.small { font-size: 13px; letter-spacing: 2px; padding: 12px 7px; }
+  .bd { flex: 1; min-width: 0; }
+  .bd-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .bd-head h2 { margin: 0; font-size: 14.5px; font-weight: 800; color: var(--rail); letter-spacing: .3px; }
+  .bd-head p { margin: 0; font-size: 12px; color: #6B7787; }
+  .bd-head .pin { margin-left: auto; font-size: 11px; color: #8B96A5; border: 1px dashed var(--line); border-radius: 6px; padding: 3px 9px; background: #fff; }
+
+  /* ---------- 网格与卡片 ---------- */
+  .row { display: grid; gap: 12px; }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  .c5 { grid-template-columns: repeat(5, 1fr); }
+  .c6 { grid-template-columns: repeat(6, 1fr); }
+  .c7 { grid-template-columns: 1.25fr 1.05fr .95fr 1.15fr 1.05fr .95fr 1.1fr; }
+  .c4b { grid-template-columns: 1.15fr 1.35fr 1.15fr 1.25fr; }
+  .gap-lg { margin-top: 14px; }
+
+  .card { position: relative; border: 1.6px solid var(--c); background: var(--cbg); border-radius: 10px; padding: 15px 12px 13px; text-align: center; }
+  .card h3 { margin: 0; font-size: 14.5px; font-weight: 700; color: #22303F; line-height: 1.4; }
+  .card .tech { margin-top: 6px; font-size: 11.5px; font-weight: 700; color: var(--c); }
+  .card .desc { margin-top: 8px; font-size: 12.5px; color: #4A5568; line-height: 1.8; }
+  .card .badge { position: absolute; left: 7px; top: 7px; font-size: 10px; font-weight: 700; color: #fff; background: #2C5F8A; padding: 2px 6px; border-radius: 4px; letter-spacing: .3px; }
+  .card.has-tag { padding-top: 27px; }
+  .card .mini { margin-top: 7px; font-size: 11.5px; color: #6B7787; line-height: 1.7; }
+
+  /* ⚠️ 卡片配色类 —— 必须定义！只写 class 不定义会让 border/background 静默失效 */
+  .c-amber  { --c:#D8A94A; --cbg:#FEFAF0; }
+  .c-blue   { --c:#4A88CE; --cbg:#F3F8FE; }
+  .c-purple { --c:#8871C9; --cbg:#F8F5FE; }
+  .c-coral  { --c:#D16B65; --cbg:#FEF7F6; }
+  .c-teal   { --c:#2E9E8F; --cbg:#F1FAF8; }
+  .c-gold   { --c:#C2803A; --cbg:#FDF8F0; }
+  .c-sky    { --c:#4AA3D8; --cbg:#F2F9FD; }
+  .c-red    { --c:#C0504D; --cbg:#FDF3F2; }
+  .c-grey   { --c:#9AA3AF; --cbg:#F7F8FA; }
+
+  /* 通栏数据条 */
+  .bar { margin-top: 12px; border: 1.6px solid var(--c); background: var(--cbg); border-radius: 10px; padding: 13px 18px; display: flex; align-items: center; gap: 20px; }
+  .bar h3 { margin: 0; font-size: 15px; font-weight: 800; color: #9E3B36; white-space: nowrap; letter-spacing: .3px; }
+  .bar p { margin: 0; font-size: 12.5px; color: #4A5568; line-height: 1.7; }
+
+  /* 层间流向条 */
+  .flows { padding: 9px 0 9px 54px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; position: relative; }
+  .flows::before { content: "⇅"; position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 17px; color: #AEB9C7; line-height: 1; }
+  .flows .cap { font-size: 11px; font-weight: 700; color: #98A3B2; letter-spacing: .8px; margin-right: 2px; }
+  .fl { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #3C4959; background: #fff; border: 1.4px solid var(--c); border-radius: 999px; padding: 3px 11px; }
+  .fl.dash { border-style: dashed; }
+  .fl b { color: var(--c); font-weight: 800; font-size: 12.5px; }
+
+  /* 层内分区 */
+  .zones { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 0; align-items: stretch; }
+  .zone { display: flex; flex-direction: column; padding: 0 14px 0 0; }
+  .zone + .zone { border-left: 2px dashed #E0AFA8; padding-left: 14px; }
+  .zone:last-child { padding-right: 0; }
+  .zone h4 { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; color: #B0574F; letter-spacing: .3px; }
+  .zone .box { flex: 1; border: 1.4px dashed #D89289; background: #FDF1EF; border-radius: 8px; padding: 12px 13px; font-size: 12px; color: #4A5568; line-height: 1.8; display: flex; align-items: center; }
+  .zone .box b { color: #9E3B36; font-weight: 700; }
+
+  .floating { text-align: center; margin: 9px 0; }
+  .floating span { display: inline-block; font-size: 11.5px; color: #9E3B36; background: #fff; border: 1px solid #E2B9B3; border-radius: 999px; padding: 3px 12px; }
+
+  /* 页脚注 */
+  .notes { margin-top: 20px; border-top: 2px solid #E7EBF1; padding-top: 14px; }
+  .notes p { margin: 0 0 8px; font-size: 12px; color: #56626F; line-height: 1.85; }
+  .notes p:last-child { margin-bottom: 0; }
+  .notes b { color: #1B2739; font-weight: 800; }
+  .notes i { font-style: normal; color: #98A3B2; padding: 0 4px; }
+
+  @media (max-width: 1800px) { body { padding: 16px 12px 32px; overflow-x: auto; } }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ================= 头部 ================= -->
+  <div class="hd">
+    <div>
+      <h1>某业务系统 · <em>分层架构图</em></h1>
+      <div class="sub">
+        三层示例 <i>·</i> 技术栈标签（<b>A</b> / <b>B</b> / <b>C</b>）<i>·</i> 流向约定<i>·</i> 画布 1740px
+      </div>
+    </div>
+    <div class="legend">
+      <div class="lg-title">图 例</div>
+      <div class="lg-row">
+        <span class="lang cpp">核心</span><span class="k">核心业务模块（按需替换成真实标签）</span>
+      </div>
+      <div class="lg-row">
+        <span class="lang go">接入</span><span class="k">外部接入与转换</span>
+      </div>
+      <div class="lg-row">
+        <span class="lang java">业务</span><span class="k">业务服务与治理</span>
+      </div>
+      <div class="lg-row">
+        <span class="line-sample"></span><span class="k">同步调用</span>
+        <span class="line-sample dash"></span><span class="k">异步 / 反向推送</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <!-- ================= 一 · 用户层（演示 row c4 + card c-amber） ================= -->
+    <div class="band b1" style="--rail:#B8860B;--line:#E4CB84;--bg:#FEFAF0;">
+      <div class="rail"><i>一</i></div>
+      <div class="bd">
+        <div class="bd-head">
+          <h2>用户层</h2>
+          <p>角色与职责边界 · 内部用户为主</p>
+          <span class="pin">全部入口强制登录 · 无公开门户</span>
+        </div>
+        <div class="row c4">
+          <div class="card c-amber">
+            <h3>上游供应方</h3>
+            <div class="tech">供应链上游</div>
+            <div class="desc">供货响应<br>报价与履约</div>
+          </div>
+          <div class="card c-amber">
+            <h3>下游需求方</h3>
+            <div class="tech">供应链下游</div>
+            <div class="desc">采购下单<br>价格确认</div>
+          </div>
+          <div class="card c-amber">
+            <h3>管理岗</h3>
+            <div class="tech">管理与业务</div>
+            <div class="desc">计划与方案维护<br>审批、报表</div>
+          </div>
+          <div class="card c-amber">
+            <h3>执行岗</h3>
+            <div class="tech">操作角色</div>
+            <div class="desc">交易执行<br>状态跟踪</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flows">
+      <span class="cap">流向</span>
+      <span class="fl" style="--c:#B8860B">上游 · 下游 <b>→</b> 协同平台</span>
+      <span class="fl" style="--c:#B8860B">管理岗 <b>→</b> 业务管理系统</span>
+      <span class="fl dash" style="--c:#B8860B">执行岗 <b>⇠</b> 成交回报 / 持仓反馈</span>
+    </div>
+
+    <!-- ================= 二 · 服务层（演示 c4b + badge + c7 + bar） ================= -->
+    <div class="band b4" style="--rail:#C0504D;--line:#EBC0BE;--bg:#FEF7F6;">
+      <div class="rail"><i>二</i></div>
+      <div class="bd">
+        <div class="bd-head">
+          <h2>服务层</h2>
+          <p>多语言异构微服务 · 核心模块下沉</p>
+          <span class="pin">核心下沉为微服务核心模块</span>
+        </div>
+
+        <!-- 核心卡：has-tag 给左上角标签留出 padding-top -->
+        <div class="row c4b">
+          <div class="card c-coral has-tag">
+            <span class="lang cpp">核心</span>
+            <h3>交易核心</h3>
+            <div class="tech">核心语言 · 核心业务模块</div>
+            <div class="desc">委托 · 成交 · 持仓 · 资金<br>额度校验 · 账务重做</div>
+          </div>
+          <div class="card c-coral has-tag">
+            <span class="lang cpp">接入</span>
+            <h3>外部接入服务</h3>
+            <div class="tech">独立中间件模块</div>
+            <div class="desc">指令下达 / 回报接收<br>对接外部官方接口</div>
+          </div>
+          <div class="card c-teal has-tag">
+            <span class="lang go">行情</span>
+            <h3>行情服务</h3>
+            <div class="tech">高并发长连接</div>
+            <div class="desc">行情接入与转换<br>行情推送（反向）</div>
+          </div>
+          <div class="card c-gold has-tag">
+            <span class="badge">异构要点</span>
+            <h3>业务微服务群</h3>
+            <div class="tech">多语言异构</div>
+            <div class="desc">核心侧重性能<br>业务侧重集成与治理</div>
+          </div>
+        </div>
+
+        <!-- 业务服务群：c7 非等分列 -->
+        <div class="row c7 gap-lg">
+          <div class="card c-blue">
+            <h3>计划服务</h3>
+            <div class="tech">方案维护</div>
+            <div class="desc">建仓计划 · 额度</div>
+          </div>
+          <div class="card c-blue">
+            <h3>指令服务</h3>
+            <div class="tech">状态机</div>
+            <div class="desc">待审批 → 下单 → 成交</div>
+          </div>
+          <div class="card c-blue">
+            <h3>风控服务</h3>
+            <div class="tech">事前 + 事中</div>
+            <div class="desc">限额校验 · 分级预警</div>
+          </div>
+          <div class="card c-blue">
+            <h3>清算服务</h3>
+            <div class="tech">多层账户</div>
+            <div class="desc">盘后结算核对</div>
+          </div>
+          <div class="card c-blue">
+            <h3>匹配服务</h3>
+            <div class="tech">期现匹配</div>
+            <div class="desc">比例 · 敞口计算</div>
+          </div>
+          <div class="card c-blue">
+            <h3>报价服务</h3>
+            <div class="tech">询比价 · 点价</div>
+            <div class="desc">对接现货系统</div>
+          </div>
+          <div class="card c-blue">
+            <h3>报表服务</h3>
+            <div class="tech">多维钻取</div>
+            <div class="desc">敞口 · 盈亏分析</div>
+          </div>
+        </div>
+
+        <!-- 基础设施：用 .mini 承载明细，避免又开一层 -->
+        <div class="row c4b gap-lg">
+          <div class="card c-blue">
+            <h3>注册 / 配置 / 治理</h3>
+            <div class="mini">服务发现 · 配置下发 · 熔断限流 · 链路追踪 · 监控告警</div>
+          </div>
+          <div class="card c-blue">
+            <h3>身份认证与权限</h3>
+            <div class="mini">统一身份 · CAS / OAuth2 · 字段级权限 · 审计日志</div>
+          </div>
+          <div class="card c-blue">
+            <h3>工作流服务</h3>
+            <div class="mini">审批流可视化配置 · 待办同步与结果回传</div>
+          </div>
+          <div class="card c-blue">
+            <h3>文件与导入导出</h3>
+            <div class="mini">模板导入 · 批量校验 · 结算文件解析</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flows">
+      <span class="cap">服务内</span>
+      <span class="fl" style="--c:#C0504D">核心 <b>⇄</b> 指令 / 风控服务（额度强校验）</span>
+      <span class="fl dash" style="--c:#2E9E8F">接入服务 <b>⇄</b> 行情服务（双向）</span>
+      <span class="cap">落库</span>
+      <span class="fl" style="--c:#C0504D">核心 · 业务微服务群 <b>→</b> 统一数据库</span>
+    </div>
+
+    <!-- ================= 三 · 数据层（演示 zones + floating + bar） ================= -->
+    <div class="band b5" style="--rail:#C97B70;--line:#EBC6C0;--bg:#FDF4F2;">
+      <div class="rail"><i>三</i></div>
+      <div class="bd">
+        <div class="bd-head">
+          <h2>数据层</h2>
+          <p>统一数据库 · 三区分离 · 双口径账同源</p>
+        </div>
+
+        <div class="floating"><span>外部双向数据流（报单 / 回报 / 行情）</span></div>
+
+        <div class="zones">
+          <div class="zone">
+            <h4>业务数据区</h4>
+            <div class="box"><b>DB</b> · 计划 / 指令 / 匹配 / 清算 / 报表</div>
+          </div>
+          <div class="zone">
+            <h4>资金与持仓数据区</h4>
+            <div class="box"><b>DB</b> · 账户 / 持仓 / 资金 / 成交</div>
+          </div>
+          <div class="zone">
+            <h4>主数据与审计数据区</h4>
+            <div class="box"><b>DB</b> · 主数据 / 交易参数 / 组织 · 日志与接口调用</div>
+          </div>
+        </div>
+
+        <div class="bar c-coral">
+          <h3>统一数据库（信创）</h3>
+          <p>业务口径账 + 资金口径账 + 行情时序数据，两套账同源成交数据驱动</p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================= 页脚注 ================= -->
+  <div class="notes">
+    <p><b>① 选型原则：</b>核心用 A（性能与一致性）<i>│</i> 接入用 B<i>│</i> 业务用 C（治理与集成）。</p>
+    <p><b>② 关键链路：</b>客户端 → 网关 → 交易核心（额度校验）→ 接入服务 → 外部柜台；回报携带引用标识自动关联原指令。</p>
+  </div>
+
+</div>
+</body>
+</html>

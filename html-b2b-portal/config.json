@@ -1,0 +1,200 @@
+{
+  "name": "html-b2b-portal",
+  "version": "0.1.0",
+  "description": "设计B2B门户与产业互联网平台（覆盖大宗商品/工业品/农产品等12个垂直行业），输出布局规范、行情组件、3D/视差动效层与响应式HTML原型",
+  "author": "hasWhere",
+  "license": "MIT",
+  "tags": ["B2B", "门户", "电商", "大宗商品", "设计规范", "UI/UX", "HTML模板", "动效", "数据可视化"],
+  "workflow": [
+    "行业定档 -> industry-profiles.md",
+    "页面选型 -> page-layouts.md",
+    "组件装配 -> component-library.md（§A-E 基础组件 / §F 动效层）",
+    "数据填充 -> html-prototype-spec.md Mock Schema",
+    "质量门禁 -> scripts/check_prototype.py 机检 + SKILL.md §7 清单"
+  ],
+  "industries": [
+    {
+      "id": "steel",
+      "name": "钢铁",
+      "primaryColor": "#1E3A5F",
+      "primaryLight": "#E8EEF4",
+      "primaryDark": "#0F1D2F",
+      "referencePlatform": "找钢网、上海钢联",
+      "keyMetrics": ["牌号", "规格", "理重", "过磅", "定轧", "钢厂"]
+    },
+    {
+      "id": "mineral",
+      "name": "矿石",
+      "primaryColor": "#0F4C81",
+      "primaryLight": "#E8F0F8",
+      "primaryDark": "#072840",
+      "referencePlatform": "欧冶云商、Mysteel矿石",
+      "keyMetrics": ["TFe品位", "A/S", "粒度", "水分", "干吨/湿吨"]
+    },
+    {
+      "id": "nonferrous",
+      "name": "有色金属",
+      "primaryColor": "#1F6FEB",
+      "primaryLight": "#EBF2FE",
+      "primaryDark": "#123E94",
+      "referencePlatform": "上海有色网、长江有色",
+      "keyMetrics": ["牌号", "状态", "规格", "升贴水", "可交割品牌"]
+    },
+    {
+      "id": "chemical",
+      "name": "化工",
+      "primaryColor": "#0F4C81",
+      "primaryLight": "#E8F0F8",
+      "primaryDark": "#072840",
+      "referencePlatform": "化塑汇、找化客",
+      "keyMetrics": ["CAS号", "纯度", "密度", "包装规格", "牌号"]
+    },
+    {
+      "id": "energy",
+      "name": "能源",
+      "primaryColor": "#C05621",
+      "primaryLight": "#FCEEE4",
+      "primaryDark": "#7A3212",
+      "referencePlatform": "中国煤炭市场网、隆众资讯",
+      "keyMetrics": ["热值", "灰分", "硫分", "挥发分"]
+    },
+    {
+      "id": "fertilizer",
+      "name": "化肥",
+      "primaryColor": "#2F855A",
+      "primaryLight": "#E7F4EC",
+      "primaryDark": "#1C4A33",
+      "referencePlatform": "大丰收、农资电商",
+      "keyMetrics": ["N-P-K", "总养分", "形态", "适用作物"]
+    },
+    {
+      "id": "agriculture",
+      "name": "农产品",
+      "primaryColor": "#38A169",
+      "primaryLight": "#E9F7EE",
+      "primaryDark": "#1F5C3A",
+      "referencePlatform": "一亩田、惠农网",
+      "keyMetrics": ["产地", "等级", "含水率", "容重", "年份"]
+    },
+    {
+      "id": "fruit",
+      "name": "水果",
+      "primaryColor": "#48BB78",
+      "primaryLight": "#E8F8EE",
+      "primaryDark": "#2F855A",
+      "referencePlatform": "一亩田、鑫荣懋",
+      "keyMetrics": ["果径", "糖度", "硬度", "等级", "产地"]
+    },
+    {
+      "id": "seafood",
+      "name": "海产品",
+      "primaryColor": "#006994",
+      "primaryLight": "#E6F3F8",
+      "primaryDark": "#003D5C",
+      "referencePlatform": "水产城、海鲜B2B",
+      "keyMetrics": ["保鲜方式", "规格", "来源", "加工方式"]
+    },
+    {
+      "id": "frozen",
+      "name": "冻品",
+      "primaryColor": "#3182CE",
+      "primaryLight": "#EBF8FF",
+      "primaryDark": "#1E4E8C",
+      "referencePlatform": "冻品B2B、冷链平台",
+      "keyMetrics": ["温度控制", "包冰率", "净含量", "保质期"]
+    },
+    {
+      "id": "livestock",
+      "name": "生猪畜牧",
+      "primaryColor": "#7B3F00",
+      "primaryLight": "#F3EAE0",
+      "primaryDark": "#4A2600",
+      "referencePlatform": "畜牧平台、生猪交易网",
+      "keyMetrics": ["体重", "品种", "检疫", "出栏地"]
+    },
+    {
+      "id": "industrial",
+      "name": "工业品/MRO",
+      "primaryColor": "#2563EB",
+      "primaryLight": "#EFF6FF",
+      "primaryDark": "#1E40AF",
+      "referencePlatform": "震坤行、京东工业、1688",
+      "keyMetrics": ["品牌", "型号", "参数", "库存", "协议价"]
+    },
+    {
+      "id": "generic",
+      "name": "综合/跨行业",
+      "primaryColor": "#FF6A00",
+      "primaryLight": "#FFF7E6",
+      "primaryDark": "#CC5500",
+      "referencePlatform": "1688、阿里巴巴国际站",
+      "keyMetrics": ["按主营行业取并集"]
+    }
+  ],
+  "references": [
+    {"path": "references/industry-profiles.md", "loadAt": "Step1", "purpose": "行业画像"},
+    {"path": "references/page-layouts.md", "loadAt": "Step2", "purpose": "页面布局"},
+    {"path": "references/component-library.md", "loadAt": "Step3", "purpose": "组件片段"},
+    {"path": "references/glossary.md", "loadAt": "按需", "purpose": "术语词典"},
+    {"path": "references/html-prototype-spec.md", "loadAt": "Step4", "purpose": "工程规范与Mock Schema"}
+  ],
+  "assets": [
+    {"path": "assets/portal-home.template.html", "type": "html-template", "purpose": "门户首页通用基座，改THEME与数据即换行业"},
+    {"path": "assets/product-list.template.html", "type": "html-template", "purpose": "产品列表页基座，改filterGroups换行业筛选维度，过滤/排序/分页/双视图已内置"},
+    {"path": "assets/product-detail.template.html", "type": "html-template", "purpose": "产品详情页基座，改PRODUCT.specOptions与specTable换行业规格，Tabs已内置"}
+  ],
+  "scripts": [
+    {"path": "scripts/check_prototype.py", "loadAt": "Step5", "purpose": "交付前机检：悬空变量/FA图标语法/断点/Mock字段/空绑定/字号/体积", "usage": "python scripts/check_prototype.py 交付文件.html"}
+  ],
+  "components": [
+    "top-bar", "header", "search-bar", "main-nav", "category-nav",
+    "banner", "quick-entries", "market-ticker", "market-card",
+    "product-card", "supplier-card", "price-chart", "board-section",
+    "service-section", "news-section", "rfq-form", "pagination",
+    "tabs", "toast", "modal", "drawer", "skeleton", "empty-state", "footer",
+    "fx-layer", "tilt-card", "particle-net", "hologram-globe",
+    "scroll-progress", "stagger-reveal", "magnet-button"
+  ],
+  "motionLayer": {
+    "_note": "渐进增强层。规范见 references/component-library.md §F 与 references/html-prototype-spec.md §5.1。",
+    "principles": [
+      "内容永不依赖动效才可见（隐藏态不挂默认选择器）",
+      "无 JS / 触屏 / prefers-reduced-motion 任一成立即自动降级为静态",
+      "只动 transform / opacity；大面积柔光禁用 filter:blur（用径向渐变）",
+      "canvas 三条硬约束：DPR 封顶 2、节点数封顶、IntersectionObserver 离屏暂停"
+    ],
+    "capabilities": [
+      "3D 全息地球（canvas 2D 手写投影 + slerp 大圆航线，不引 three.js）",
+      "3D 倾斜卡（CSS 变量驱动 rotateX/rotateY，与悬浮上抬共存）",
+      "滚动视差（data-parallax，位移按容器高度 18% 封顶）",
+      "极光光斑 / 雷达扫描 / 区域聚光 / 流光边框 / 掠光 / 磁吸按钮",
+      "粒子网络（就近连线 + 指针斥力）",
+      "错峰进场 + 顶部滚动进度"
+    ],
+    "rollout": {
+      "portal-home": "全量（含粒子网络与全息地球）",
+      "product-list": "建议 F1/F2/F5/F7",
+      "product-detail": "建议 F1/F2/F5/F7",
+      "_why": "粒子网络与全息地球同页重复出现会互相打架，也拖垮体积预算，只建议首页用一次"
+    }
+  },
+  "breakpoints": {
+    "_note": "以 Tailwind Play CDN 默认断点为准（原型不写 tailwind.config）。权威说明见 references/html-prototype-spec.md §1.4。旧版曾误记为 576/768/992/1200，与产物实际行为不符。",
+    "mobile": "0-639px（无前缀）",
+    "sm": 640,
+    "md": 768,
+    "lg": 1024,
+    "xl": 1280
+  },
+  "layout": {
+    "container": "1200px",
+    "topBarHeight": "32px",
+    "headerHeight": "64-72px",
+    "navHeight": "44-48px",
+    "categoryNavWidth": "200-240px",
+    "quickLinksWidth": "200-220px",
+    "bannerHeight": "300-400px",
+    "gridColumns": "4-5",
+    "gutter": "24px"
+  }
+}

@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>__PLATFORM_NAME__ · 找货源（产品列表）</title>
+<!--
+  ============================================================
+  B2B 产品列表页通用模板（html-b2b-portal skill 资产 v1.2）
+  换行业三步走：
+    1) 改 THEME（4 个品牌色，取自 industry-profiles.md）
+    2) 改 PLATFORM + INDUSTRY（计价单位 / 列表标题 / 筛选维度）
+    3) 替换 filterGroups（筛选维度与选项）与 products（字段 key
+       必须与 filterGroups 的 key 对应；priceNum 用于排序与价格区间）
+  功能：多选筛选 / 已选 chip / 价格区间 / 5 种排序 / 栅格列表双视图 /
+        真分页 / 空状态 / 移动端筛选抽屉与底部操作条
+  ============================================================
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{
+    /* 品牌色（兜底默认=钢铁；运行时由 JS THEME 覆盖） */
+    --primary:#1E3A5F; --primary-light:#E8EEF4; --primary-dark:#0F1D2F; --secondary:#FF6A00;
+    /* 强调色的可读文字变体（兜底值；运行时由 applyTheme 依 secondary 计算，均 ≥4.5:1） */
+    --secondary-text:#A64500;      /* 白底上的小字 / 配白字的底色 */
+    --secondary-on-dark:#FF9447;   /* 深色底上的小字 */
+    /* 行情语义色（固定）：涨红 / 跌绿 / 持平灰 */
+    --price-up:#E53E3E; --price-down:#38A169; --price-flat:#999999;
+    /* 功能色（固定）：成功 / 警告 / 错误——组件与 Toast 依赖，禁止省略 */
+    --success:#52C41A; --warning:#FAAD14; --error:#F5222D;
+    --text-primary:#333; --text-secondary:#666; --text-tertiary:#999; --text-price:#FF6600;
+    --background:#F8F8F8; --border:#E8E8E8;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.08); --shadow-md:0 4px 12px rgba(0,0,0,.08); --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+    --radius-sm:4px; --radius:8px; --container:1200px;
+  }
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;background:var(--background);color:var(--text-primary);}
+  .container-x{max-width:var(--container);margin:0 auto;padding:0 16px;}
+  @media (max-width:639px){ .container-x{padding:0 12px;} }
+  .card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);transition:all .2s ease;}
+  .card-hover:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);}
+  .spec-tag{background:var(--primary-light);color:var(--primary);border-radius:var(--radius-sm);padding:2px 8px;font-size:12px;margin:0 4px 4px 0;display:inline-block;}
+  /* 筛选选项 */
+  .f-opt{cursor:pointer;padding:3px 12px;border-radius:14px;font-size:13px;color:var(--text-secondary);border:1px solid transparent;white-space:nowrap;}
+  .f-opt:hover{color:var(--primary);}
+  .f-opt.sel{background:var(--primary-light);color:var(--primary);border-color:var(--primary);font-weight:500;}
+  /* 排序 */
+  .s-opt{cursor:pointer;padding:6px 12px;color:var(--text-secondary);font-size:13px;position:relative;}
+  .s-opt.sel{color:var(--primary);font-weight:600;}
+  /* 分页 */
+  .p-btn{height:32px;min-width:32px;padding:0 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;color:var(--text-secondary);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .p-btn:hover:not(:disabled){border-color:var(--primary);color:var(--primary);}
+  .p-btn.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .p-btn:disabled{opacity:.45;cursor:not-allowed;}
+  /* 抽屉 */
+  #drawer{transform:translateX(100%);transition:transform .3s ease;}
+  #drawer.open{transform:translateX(0);}
+  /* 移动端：桌面筛选区隐藏；底部操作条（基础规则在媒体查询之前） */
+  #mobileFilterBtn{display:none;}
+  #mobileBar{display:none;}
+  @media (max-width:767px){
+    #desktopFilters{display:none;}
+    #mobileFilterBtn{display:inline-flex;}
+    body{padding-bottom:60px;}
+    #mobileBar{display:flex;}
+  }
+</style>
+</head>
+<body class="text-sm">
+
+<!-- Toast -->
+<div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-[100] hidden">
+  <div class="px-4 py-2 rounded-lg text-sm shadow-lg" id="toastBody"></div>
+</div>
+
+<!-- ===== 顶部通栏 ===== -->
+<div style="background:var(--primary-dark);color:#C9D4E0;height:32px;">
+  <div class="container-x h-8 flex items-center justify-between text-xs">
+    <div class="flex items-center gap-4">
+      <span><i class="fa fa-phone mr-1"></i>400-000-0000</span>
+      <span class="hidden md:inline" id="topSlogan">行业slogan（虚构）</span>
+    </div>
+    <div class="flex items-center gap-4">
+      <a class="hidden sm:inline hover:text-white cursor-pointer">手机版</a>
+      <a class="hidden md:inline hover:text-white cursor-pointer">帮助中心</a>
+      <span class="hidden sm:inline border-l border-white/20 pl-4"><a class="hover:text-white cursor-pointer">登录</a> / <a class="hover:text-white cursor-pointer">注册</a></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 粘性头部 ===== -->
+<header class="sticky top-0 z-50 bg-white shadow-sm">
+  <div class="container-x flex items-center gap-3 py-3">
+    <a class="flex items-center gap-2 shrink-0 cursor-pointer">
+      <div class="w-9 h-9 rounded flex items-center justify-center text-white" style="background:var(--primary);"><i class="fa fa-cube"></i></div>
+      <div class="text-xl font-semibold" style="color:var(--primary);" id="brandName">平台名</div>
+    </a>
+    <div class="flex-1">
+      <div class="relative">
+        <input id="searchInput" class="w-full h-10 border-2 rounded-lg pl-3 pr-20 text-sm outline-none" style="border-color:var(--primary);" placeholder="搜索">
+        <button onclick="doSearch()" class="absolute right-0 top-0 h-full px-5 text-white text-sm rounded-r-lg" style="background:var(--primary);"><i class="fa fa-search mr-1"></i>搜索</button>
+      </div>
+    </div>
+    <div class="flex items-center gap-4 text-xs text-gray-500 shrink-0">
+      <div class="flex items-center gap-1 cursor-pointer"><i class="fa fa-file-invoice text-lg"></i><span class="hidden sm:inline">询价单</span><span class="text-white rounded-full px-1.5 text-[10px] leading-4" style="background:var(--secondary);" id="inquiryBadge">0</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ===== 面包屑 ===== -->
+<div class="container-x pt-3 text-xs text-gray-400" id="breadcrumb"></div>
+
+<main class="container-x py-4">
+  <!-- ===== 已选条件 + 移动端筛选入口 ===== -->
+  <div class="flex items-center gap-2 mb-3 flex-wrap">
+    <button id="mobileFilterBtn" onclick="openDrawer()" class="h-9 px-4 rounded-lg text-white text-sm items-center gap-1" style="background:var(--primary);"><i class="fa fa-filter"></i>筛选</button>
+    <div class="flex items-center gap-2 flex-wrap text-xs" id="chips"></div>
+  </div>
+
+  <!-- ===== 筛选区（桌面） ===== -->
+  <div class="card mb-4" id="desktopFilters">
+    <div id="filterBody"></div>
+    <div class="flex items-center justify-end gap-3 px-4 py-2.5 border-t">
+      <button onclick="clearAll()" class="text-xs text-gray-500 hover:text-[var(--error)]"><i class="fa fa-rotate-left mr-1"></i>清空全部</button>
+    </div>
+  </div>
+
+  <!-- ===== 排序工具栏 ===== -->
+  <div class="card flex items-center mb-4 px-2 overflow-x-auto">
+    <button type="button" class="s-opt sel" data-sort="default" onclick="setSort('default',this)">综合</button>
+    <button type="button" class="s-opt" data-sort="price-asc" onclick="setSort('price-asc',this)">价格 <i class="fa fa-arrow-up text-[10px]"></i></button>
+    <button type="button" class="s-opt" data-sort="price-desc" onclick="setSort('price-desc',this)">价格 <i class="fa fa-arrow-down text-[10px]"></i></button>
+    <button type="button" class="s-opt" data-sort="newest" onclick="setSort('newest',this)">最新发布</button>
+    <button type="button" class="s-opt" data-sort="sales" onclick="setSort('sales',this)">成交量</button>
+    <div class="ml-auto flex items-center gap-1 pr-2 shrink-0 text-gray-400">
+      <span class="text-xs mr-1" id="resultCount"></span>
+      <button class="w-8 h-8 flex items-center justify-center rounded" id="viewGridBtn" onclick="setView('grid')" title="栅格视图"><i class="fa fa-grip"></i></button>
+      <button class="w-8 h-8 flex items-center justify-center rounded" id="viewListBtn" onclick="setView('list')" title="列表视图"><i class="fa fa-list"></i></button>
+    </div>
+  </div>
+
+  <!-- ===== 结果区 ===== -->
+  <div id="resultGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"></div>
+  <div id="resultList" class="grid gap-3 hidden"></div>
+  <div id="emptyState" class="hidden"></div>
+
+  <!-- ===== 分页 ===== -->
+  <div class="flex items-center justify-center gap-2 mt-6 flex-wrap" id="pagination"></div>
+</main>
+
+<!-- ===== 移动端筛选抽屉（右侧） ===== -->
+<div id="drawerMask" class="fixed inset-0 bg-black/40 z-[80] hidden" onclick="closeDrawer()"></div>
+<div id="drawer" class="fixed right-0 top-0 h-full w-4/5 max-w-sm bg-white z-[85] flex flex-col">
+  <div class="p-4 font-semibold border-b flex items-center justify-between">筛选条件
+    <i class="fa fa-xmark text-gray-400 cursor-pointer" onclick="closeDrawer()"></i>
+  </div>
+  <div class="p-4 overflow-y-auto flex-1" id="drawerFilterBody"></div>
+  <div class="p-3 border-t flex gap-3">
+    <button onclick="clearAll()" class="flex-1 h-10 rounded-lg border text-sm">重置</button>
+    <button onclick="closeDrawer()" class="flex-1 h-10 rounded-lg text-white text-sm" style="background:var(--primary);">查看结果（<span id="drawerCount">0</span>）</button>
+  </div>
+</div>
+
+<!-- ===== 移动端底部操作条 ===== -->
+<div id="mobileBar" class="fixed bottom-0 left-0 w-full h-[52px] bg-white border-t z-40 items-center px-3 gap-2">
+  <button class="flex flex-col items-center text-[11px] text-gray-500 px-2"><i class="fa fa-headset text-base"></i>客服</button>
+  <button class="flex flex-col items-center text-[11px] text-gray-500 px-2" onclick="openDrawer()"><i class="fa fa-filter text-base"></i>筛选</button>
+  <button class="flex-1 h-9 rounded text-white text-sm" style="background:var(--primary);" onclick="showToast('请选择商品后发布询价（原型演示）','info')">发布询价</button>
+</div>
+
+<script>
+/* ============================================================
+ * ① 行业主题（取自 industry-profiles.md）
+ * ============================================================ */
+var THEME = { primary:'#1E3A5F', primaryLight:'#E8EEF4', primaryDark:'#0F1D2F', secondary:'#FF6A00' };
+
+/* ============================================================
+ * ② 平台与行业配置
+ * ============================================================ */
+var PLATFORM = {
+  name:'钢信汇',
+  topSlogan:'钢厂采购 · 一手价格',
+  searchBtn:'搜钢',
+  placeholder:'搜索牌号、规格、供应商'
+};
+var INDUSTRY = {
+  name:'钢铁',
+  unit:'吨',
+  crumb:['板材','热轧板卷'],          // 面包屑后两级
+  priceLabel:'价格（元/吨）'
+};
+
+/* ============================================================
+ * ③ 筛选维度（key 必须与 products 字段对应；price 走独立区间）
+ * ============================================================ */
+var filterGroups = [
+  {key:'category', label:'品类', options:['建筑钢材','板材','管材','型材','不锈钢']},
+  {key:'brand',    label:'钢厂', options:['沙钢','首钢','宝武','包钢','莱钢','太钢','永钢']},
+  {key:'grade',    label:'牌号', options:['HRB400E','Q235B','Q355B','304','20#']},
+  {key:'city',     label:'仓库地', options:['上海','江苏南京','江苏苏州','广东佛山','天津','浙江宁波']}
+];
+
+/* ============================================================
+ * ④ 产品数据（priceNum 为数值，用于排序与价格区间；全部虚构）
+ * ============================================================ */
+var products = [
+  {icon:'fa-layer-group', title:'螺纹钢 HRB400E Φ20×9m', category:'建筑钢材', brand:'沙钢', grade:'HRB400E', city:'上海', priceNum:3680, priceText:'¥3,650 ~ 3,720 /吨', specs:['HRB400','Φ20','理计'], supplier:'沙钢 · 成交1200笔', tags:['认证','直供'], sales:1200, daysAgo:1},
+  {icon:'fa-grip', title:'盘螺 HRB400 Φ8', category:'建筑钢材', brand:'永钢', grade:'HRB400E', city:'江苏苏州', priceNum:3810, priceText:'¥3,780 ~ 3,840 /吨', specs:['HRB400','Φ8','盘卷'], supplier:'永钢 · 成交680笔', tags:['认证'], sales:680, daysAgo:2},
+  {icon:'fa-bars', title:'热轧板卷 Q235B 4.75×1500', category:'板材', brand:'首钢', grade:'Q235B', city:'上海', priceNum:3840, priceText:'¥3,820 ~ 3,860 /吨', specs:['Q235B','4.75×1500','理重'], supplier:'首钢 · 成交860笔', tags:['认证','现货'], sales:860, daysAgo:1},
+  {icon:'fa-square', title:'镀锌板 SGCC 1.0×1250', category:'板材', brand:'宝武', grade:'Q235B', city:'江苏南京', priceNum:4590, priceText:'¥4,560 ~ 4,620 /吨', specs:['SGCC','1.0mm','锌层80g'], supplier:'宝武 · 成交350笔', tags:['现货'], sales:350, daysAgo:3},
+  {icon:'fa-table-cells-large', title:'中厚板 Q355B 20mm', category:'板材', brand:'宝武', grade:'Q355B', city:'广东佛山', priceNum:4080, priceText:'¥4,050 ~ 4,120 /吨', specs:['Q355B','20mm','四切边'], supplier:'宝武 · 成交420笔', tags:['现货'], sales:420, daysAgo:4},
+  {icon:'fa-circle-notch', title:'无缝管 20# Φ89×4', category:'管材', brand:'包钢', grade:'20#', city:'天津', priceNum:5210, priceText:'¥5,180 ~ 5,240 /吨', specs:['20#','Φ89','过磅'], supplier:'包钢 · 成交450笔', tags:['认证'], sales:450, daysAgo:2},
+  {icon:'fa-circle', title:'焊管 Q235B Φ114×4', category:'管材', brand:'沙钢', grade:'Q235B', city:'江苏南京', priceNum:4350, priceText:'¥4,320 ~ 4,380 /吨', specs:['Q235B','Φ114','过磅'], supplier:'沙钢 · 成交210笔', tags:['现货'], sales:210, daysAgo:5},
+  {icon:'fa-cube', title:'H型钢 Q235B 200×200', category:'型材', brand:'莱钢', grade:'Q235B', city:'天津', priceNum:4305, priceText:'¥4,280 ~ 4,330 /吨', specs:['Q235B','200×200','12m'], supplier:'莱钢 · 成交312笔', tags:['直供'], sales:312, daysAgo:2},
+  {icon:'fa-cubes', title:'工字钢 Q235B 20#', category:'型材', brand:'莱钢', grade:'Q235B', city:'江苏南京', priceNum:4250, priceText:'¥4,220 ~ 4,280 /吨', specs:['Q235B','20#','12m'], supplier:'莱钢 · 成交180笔', tags:['现货'], sales:180, daysAgo:6},
+  {icon:'fa-shield', title:'不锈钢304 2.0×1219 卷板', category:'不锈钢', brand:'太钢', grade:'304', city:'广东佛山', priceNum:15750, priceText:'¥15,600 ~ 15,900 /吨', specs:['304','2.0mm','1219'], supplier:'太钢 · 成交268笔', tags:['认证'], sales:268, daysAgo:3},
+  {icon:'fa-shield-halved', title:'不锈钢管 316L Φ57×3', category:'不锈钢', brand:'太钢', grade:'304', city:'浙江宁波', priceNum:22400, priceText:'¥22,000 ~ 22,800 /吨', specs:['316L','Φ57','工业级'], supplier:'太钢 · 成交150笔', tags:['现货'], sales:150, daysAgo:5},
+  {icon:'fa-layer-group', title:'螺纹钢 HRB400E Φ25×9m', category:'建筑钢材', brand:'沙钢', grade:'HRB400E', city:'江苏南京', priceNum:3660, priceText:'¥3,640 ~ 3,690 /吨', specs:['HRB400','Φ25','理计'], supplier:'沙钢 · 成交920笔', tags:['直供'], sales:920, daysAgo:1},
+  {icon:'fa-bars', title:'冷轧板卷 SPCC 1.0×1250', category:'板材', brand:'首钢', grade:'Q235B', city:'上海', priceNum:4520, priceText:'¥4,480 ~ 4,560 /吨', specs:['SPCC','1.0mm','表面精整'], supplier:'首钢 · 成交380笔', tags:['现货'], sales:380, daysAgo:4},
+  {icon:'fa-square', title:'镀锌管 Q235B DN100', category:'管材', brand:'包钢', grade:'Q235B', city:'天津', priceNum:4480, priceText:'¥4,450 ~ 4,510 /吨', specs:['Q235B','DN100','镀锌'], supplier:'包钢 · 成交240笔', tags:['认证'], sales:240, daysAgo:7},
+  {icon:'fa-cube', title:'角钢 Q235B 50×50×5', category:'型材', brand:'沙钢', grade:'Q235B', city:'江苏苏州', priceNum:4120, priceText:'¥4,100 ~ 4,150 /吨', specs:['Q235B','50×50','理计'], supplier:'沙钢 · 成交260笔', tags:['现货'], sales:260, daysAgo:3}
+];
+
+/* ============================================================
+ * ⑤ 交互状态
+ * ============================================================ */
+var state = { selected:{}, priceMin:'', priceMax:'', sort:'default', view:'grid', page:1, pageSize:12 };
+var inquiryCount=0;
+
+/* ============================================================
+ * ⑥ 渲染
+ * ============================================================ */
+function applyTheme(){
+  var r=document.documentElement.style;
+  r.setProperty('--primary',THEME.primary); r.setProperty('--primary-light',THEME.primaryLight);
+  r.setProperty('--primary-dark',THEME.primaryDark); r.setProperty('--secondary',THEME.secondary);
+  r.setProperty('--secondary-text', THEME.secondaryText || shade(THEME.secondary,.35));
+  r.setProperty('--secondary-on-dark', THEME.secondaryOnDark || shade(THEME.secondary,-.28));
+}
+
+/* 强调色的两个可读变体：同色相调明暗。
+   --secondary 本身不是可读文字色——对白底仅 2.87:1、对深色底仅 4.0:1，都不达 4.5:1。
+   承载文字时一律用变体：白底上用 --secondary-text，深色底上用 --secondary-on-dark；
+   只有纯色块填充、白字底、或 ≥18px 粗体 CTA 才直接用 --secondary。 */
+function shade(hex,amt){           /* amt>0 变暗，amt<0 变亮 */
+  var h=String(hex).replace('#','');
+  if(h.length===3) h=h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  var c=[parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)];
+  return '#'+c.map(function(v){
+    v = amt>=0 ? v*(1-amt) : v+(255-v)*(-amt);
+    v=Math.max(0,Math.min(255,Math.round(v))).toString(16);
+    return v.length<2?'0'+v:v;
+  }).join('');
+}
+
+function renderChrome(){
+  document.getElementById('brandName').textContent=PLATFORM.name;
+  document.getElementById('topSlogan').textContent=PLATFORM.topSlogan;
+  document.getElementById('searchInput').placeholder=PLATFORM.placeholder;
+  var c=INDUSTRY.crumb;
+  document.getElementById('breadcrumb').innerHTML='<a class="cursor-pointer hover:text-[var(--primary)]">首页</a><i class="fa fa-angle-right mx-1"></i>'
+    +c.map(function(x,i){return '<a class="cursor-pointer hover:text-[var(--primary)]">'+x+'</a>'+(i<c.length-1?'<i class="fa fa-angle-right mx-1"></i>':'');}).join('');
+}
+
+function filterGroupHTML(g, inDrawer){
+  var sel=state.selected[g.key]||[];
+  return '<div class="flex items-start gap-3 px-4 py-3 '+(inDrawer?'border-b':'border-b')+'">'
+    +'<div class="w-16 shrink-0 text-gray-400 text-xs leading-6">'+g.label+'</div>'
+    +'<div class="flex flex-wrap gap-1 flex-1">'
+    +g.options.map(function(o){
+      return '<button type="button" class="f-opt'+(sel.indexOf(o)>=0?' sel':'')+'" onclick="toggleFilter(\''+g.key+'\',\''+o+'\')">'+o+'</button>';
+    }).join('')+'</div></div>';
+}
+function renderFilters(){
+  document.getElementById('filterBody').innerHTML=filterGroups.map(function(g){return filterGroupHTML(g,false);}).join('')
+    +'<div class="flex items-center gap-3 px-4 py-3 border-b">'
+    +'<div class="w-16 shrink-0 text-gray-400 text-xs leading-6">'+INDUSTRY.priceLabel.split('（')[0]+'</div>'
+    +'<input id="priceMin" type="number" min="0" class="h-8 w-24 border rounded px-2 text-xs outline-none focus:border-[var(--primary)]" placeholder="最低价" oninput="onPrice()">&nbsp;~&nbsp;'
+    +'<input id="priceMax" type="number" min="0" class="h-8 w-24 border rounded px-2 text-xs outline-none focus:border-[var(--primary)]" placeholder="最高价" oninput="onPrice()"></div>';
+  document.getElementById('drawerFilterBody').innerHTML=filterGroups.map(function(g){return filterGroupHTML(g,true);}).join('')
+    +'<div class="py-3 border-b flex items-center gap-2"><span class="w-16 shrink-0 text-gray-400 text-xs">价格</span>'
+    +'<input id="dPriceMin" type="number" min="0" class="h-8 w-24 border rounded px-2 text-xs outline-none" placeholder="最低" oninput="onPrice(true)">&nbsp;~&nbsp;'
+    +'<input id="dPriceMax" type="number" min="0" class="h-8 w-24 border rounded px-2 text-xs outline-none" placeholder="最高" oninput="onPrice(true)"></div>';
+}
+
+function toggleFilter(key,val){
+  var arr=state.selected[key]||[];
+  var i=arr.indexOf(val);
+  if(i>=0) arr.splice(i,1); else arr.push(val);
+  state.selected[key]=arr;
+  state.page=1;
+  renderFilters(); renderAll();
+}
+
+function onPrice(inDrawer){
+  state.priceMin=(document.getElementById(inDrawer?'dPriceMin':'priceMin')||document.getElementById('priceMin')).value;
+  state.priceMax=(document.getElementById(inDrawer?'dPriceMax':'priceMax')||document.getElementById('priceMax')).value;
+  /* 双端价格框同步 */
+  var a=document.getElementById('priceMin'), b=document.getElementById('dPriceMin');
+  if(a&&b){ a.value=state.priceMin; b.value=state.priceMin; document.getElementById('priceMax').value=state.priceMax; document.getElementById('dPriceMax').value=state.priceMax; }
+  state.page=1;
+  renderAll();
+}
+
+function clearAll(){
+  state.selected={}; state.priceMin=''; state.priceMax=''; state.page=1;
+  renderFilters(); renderAll();
+  showToast('已清空全部筛选','info');
+}
+
+function getFiltered(){
+  var list=products.filter(function(p){
+    for(var key in state.selected){
+      var arr=state.selected[key];
+      if(arr.length && arr.indexOf(p[key])<0) return false;
+    }
+    var min=parseFloat(state.priceMin), max=parseFloat(state.priceMax);
+    if(!isNaN(min)&&p.priceNum<min) return false;
+    if(!isNaN(max)&&p.priceNum>max) return false;
+    return true;
+  });
+  switch(state.sort){
+    case 'price-asc': list.sort(function(a,b){return a.priceNum-b.priceNum;}); break;
+    case 'price-desc': list.sort(function(a,b){return b.priceNum-a.priceNum;}); break;
+    case 'newest': list.sort(function(a,b){return a.daysAgo-b.daysAgo;}); break;
+    case 'sales': list.sort(function(a,b){return b.sales-a.sales;}); break;
+  }
+  return list;
+}
+
+function tagsHTML(p){
+  return p.tags.map(function(t,i){
+    return '<span class="absolute top-2 text-[10px] px-1.5 py-0.5 rounded text-white" style="left:'+(2+i*44)+'px;background:'+(i?'var(--secondary)':'var(--primary)')+';">'+t+'</span>';
+  }).join('');
+}
+function gridCard(p){
+  return '<div class="card card-hover cursor-pointer"><div class="relative flex items-center justify-center h-28 lg:h-32" style="background:linear-gradient(135deg,var(--primary-light),#D6E2EE);">'
+    +'<i class="fa '+p.icon+' text-4xl lg:text-5xl" style="color:#9DB4CC;"></i>'+tagsHTML(p)+'</div>'
+    +'<div class="p-3"><div class="font-medium text-[13px] leading-snug h-10 line-clamp-2">'+p.title+'</div>'
+    +'<div class="mt-1.5 font-semibold" style="color:var(--text-price);">'+p.priceText+'</div>'
+    +'<div class="mt-2 flex flex-wrap">'+p.specs.map(function(s){return '<span class="spec-tag">'+s+'</span>';}).join('')+'</div>'
+    +'<div class="mt-2 text-[11px] text-gray-400 truncate">'+p.supplier+'</div>'
+    +'<div class="mt-2.5 grid grid-cols-2 gap-2">'
+    +'<button onclick="event.stopPropagation();showToast(\'进入询价（原型演示）\',\'info\')" class="py-1.5 rounded text-white text-xs" style="background:var(--primary);">立即询价</button>'
+    +'<button onclick="event.stopPropagation();addInquiry(this)" class="py-1.5 rounded text-xs" style="border:1px solid var(--primary);color:var(--primary);">加入询盘</button>'
+    +'</div></div></div>';
+}
+function listRow(p){
+  return '<div class="card card-hover p-3 flex gap-4 cursor-pointer items-center">'
+    +'<div class="relative w-28 h-24 rounded shrink-0 flex items-center justify-center" style="background:linear-gradient(135deg,var(--primary-light),#D6E2EE);"><i class="fa '+p.icon+' text-3xl" style="color:#9DB4CC;"></i></div>'
+    +'<div class="flex-1 min-w-0"><div class="font-medium text-sm">'+p.title+'</div>'
+    +'<div class="mt-1 flex flex-wrap">'+p.specs.map(function(s){return '<span class="spec-tag">'+s+'</span>';}).join('')+'</div>'
+    +'<div class="mt-1 text-xs text-gray-400 truncate">'+p.supplier+' · '+p.city+'库</div></div>'
+    +'<div class="text-right shrink-0"><div class="font-semibold" style="color:var(--text-price);">'+p.priceText+'</div>'
+    +'<button onclick="event.stopPropagation();addInquiry(this)" class="mt-2 h-8 px-4 rounded text-xs text-white" style="background:var(--primary);">加入询盘</button></div></div>';
+}
+
+function renderResults(list){
+  var total=list.length, pages=Math.max(1,Math.ceil(total/state.pageSize));
+  if(state.page>pages) state.page=pages;
+  var start=(state.page-1)*state.pageSize, pageList=list.slice(start,start+state.pageSize);
+
+  document.getElementById('resultCount').textContent='共 '+total+' 件';
+  document.getElementById('drawerCount').textContent=total;
+
+  var grid=document.getElementById('resultGrid'), listBox=document.getElementById('resultList'), empty=document.getElementById('emptyState');
+  if(total===0){
+    grid.classList.add('hidden'); listBox.classList.add('hidden'); empty.classList.remove('hidden');
+    empty.innerHTML='<div class="card text-center py-16"><i class="fa fa-box-open text-5xl text-gray-300"></i>'
+      +'<div class="text-sm text-gray-400 mt-3">没有符合条件的商品</div>'
+      +'<div class="mt-4 flex justify-center gap-3"><button onclick="clearAll()" class="h-9 px-5 rounded text-white text-sm" style="background:var(--primary);">清空筛选</button>'
+      +'<button class="h-9 px-5 rounded border text-sm" onclick="showToast(\'打开发布求购（原型演示）\',\'info\')">发布求购</button></div></div>';
+  }else{
+    empty.classList.add('hidden');
+    if(state.view==='grid'){ grid.classList.remove('hidden'); listBox.classList.add('hidden'); grid.innerHTML=pageList.map(gridCard).join(''); }
+    else { grid.classList.add('hidden'); listBox.classList.remove('hidden'); listBox.classList.add('grid'); listBox.innerHTML=pageList.map(listRow).join(''); }
+  }
+  renderPagination(pages);
+  renderChips();
+}
+
+function renderPagination(pages){
+  var box=document.getElementById('pagination');
+  if(pages<=1){ box.innerHTML=''; return; }
+  var html='<button class="p-btn" '+(state.page===1?'disabled':'')+' onclick="goPage('+(state.page-1)+')"><i class="fa fa-angle-left"></i></button>';
+  for(var i=1;i<=pages;i++){
+    if(i===1||i===pages||Math.abs(i-state.page)<=1){
+      html+='<button class="p-btn'+(i===state.page?' cur':'')+'" onclick="goPage('+i+')">'+i+'</button>';
+    }else if(Math.abs(i-state.page)===2){ html+='<span class="text-gray-400 px-1">…</span>'; }
+  }
+  html+='<button class="p-btn" '+(state.page===pages?'disabled':'')+' onclick="goPage('+(state.page+1)+')"><i class="fa fa-angle-right"></i></button>';
+  box.innerHTML=html;
+}
+function goPage(n){
+  state.page=n;
+  renderAll();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderChips(){
+  var chips=[];
+  filterGroups.forEach(function(g){
+    (state.selected[g.key]||[]).forEach(function(v){
+      chips.push({label:g.label+': '+v, fn:'removeChip(\''+g.key+'\',\''+v+'\')'});
+    });
+  });
+  if(state.priceMin||state.priceMax) chips.push({label:'价格: '+(state.priceMin||'0')+' ~ '+(state.priceMax||'∞'), fn:'state.priceMin=\'\';state.priceMax=\'\';state.page=1;renderFilters();renderAll();'});
+  var box=document.getElementById('chips');
+  box.innerHTML=chips.map(function(c){
+    return '<span class="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded text-white text-xs" style="background:var(--primary);"><span>'+c.label+'</span>'
+      +'<button type="button" class="w-4 h-4 rounded-full flex items-center justify-center hover:bg-white/20" aria-label="移除条件" onclick="'+c.fn+'"><i class="fa fa-xmark text-[10px]"></i></button></span>';
+  }).join('')+(chips.length?'<button type="button" class="text-xs text-gray-400 hover:text-[var(--error)]" onclick="clearAll()">清空</button>':'');
+}
+function removeChip(key,val){
+  var arr=state.selected[key]||[], i=arr.indexOf(val);
+  if(i>=0) arr.splice(i,1);
+  state.page=1;
+  renderFilters(); renderAll();
+}
+
+function setSort(s,el){
+  state.sort=s; state.page=1;
+  document.querySelectorAll('.s-opt').forEach(function(o){o.classList.remove('sel');});
+  el.classList.add('sel');
+  renderAll();
+}
+function setView(v){
+  state.view=v;
+  document.getElementById('viewGridBtn').style.color=v==='grid'?'var(--primary)':'';
+  document.getElementById('viewListBtn').style.color=v==='list'?'var(--primary)':'';
+  renderAll();
+}
+
+function addInquiry(btn){
+  inquiryCount++;
+  document.getElementById('inquiryBadge').textContent=inquiryCount;
+  if(btn){ btn.textContent='已加入 ✓'; btn.disabled=true; btn.style.opacity=.6; }
+  showToast('已加入询盘单','success');
+}
+
+/* 抽屉 */
+function openDrawer(){
+  document.getElementById('drawerMask').classList.remove('hidden');
+  document.getElementById('drawer').classList.add('open');
+}
+function closeDrawer(){
+  document.getElementById('drawerMask').classList.add('hidden');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+/* 搜索 / Toast */
+function doSearch(){
+  var v=document.getElementById('searchInput').value.trim();
+  if(!v){ showToast('请输入搜索内容','warn'); return; }
+  showToast('搜索：'+v+'（原型演示）','info');
+}
+document.getElementById('searchInput').addEventListener('keydown',function(e){ if(e.key==='Enter') doSearch(); });
+function showToast(msg,type){
+  var k=type||'info';
+  // 底色与前景色必须成对：success/warn 底色偏亮，白字对比度不足 4.5:1，须用深色字
+  // info 底色跟随行业主题，不写死钢铁蓝（spec §3.2：主题色一律走变量）
+  var css=getComputedStyle(document.documentElement);
+  var themeDark=css.getPropertyValue('--primary-dark').trim()||'#1E3A5F';
+  var bg={success:'#52C41A',warn:'#FAAD14',error:'#CF1322',info:themeDark};
+  var fg={success:'#0B2E00',warn:'#3D2A00',error:'#FFFFFF',info:'#FFFFFF'};
+  var icons={success:'fa-circle-check',warn:'fa-triangle-exclamation',error:'fa-circle-xmark',info:'fa-circle-info'};
+  var body=document.getElementById('toastBody');
+  body.style.background=bg[k]; body.style.color=fg[k];
+  body.innerHTML='<i class="fa '+icons[k]+' mr-1"></i>'+msg;
+  document.getElementById('toast').classList.remove('hidden');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(function(){document.getElementById('toast').classList.add('hidden');},2500);
+}
+
+/* ============================================================
+ * ⑦ 统一刷新 + 初始化
+ * ============================================================ */
+function renderAll(){ renderResults(getFiltered()); }
+
+applyTheme();
+renderChrome();
+renderFilters();
+document.getElementById('viewGridBtn').style.color='var(--primary)';
+renderAll();
+</script>
+</body>
+</html>

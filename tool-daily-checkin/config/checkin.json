@@ -1,0 +1,15 @@
+{
+  "apps": {
+    "zcode": {
+      "title": "ZCode",
+      "exe": "C:\\Users\\qq940\\AppData\\Local\\Programs\\ZCode\\ZCode.exe",
+      "anchor": "bl",
+      "dx": 198,
+      "dy": -152,
+      "clicks": 1,
+      "launch_wait": 18,
+      "shot_dir": "C:\\Users\\qq940\\WorkBuddy\\2026-10-04-06-44-09",
+      "note": "智谱 ZCode 客户端，左下角 1亿 token 领取卡片（活动 9/28-10/7，卡片锚定窗口左下角）。dx/dy 相对左下角偏移，窗口缩放不失效。若模态弹窗挡路把 clicks 改 2。"
+    }
+  }
+}

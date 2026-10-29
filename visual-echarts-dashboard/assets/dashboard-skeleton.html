@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>数据大屏原型 · 参数化骨架</title>
+<style>
+  :root{
+    /* 设计稿基准：所有尺寸按 1920×1080 写，运行时整体缩放 */
+    --dw:1920px; --dh:1080px;
+    --bg:#050b1e;
+    --cyan:#4fc3ff; --blue:#3b82f6; --gold:#ffb54d;
+    --ok:#2dd4a8; --warn:#fbbf24; --crit:#ff5f6d;
+    --txt:#eaf4ff; --txt-2:#9db8d8; --txt-3:#5f7d9e;
+    --line:rgba(94,148,214,.14);      /* 面板内分隔线 */
+    --gap:14px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);overflow:hidden;
+    font-family:"Microsoft YaHei","PingFang SC",system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--txt)}
+
+  /* ---------- 舞台：等比缩放，居中留边 ---------- */
+  #screen{
+    position:absolute;left:0;top:0;width:var(--dw);height:var(--dh);
+    transform-origin:0 0;
+    background:#050b1e url("img/bg.jpg") center/cover no-repeat;   /* 底图缺失 → 回退纯深色 */
+    display:flex;flex-direction:column;padding:0 20px 12px;
+  }
+  /* 顶/底轻压暗：保证标题、数字、播报的对比度不被底图光晕吃掉 */
+  #screen::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(4,9,22,.42) 0%,rgba(4,9,22,0) 14%,
+                                       rgba(4,9,22,0) 86%,rgba(4,9,22,.38) 100%)}
+
+  /* ---------- 顶栏 ---------- */
+  #hd{height:92px;display:flex;align-items:center;position:relative;flex:none;z-index:5}
+  #hd .center{position:absolute;left:0;right:0;text-align:center;top:12px;pointer-events:none}
+  #hd h1{font-size:36px;letter-spacing:8px;font-weight:800;
+    background:linear-gradient(180deg,#ffffff 25%,#8fd8ff 95%);-webkit-background-clip:text;
+    background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 18px rgba(79,195,255,.45))}
+  #hd .sub{margin-top:7px;font-size:14px;letter-spacing:4px;color:var(--txt-2)}
+  #hd .side{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--txt-2);z-index:2}
+  #hd .side.right{margin-left:auto}
+
+  /* 左侧：logo 块 + 行业/数据模式标签 */
+  #hd .brand{display:flex;align-items:center;gap:12px}
+  #hd .logo{width:36px;height:36px;border-radius:9px;flex:none;
+    background:linear-gradient(135deg,#5cc9ff,#2563eb);
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 18px rgba(79,195,255,.45), inset 0 1px 0 rgba(255,255,255,.35)}
+  #hd .logo svg{width:19px;height:19px}
+  #hd .tag{padding:5px 13px;border-radius:14px;font-size:12.5px;letter-spacing:1px;
+    border:1px solid rgba(79,195,255,.28);background:rgba(79,195,255,.10);color:var(--cyan)}
+  #hd .tag.mock{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.10);color:var(--warn)}
+  #hd .tag.live{border-color:rgba(45,212,168,.4);background:rgba(45,212,168,.10);color:var(--ok)}
+
+  /* 右侧：日期时间 pill + 操作按钮 */
+  #hd .info{display:flex;align-items:center;gap:12px;padding:7px 16px;border-radius:22px;
+    background:linear-gradient(90deg,rgba(79,195,255,.12),rgba(59,130,246,.05));
+    border:1px solid rgba(79,195,255,.20)}
+  #hd .date{font-size:12.5px;color:var(--txt-2);letter-spacing:1px;white-space:nowrap}
+  #hd .clock{font-variant-numeric:tabular-nums;font-size:17px;font-weight:700;color:#fff;
+    letter-spacing:1.5px;text-shadow:0 0 14px rgba(79,195,255,.5)}
+  #hd .ico{cursor:pointer;border:1px solid rgba(79,195,255,.25);border-radius:7px;padding:5px 10px;
+    background:rgba(79,195,255,.08);color:var(--cyan);font-size:12px;letter-spacing:1px;user-select:none}
+  #hd .ico:hover{background:rgba(79,195,255,.2)}
+  #hd::after{content:"";position:absolute;left:0;right:0;bottom:4px;height:2px;
+    background:linear-gradient(90deg,transparent,rgba(79,195,255,.10) 12%,rgba(79,195,255,.65) 50%,
+                                       rgba(79,195,255,.10) 88%,transparent)}
+
+  /* ---------- 三列主体 ---------- */
+  #bd{flex:1;display:grid;grid-template-columns:430px 1fr 430px;gap:var(--gap);min-height:0}
+  .col{display:flex;flex-direction:column;gap:var(--gap);min-height:0}
+  .col.mid{display:grid;grid-template-rows:2.5fr 1fr;gap:var(--gap)}
+
+  /* ---------- 通用面板：无盒化，内容直接浮在底图上 ---------- */
+  .panel{position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden;
+    border-radius:6px;
+    background:linear-gradient(180deg,rgba(20,44,86,.30),rgba(10,24,50,.12))}
+  .p-hd{flex:none;height:42px;display:flex;align-items:center;gap:10px;padding:0 14px;
+    border-bottom:1px solid var(--line)}
+  .p-hd .ic{width:22px;height:22px;border-radius:6px;flex:none;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,rgba(92,201,255,.95),rgba(37,99,235,.95));
+    box-shadow:0 0 12px rgba(79,195,255,.35), inset 0 1px 0 rgba(255,255,255,.3)}
+  .p-hd .ic svg{width:13px;height:13px}
+  .p-hd .t{font-size:17px;font-weight:700;letter-spacing:1.5px;color:#fff;
+    text-shadow:0 0 16px rgba(79,195,255,.25)}
+  .p-hd .en{font-size:10px;color:rgba(157,184,216,.55);letter-spacing:1.5px;text-transform:uppercase;
+    margin-top:4px;white-space:nowrap}
+  .p-hd .x{margin-left:auto;font-size:12px;color:var(--txt-3)}
+  .p-bd{flex:1;min-height:0;position:relative;padding:10px 12px}
+  .chart{width:100%;height:100%}
+  .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:var(--txt-3)}
+
+  /* 地图面板：背后一层青色径向光晕 */
+  .p-bd-map::after{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(ellipse 62% 58% at 50% 46%,rgba(79,195,255,.12),rgba(79,195,255,0) 68%)}
+  .p-bd-map .chart{position:relative;z-index:1}
+  /* 地图浮层：右上角数据胶囊（覆盖省数/重点省/流向/平均饱和度） */
+  .map-stats{position:absolute;right:12px;top:8px;z-index:3;display:flex;gap:8px;pointer-events:none}
+  .map-stats .it{padding:5px 12px;border-radius:16px;background:rgba(6,16,36,.72);
+    border:1px solid rgba(79,195,255,.22);font-size:12px;color:var(--txt-2);
+    display:flex;align-items:center;gap:6px}
+  .map-stats .it b{color:#fff;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 12px rgba(79,195,255,.5)}
+
+  /* ---------- KPI 卡片：大数字 + 图标chip，无盒，发丝线分隔 ---------- */
+  .kpis{display:grid;grid-template-columns:1fr 1fr;padding:4px 8px;height:100%;align-content:stretch}
+  .kpi{display:flex;align-items:center;gap:10px;padding:8px 8px;min-width:0;
+    border-bottom:1px solid var(--line)}
+  .kpi:nth-child(odd){border-right:1px solid var(--line)}
+  .kpi:nth-child(n+5){border-bottom:0}
+  .kpi .ic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;
+    background:rgba(79,195,255,.10);border:1px solid rgba(79,195,255,.22);color:var(--cyan)}
+  .kpi .ic svg{width:17px;height:17px}
+  .kpi.warn .ic{background:rgba(251,191,36,.10);border-color:rgba(251,191,36,.28);color:var(--warn)}
+  .kpi.crit .ic{background:rgba(255,95,109,.10);border-color:rgba(255,95,109,.28);color:var(--crit)}
+  .kpi .kv{min-width:0;flex:1}
+  .kpi .v{font-size:25px;font-weight:800;line-height:1.05;font-variant-numeric:tabular-nums;
+    font-family:"DIN Alternate","Bahnschrift",Impact,sans-serif;letter-spacing:.5px;color:#fff;
+    text-shadow:0 0 18px rgba(79,195,255,.4);white-space:nowrap}
+  .kpi .v small{font-size:12px;font-weight:400;color:var(--txt-2);margin-left:4px;text-shadow:none;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif}
+  .kpi .l{margin-top:5px;font-size:12.5px;color:var(--txt-2);display:flex;align-items:center;gap:6px}
+  .kpi .d{font-size:12px;margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .kpi .d.up{color:var(--crit)}      /* 中国习惯：涨红 */
+  .kpi .d.down{color:var(--ok)}      /* 跌绿 */
+
+  /* ---------- 告警列表 ---------- */
+  .alarms{padding:6px 10px 10px;overflow:hidden;height:100%}
+  .alarm{display:flex;align-items:center;gap:10px;padding:9px 10px;margin-bottom:7px;border-radius:6px;
+    border-left:3px solid var(--warn);
+    background:linear-gradient(90deg,rgba(251,191,36,.12),rgba(251,191,36,.02) 70%);font-size:13.5px}
+  .alarm.crit{border-left-color:var(--crit);
+    background:linear-gradient(90deg,rgba(255,95,109,.14),rgba(255,95,109,.02) 70%)}
+  .alarm.info{border-left-color:var(--cyan);
+    background:linear-gradient(90deg,rgba(79,195,255,.12),rgba(79,195,255,.02) 70%)}
+  .alarm .lv{font-size:11px;padding:2px 8px;border-radius:3px;flex:none;letter-spacing:1px;
+    background:rgba(251,191,36,.16);color:var(--warn)}
+  .alarm.crit .lv{background:rgba(255,95,109,.16);color:var(--crit)}
+  .alarm.info .lv{background:rgba(79,195,255,.16);color:var(--cyan)}
+  .alarm .tx{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+  .alarm .tm{font-size:12px;color:var(--txt-3);font-variant-numeric:tabular-nums;flex:none}
+  .alarm.flash{animation:fl .9s ease-out}
+  @keyframes fl{0%{background:rgba(255,95,109,.45)}100%{background:rgba(255,95,109,.02)}}
+
+  /* ---------- 数据表格 ---------- */
+  .tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .tbl th{position:sticky;top:0;background:rgba(8,18,38,.92);color:var(--txt-3);font-weight:400;
+    text-align:left;padding:9px 10px;font-size:12px;letter-spacing:1px;border-bottom:1px solid var(--line)}
+  .tbl td{padding:9px 10px;border-bottom:1px dashed rgba(94,148,214,.10);
+    font-variant-numeric:tabular-nums;color:var(--txt)}
+  .tbl td.r,.tbl th.r{text-align:right}
+  .tbl tr:hover td{background:rgba(79,195,255,.06)}
+  .tbl .pill{padding:2px 9px;border-radius:11px;font-size:11.5px;letter-spacing:.5px}
+  .tbl .pill.ok{background:rgba(45,212,168,.13);color:var(--ok);border:1px solid rgba(45,212,168,.3)}
+  .tbl .pill.warn{background:rgba(251,191,36,.13);color:var(--warn);border:1px solid rgba(251,191,36,.3)}
+  .tbl .pill.crit{background:rgba(255,95,109,.13);color:var(--crit);border:1px solid rgba(255,95,109,.3)}
+  .scroll{height:100%;overflow:hidden}
+
+  /* ---------- 进度条面板：大数字 + 渐变轨道 ---------- */
+  .progs{padding:8px 12px;display:flex;flex-direction:column;gap:13px;justify-content:center;height:100%}
+  .prog{display:flex;flex-direction:column;gap:7px}
+  .prog .top{display:flex;align-items:baseline;gap:8px}
+  .prog .nm{font-size:13.5px;color:var(--txt)}
+  .prog .vl{margin-left:auto;font-size:20px;font-weight:800;color:#fff;line-height:1;
+    font-variant-numeric:tabular-nums;font-family:"DIN Alternate","Bahnschrift",Impact,sans-serif;
+    text-shadow:0 0 14px rgba(79,195,255,.4)}
+  .prog .vl small{font-size:11px;color:var(--txt-2);font-weight:400;margin-left:3px;
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;text-shadow:none}
+  .prog .track{height:8px;border-radius:4px;background:rgba(94,148,214,.12);overflow:hidden}
+  .prog .fill{height:100%;border-radius:4px;width:0;
+    background:linear-gradient(90deg,#3b82f6,#4fc3ff);
+    box-shadow:0 0 12px rgba(79,195,255,.45);
+    transition:width .9s cubic-bezier(.22,.8,.3,1)}
+  .prog.hot .fill{background:linear-gradient(90deg,#f59e0b,#ffb54d);box-shadow:0 0 12px rgba(255,181,77,.45)}
+  .prog.hot .vl{color:#ffd9a0;text-shadow:0 0 14px rgba(255,181,77,.45)}
+
+  /* ---------- 底部滚动播报 ---------- */
+  #ticker{flex:none;height:44px;margin-top:var(--gap);display:flex;align-items:center;gap:14px;
+    border-radius:6px;overflow:hidden;padding:0 14px;position:relative}
+  #ticker::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(90deg,rgba(79,195,255,.14),rgba(79,195,255,.03) 45%,rgba(79,195,255,0) 75%)}
+  #ticker .lbl{flex:none;display:flex;align-items:center;gap:8px;font-size:13px;color:#fff;letter-spacing:2px;
+    padding:6px 13px;border-radius:5px;position:relative;z-index:1;
+    background:linear-gradient(90deg,rgba(79,195,255,.30),rgba(59,130,246,.18));
+    border:1px solid rgba(79,195,255,.35)}
+  #ticker .lbl i{width:7px;height:7px;border-radius:50%;background:#fff;
+    box-shadow:0 0 10px #7fd8ff;animation:bl 1.4s infinite}
+  @keyframes bl{0%,100%{opacity:1}50%{opacity:.25}}
+  #ticker .wrap{flex:1;overflow:hidden;position:relative;height:100%}
+  #ticker .track{position:absolute;white-space:nowrap;display:flex;align-items:center;height:100%;
+    font-size:14px;color:var(--txt-2);animation:mv var(--dur,40s) linear infinite}
+  #ticker .track b{color:#fff;font-weight:600;text-shadow:0 0 12px rgba(79,195,255,.5)}
+  #ticker .track span{padding:0 34px;position:relative}
+  #ticker .track span::after{content:"";position:absolute;right:0;top:50%;width:5px;height:5px;
+    border-radius:50%;background:rgba(79,195,255,.6);transform:translateY(-50%)}
+  @keyframes mv{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+  .hide{display:none !important}
+</style>
+</head>
+<body>
+<div id="screen">
+  <header id="hd">
+    <div class="side">
+      <span class="brand">
+        <span class="logo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 19V11"/><path d="M12 19V5"/><path d="M19 19v-6"/>
+          </svg>
+        </span>
+        <span class="tag" id="hd-scene">行业：—</span>
+        <span class="tag mock" id="hd-mode">数据：Mock</span>
+      </span>
+    </div>
+    <div class="center">
+      <h1 id="hd-title">数据大屏原型</h1>
+      <div class="sub" id="hd-sub">参数化骨架 · 配置驱动</div>
+    </div>
+    <div class="side right">
+      <span class="info">
+        <span class="date" id="hd-date">----年--月--日</span>
+        <span class="clock" id="hd-time">--:--:--</span>
+      </span>
+      <span class="ico" id="btn-full">全屏</span>
+      <span class="ico" id="btn-pause">暂停刷新</span>
+    </div>
+  </header>
+
+  <div id="bd">
+    <div class="col left"  id="col-left"></div>
+    <div class="col mid"   id="col-center"></div>
+    <div class="col right" id="col-right"></div>
+  </div>
+
+  <footer id="ticker">
+    <span class="lbl"><i></i>实时播报</span>
+    <div class="wrap"><div class="track" id="tk-track"></div></div>
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>/* CDN 兜底：主源挂了（内网/限流）自动切 unpkg，再不行就走离线 vendor 方案（见 SKILL.md） */
+window.echarts || document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>');</script>
+<!-- __DASH_CONFIG__ ：配置注入点，scaffold.py 会把 window.__DASH_CONFIG__ 写在这里 -->
+
+<script>
+/* =========================================================================
+ * 数据大屏原型骨架 · 配置驱动 + Mock 优先
+ * 用法：改 window.__DASH_CONFIG__（或注入的 #dash-config）→ 保存 → 刷新
+ * ========================================================================= */
+const DEFAULT_CONFIG = {
+  meta: {
+    title: '大宗商品供应链运营驾驶舱',
+    subtitle: '仓储 · 物流 · 交易 · 结算 一体化监控',
+    industry: 'bulk',            // bulk 大宗 | warehouse 仓储物流 | gov 政府监管
+    dataMode: 'mock'             // mock | http
+  },
+  screen: { designWidth: 1920, designHeight: 1080, fit: 'contain' }, // contain|cover|stretch
+  theme: {
+    accent: '#4fc3ff',
+    palette: ['#4fc3ff', '#3b82f6', '#a78bfa', '#2dd4bf', '#ffb54d', '#ff5f6d', '#38bdf8'],
+    upColor: '#ff5f6d',          // 涨红（国内习惯）
+    downColor: '#2dd4a8'         // 跌绿
+  },
+
+  /* ---------- KPI：value 可以是数字或字符串；trend 为同比/环比 ---------- */
+  kpis: [
+    { label: '在库总量', value: 486200, unit: '吨', trend: 3.2,  level: 'normal' },
+    { label: '今日出入库', value: 72400, unit: '吨', trend: -1.8, level: 'normal' },
+    { label: '今日成交额', value: 3.26,  unit: '亿元', trend: 5.6,  level: 'normal', fixed: 2 },
+    { label: '待处理告警', value: 7,     unit: '条', trend: 16.7, level: 'warn' },
+    { label: '车辆在场', value: 138,     unit: '辆', trend: 2.1,  level: 'normal' },
+    { label: '库存周转率', value: 4.8,   unit: '次/月', trend: -0.6, level: 'normal', fixed: 1 }
+  ],
+
+  /* ---------- 布局：三列 === 面板数组；weight 是同一列内的伸缩比 ---------- */
+  layout: {
+    left: [
+      { id: 'kpi',   type: 'kpi',  title: '核心指标',     en: 'KEY METRICS',    weight: 1.05 },
+      { id: 'prog',  type: 'progress', title: '库区作业负荷', en: 'ZONE LOAD',  weight: 0.90,
+        items: [ { name: '堆场作业饱和度', value: 78, max: 100, unit: '%' },
+                 { name: '罐区容量利用',   value: 64, max: 100, unit: '%' },
+                 { name: '月台排队压力',   value: 91, max: 100, unit: '%' } ] },
+      { id: 'trend', type: 'line', title: '库存与出入库趋势', en: 'IN / OUT TREND', weight: 1.20 },
+      { id: 'rank',  type: 'bar',  title: '品类库存排名',   en: 'STOCK RANKING',  weight: 1.00 }
+    ],
+    center: [
+      { id: 'map',  type: 'map',    title: '全国布局与物流流向', en: 'NATIONAL DISTRIBUTION & FLOW' },
+      { id: 'flow', type: 'sankey', title: '供应链流向',        en: 'SUPPLY CHAIN FLOW' }
+    ],
+    right: [
+      { id: 'struct', type: 'pie',   title: '库存结构',   en: 'STOCK MIX',     weight: 1.0 },
+      { id: 'radar',  type: 'radar', title: '能力评估',   en: 'CAPABILITY',    weight: 1.0 },
+      { id: 'alarm',  type: 'alarm', title: '实时告警',   en: 'ALERTS',        weight: 1.35 },
+      { id: 'tbl',    type: 'table', title: '作业明细',   en: 'OPERATIONS',    weight: 1.15 }
+    ]
+  },
+
+  /* ---------- 地图：china 内置中国省界（默认，零外部数据）/ schematic 园区示意 / geo 自定义 GeoJSON ---------- */
+  map: {
+    mode: 'china',                    // china | schematic | geo
+    geoJSONUrl: '',                   // mode=geo 时必填（本地 .json 或接口）
+    cols: 4,                          // schematic：园区分区列数
+    hot: ['河北省', '山东省', '江苏省', '上海市', '浙江省', '广东省', '天津市', '辽宁省'],
+                                     // china：重点省（有数据 + 标签常显）
+    ports: {                          // china：港口/枢纽坐标（流向起止点优先用这里；缺省回退省质心）
+      '青岛港': [120.32, 36.06], '天津港': [117.70, 38.98], '上海港': [121.49, 31.23],
+      '宁波舟山港': [121.90, 29.93], '广州港': [113.55, 23.10]
+    },
+    zones: ['1号堆场', '2号堆场', '液体罐区', '散粮筒仓', '集装箱区', '保税库', '装船作业区', '待检区'],
+                                     // schematic：分区名
+    flows: [                          // 流向：from/to 用 ports 名（或省名/分区名），value 决定线宽
+      { from: '青岛港', to: '天津港', value: 820 },
+      { from: '宁波舟山港', to: '上海港', value: 640 },
+      { from: '上海港', to: '广州港', value: 430 }
+    ]
+  },
+
+  /* ---------- 告警 ---------- */
+  alarms: [
+    { level: 'crit', text: '2号堆场 堆取料机过载停机', time: '10:24' },
+    { level: 'warn', text: '液体罐区 T-04 液位 86% 接近上限', time: '10:11' },
+    { level: 'warn', text: '散粮筒仓 3号 温度 38.5℃ 超阈值', time: '09:58' },
+    { level: 'info', text: '保税库 出入口闸机离线 5 分钟', time: '09:36' }
+  ],
+
+  /* ---------- 底部滚动播报 ---------- */
+  ticker: [
+    '今日到港船舶 <b>6</b> 艘，其中已完船 2 艘',
+    '堆场作业饱和度 <b>78%</b>，建议关注 2 号堆场',
+    '铁矿石现货均价 <b>826</b> 元/吨，环比 +0.8%',
+    '在途货值 <b>3.26</b> 亿元，涉及 41 家会员企业',
+    '资金账户结算完成率 <b>99.2%</b>'
+  ],
+
+  /* ---------- 数据源 ---------- */
+  dataSource: {
+    mode: 'mock',                      // mock | http
+    refreshMs: 6000,
+    endpoints: { kpis: '', series: '', alarms: '', map: '', ticker: '' }
+  },
+  mock: { seed: 20261016, jitter: 0.05 }
+};
+
+/* 深度合并：外部配置只写要改的片段 */
+function deepMerge(base, patch){
+  if (!patch) return base;
+  if (Array.isArray(base)) return Array.isArray(patch) ? patch.slice() : base;
+  const out = Object.assign({}, base);
+  for (const k of Object.keys(patch)){
+    const v = patch[k];
+    if (v && typeof v === 'object' && !Array.isArray(v) && base && typeof base[k] === 'object' && !Array.isArray(base[k]))
+      out[k] = deepMerge(base[k], v);
+    else out[k] = v;
+  }
+  return out;
+}
+const CONFIG = deepMerge(DEFAULT_CONFIG, window.__DASH_CONFIG__ || {});
+const THEME = Object.assign({ palette: DEFAULT_CONFIG.theme.palette }, CONFIG.theme);
+const C = (i) => THEME.palette[i % THEME.palette.length];
+
+/* =========================================================================
+ * Mock 数据引擎（确定性伪随机，刷新不会让数字乱跳）
+ * ========================================================================= */
+function mulberry(seed){
+  let a = seed >>> 0;
+  return function(){ a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const rnd = mulberry(CONFIG.mock.seed);
+const R = (min, max) => min + rnd() * (max - min);
+const RI = (min, max) => Math.round(R(min, max));
+
+const CATEGORIES = ['铁矿石', '焦炭', '钢材', '乙二醇', '聚乙烯', '玉米', '大豆', '铜精矿'];
+
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function dateLabels(n, stepMin){
+  const out = [], now = new Date();
+  for (let i = n - 1; i >= 0; i--){
+    const d = new Date(now.getTime() - i * stepMin * 60000);
+    out.push(stepMin >= 1440 ? (d.getMonth() + 1) + '/' + d.getDate()
+                             : pad2(d.getHours()) + ':' + pad2(d.getMinutes()));
+  }
+  return out;
+}
+function nowHM(){
+  const d = new Date();
+  return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+const MOCK = {
+  hours: dateLabels(24, 60),
+  days:  dateLabels(14, 1440),
+  inbound:  Array.from({ length: 24 }, () => RI(1200, 4200)),
+  outbound: Array.from({ length: 24 }, () => RI(900, 3800)),
+  stock:    Array.from({ length: 24 }, (_, i) => 420000 + i * 2600 + RI(-4000, 4000)),
+  inboundD: Array.from({ length: 14 }, () => RI(40000, 96000)),
+  outboundD:Array.from({ length: 14 }, () => RI(36000, 88000)),
+  rank:     CATEGORIES.map(n => ({ name: n, value: RI(12000, 96000) })).sort((a, b) => a.value - b.value),
+  mix:      CATEGORIES.slice(0, 6).map((n, i) => ({ name: n, value: RI(8000, 62000) })),
+  radar:    [{ name: '能力评估', value: [92, 86, 78, 88, 74, 83] },
+             { name: '行业均值', value: [80, 76, 70, 75, 68, 72] }],
+  radarAxis: ['吞吐能力', '库容利用', '周转效率', '安全合规', '数字化', '履约准时'],
+  ops: Array.from({ length: 12 }, () => ({
+    no: 'OP' + RI(100000, 999999), type: ['入库', '出库', '移库', '装船'][RI(0, 3)],
+    cargo: CATEGORIES[RI(0, CATEGORIES.length - 1)], qty: RI(200, 4200),
+    state: ['进行中', '已完成', '待检'][RI(0, 2)], time: nowHM()
+  })),
+  zoneValue: () => RI(30, 98)
+};
+MOCK.zones = (CONFIG.map.zones || []).map((n, i) => ({ name: n, value: MOCK.zoneValue() }));
+/* 中国地图模式：重点省 → 饱和度（未列省份为暗底无数据，hover 显示"暂无数据"） */
+MOCK.mapData = {};
+if (CONFIG.map.mode === 'china'){
+  for (const n of (CONFIG.map.hot || [])) MOCK.mapData[n] = MOCK.zoneValue();
+}
+/* 中国地图模式：港口/枢纽吞吐指数（流向起止点；决定脉冲点大小、配色与标签） */
+MOCK.portData = {};
+if (CONFIG.map.mode === 'china'){
+  for (const n of Object.keys(CONFIG.map.ports || {})) MOCK.portData[n] = MOCK.zoneValue();
+}
+
+/* 每轮刷新：时间推进一格 + 数值抖动 */
+function mockTick(){
+  const j = (arr, min, max) => { arr.shift(); arr.push(RI(min, max)); };
+  j(MOCK.inbound, 1200, 4200); j(MOCK.outbound, 900, 3800); j(MOCK.stock, 430000, 500000);
+  j(MOCK.inboundD, 40000, 96000); j(MOCK.outboundD, 36000, 88000);
+  for (const it of MOCK.rank) it.value = Math.max(4000, it.value + RI(-2600, 2600));
+  for (const it of MOCK.mix)  it.value = Math.max(2000, it.value + RI(-1800, 1800));
+  for (const z of MOCK.zones) z.value = Math.min(100, Math.max(18, z.value + RI(-4, 4)));
+  // 中国地图：重点省饱和度同步抖动
+  if (CONFIG.map.mode === 'china')
+    for (const k in MOCK.mapData) MOCK.mapData[k] = Math.min(100, Math.max(18, MOCK.mapData[k] + RI(-4, 4)));
+  // 港口吞吐指数同步抖动
+  if (CONFIG.map.mode === 'china')
+    for (const k in MOCK.portData) MOCK.portData[k] = Math.min(100, Math.max(18, MOCK.portData[k] + RI(-4, 4)));
+  // 进度条面板数据同步抖动（静态数字在大屏上像死的）
+  for (const area of ['left', 'center', 'right']){
+    for (const p of ((CONFIG.layout || {})[area] || [])){
+      if (p.type !== 'progress' || !Array.isArray(p.items)) continue;
+      for (const it of p.items){
+        const step = (it.max || 100) * CONFIG.mock.jitter * 0.6;
+        it.value = Math.max(2, Math.min(it.max || 100, +(it.value + (rnd() - 0.45) * step).toFixed(1)));
+      }
+    }
+  }
+  for (const k of CONFIG.kpis){
+    if (typeof k.value !== 'number') continue;
+    const step = k.value * CONFIG.mock.jitter;
+    k.value = Math.max(0, +(k.value + (rnd() - 0.45) * step).toFixed(k.fixed == null ? 0 : k.fixed));
+  }
+  MOCK.ops.unshift({ no: 'OP' + RI(100000, 999999), type: ['入库', '出库', '移库', '装船'][RI(0, 3)],
+    cargo: CATEGORIES[RI(0, CATEGORIES.length - 1)], qty: RI(200, 4200),
+    state: ['进行中', '已完成', '待检'][RI(0, 2)], time: nowHM() });
+  MOCK.ops.pop();
+}
+
+/* =========================================================================
+ * 园区底图 GeoJSON 自生成（schematic 模式：不需要任何外部地图数据）
+ * ========================================================================= */
+function buildParkGeo(zones, cols){
+  const cw = 22, ch = 16, gap = 4;
+  const rows = Math.ceil(zones.length / cols);
+  const W = cols * cw + (cols + 1) * gap, H = rows * ch + (rows + 1) * gap;
+  const features = [{
+    type: 'Feature',
+    properties: { name: '__boundary__' },
+    geometry: { type: 'Polygon', coordinates: [[
+      [-W/2, -H/2], [W/2, -H/2], [W/2, H/2], [-W/2, H/2], [-W/2, -H/2]
+    ]] }
+  }];
+  const centers = {};
+  zones.forEach((name, i) => {
+    const r = Math.floor(i / cols), c = i % cols;
+    const x = -W/2 + gap + c * (cw + gap), y = H/2 - gap - r * (ch + gap);
+    const x1 = x, y1 = y, x2 = x + cw, y2 = y - ch;
+    centers[name] = [(x1 + x2) / 2, (y1 + y2) / 2];
+    features.push({ type: 'Feature', properties: { name: name },
+      geometry: { type: 'Polygon', coordinates: [[[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]]] } });
+  });
+  return { geo: { type: 'FeatureCollection', features: features }, centers: centers };
+}
+
+/* =========================================================================
+ * 通用工具
+ * ========================================================================= */
+const fmt = (v, fixed) => {
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  if (isNaN(n)) return String(v);
+  return n.toLocaleString('en-US', { minimumFractionDigits: fixed || 0, maximumFractionDigits: fixed || 0 });
+};
+function rollTo(el, to, fixed){
+  const from = parseFloat(el.dataset.v || '0');
+  el.dataset.v = to;
+  const t0 = performance.now(), dur = 900;
+  (function step(t){
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(from + (to - from) * e, fixed);
+    if (k < 1) requestAnimationFrame(step);
+  })(t0);
+}
+function baseGrid(extra){
+  return Object.assign({
+    left: 52, right: 26, top: 40, bottom: 28, containLabel: true
+  }, extra || {});
+}
+/* 图表基线：所有 option 共用，"看起来专业"的关键 —— 改一次全屏统一 */
+function axisBase(){
+  return {
+    axisLine: { lineStyle: { color: 'rgba(94,148,214,.35)' } },
+    axisTick: { show: false },
+    axisLabel: { color: 'rgba(178,205,232,.92)', fontSize: 13 },
+    splitLine: { lineStyle: { color: 'rgba(94,148,214,.12)' } }
+  };
+}
+function legendBase(){
+  return { top: 0, right: 6, itemWidth: 14, itemHeight: 9, itemGap: 14,
+    textStyle: { color: 'rgba(190,215,240,.92)', fontSize: 13 } };
+}
+function tipBase(extra){
+  return Object.assign({
+    backgroundColor: 'rgba(6,16,36,.95)', borderColor: 'rgba(79,195,255,.4)',
+    borderWidth: 1, textStyle: { color: '#eaf4ff', fontSize: 13 },
+    axisPointer: { lineStyle: { color: 'rgba(79,195,255,.5)' } }
+  }, extra || {});
+}
+function hexA(hex, a){
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')';
+}
+function mixHex(hexA1, hexB1, k){
+  const a = parseInt(String(hexA1).replace('#', ''), 16), b = parseInt(String(hexB1).replace('#', ''), 16);
+  const c = (sh) => Math.round((a >> sh & 255) * (1 - k) + (b >> sh & 255) * k);
+  return 'rgb(' + c(16) + ',' + c(8) + ',' + c(0) + ')';
+}
+function areaGrad(hex){
+  return new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+    { offset: 0, color: hexA(hex, 0.38) },
+    { offset: 1, color: hexA(hex, 0.02) }
+  ]);
+}
+function barGrad(hex){
+  return new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+    { offset: 0, color: hexA(hex, 0.35) },
+    { offset: 1, color: hexA(hex, 1) }
+  ]);
+}
+/* 线条辉光：同色柔光，让折线在深底上"发亮"而不是"贴"在上面 */
+function glow(color, blur){
+  return { shadowColor: color, shadowBlur: blur == null ? 12 : blur, shadowOffsetY: 0 };
+}
+
+/* 面板标题图标（内联 SVG，零依赖；type → 24 视图框 path） */
+const ICONS = {
+  kpi:    '<path d="M4 20h16"/><path d="M7 16v-5"/><path d="M12 16V8"/><path d="M17 16v-3"/>',
+  line:   '<path d="M4 17l5-6 4 3 6-8"/><path d="M4 20h16"/>',
+  bar:    '<path d="M5 20V10"/><path d="M12 20V4"/><path d="M19 20v-7"/>',
+  pie:    '<path d="M12 3a9 9 0 1 0 9 9h-9V3z"/>',
+  radar:  '<path d="M12 3l8 5.5v11L12 21l-8-5.5v-11L12 3z"/><path d="M12 8l4.5 3v6L12 17l-4.5-3v-6L12 8z"/>',
+  gauge:  '<path d="M5 18a8 8 0 1 1 14 0"/><path d="M12 18l4-5"/>',
+  map:    '<path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/><circle cx="12" cy="11" r="2"/>',
+  sankey: '<path d="M6 4v16"/><path d="M18 4v16"/><path d="M6 8c6 0 6 8 12 8"/>',
+  alarm:  '<path d="M12 3l9 16H3L12 3z"/><path d="M12 10v4"/><path d="M12 17.5v.01"/>',
+  table:  '<path d="M4 5h16v14H4z"/><path d="M4 10h16"/><path d="M10 10v9"/>',
+  progress: '<path d="M4 7h16"/><path d="M4 17h16"/><circle cx="9" cy="7" r="2.4"/><circle cx="15" cy="17" r="2.4"/>'
+};
+function iconSVG(type){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+         'stroke-linecap="round" stroke-linejoin="round">' + (ICONS[type] || ICONS.kpi) + '</svg>';
+}
+</script>
+<script>
+/* =========================================================================
+ * 5. 面板渲染器：每种 type 一个纯函数，返回 ECharts option 或 DOM 片段
+ * ========================================================================= */
+const charts = [];      // 所有 ECharts 实例，统一 resize / refresh
+
+function optLine(){
+  return {
+    grid: baseGrid({ top: 42 }),
+    legend: Object.assign(legendBase(), { data: ['入库量', '出库量', '在库库存'] }),
+    tooltip: Object.assign(tipBase(), { trigger: 'axis' }),
+    xAxis: Object.assign({ type: 'category', boundaryGap: false, data: MOCK.hours }, axisBase()),
+    yAxis: [
+      Object.assign({ type: 'value', name: '吨', nameTextStyle: { color: '#7ea3c6' } }, axisBase()),
+      Object.assign({ type: 'value', name: '在库', nameTextStyle: { color: '#7ea3c6' }, splitLine: { show: false } }, axisBase())
+    ],
+    series: [
+      { name: '入库量', type: 'line', smooth: true, symbol: 'none', showSymbol: false,
+        lineStyle: { width: 2.5, color: C(0), ...glow(hexA(C(0), .55)) },
+        itemStyle: { color: C(0) }, areaStyle: { color: areaGrad(C(0)) }, data: MOCK.inbound,
+        emphasis: { focus: 'series' } },
+      { name: '出库量', type: 'line', smooth: true, symbol: 'none', showSymbol: false,
+        lineStyle: { width: 2.5, color: C(2), ...glow(hexA(C(2), .55)) },
+        itemStyle: { color: C(2) }, areaStyle: { color: areaGrad(C(2)) }, data: MOCK.outbound,
+        emphasis: { focus: 'series' } },
+      { name: '在库库存', type: 'line', yAxisIndex: 1, smooth: true, symbol: 'none', showSymbol: false,
+        lineStyle: { width: 2, type: 'dashed', color: C(4), ...glow(hexA(C(4), .45)) },
+        itemStyle: { color: C(4) }, data: MOCK.stock,
+        emphasis: { focus: 'series' } }
+    ]
+  };
+}
+
+function optBar(){
+  const names = MOCK.rank.map(i => i.name), vals = MOCK.rank.map(i => i.value);
+  return {
+    grid: baseGrid({ left: 62, right: 62, top: 12 }),
+    tooltip: Object.assign(tipBase(), { trigger: 'axis', axisPointer: { type: 'shadow' } }),
+    xAxis: Object.assign({ type: 'value', splitLine: { lineStyle: { color: 'rgba(94,148,214,.12)' } },
+      axisLabel: { show: false } }, axisBase()),
+    yAxis: Object.assign({ type: 'category', data: names,
+      axisLabel: { color: 'rgba(200,225,245,.92)', fontSize: 13 } }, axisBase()),
+    series: [{
+      type: 'bar', data: vals, barWidth: 11, showBackground: true,
+      backgroundStyle: { color: 'rgba(94,148,214,.10)', borderRadius: 6 },
+      itemStyle: { borderRadius: 6, color: (p) => barGrad(C(p.dataIndex)) },
+      label: { show: true, position: 'right', color: '#eaf4ff', fontSize: 12.5,
+        formatter: (p) => fmt(p.value) },
+      emphasis: { itemStyle: { shadowBlur: 14, shadowColor: 'rgba(79,195,255,.5)' } }
+    }]
+  };
+}
+
+function optPie(){
+  return {
+    tooltip: Object.assign(tipBase(), { trigger: 'item', formatter: '{b}<br/>{c} 吨（{d}%）' }),
+    legend: Object.assign(legendBase(), { orient: 'vertical', right: 4, top: 'center', itemGap: 9 }),
+    series: [{
+      type: 'pie', radius: ['55%', '74%'], center: ['34%', '52%'], avoidLabelOverlap: true,
+      itemStyle: { borderColor: 'rgba(5,11,30,.85)', borderWidth: 3, borderRadius: 8 },
+      label: { show: true, position: 'center', formatter: () => '{a|在库合计}\n{b|' + fmt(MOCK.mix.reduce((s, i) => s + i.value, 0)) + '}\n{c|吨}',
+        rich: { a: { color: 'rgba(157,184,216,.9)', fontSize: 12, lineHeight: 18 },
+                b: { color: '#fff', fontSize: 20, fontWeight: 700, lineHeight: 26,
+                     textShadowColor: 'rgba(79,195,255,.5)', textShadowBlur: 12 },
+                c: { color: 'rgba(140,175,205,.9)', fontSize: 12, lineHeight: 16 } } },
+      labelLine: { show: false },
+      emphasis: { scale: true, scaleSize: 6 },
+      data: MOCK.mix.map((i) => ({ name: i.name, value: i.value }))
+    }]
+  };
+}
+
+function optRadar(){
+  return {
+    tooltip: tipBase(),
+    legend: Object.assign(legendBase(), { data: MOCK.radar.map(r => r.name) }),
+    radar: {
+      center: ['50%', '56%'], radius: '62%',
+      indicator: MOCK.radarAxis.map(n => ({ name: n, max: 100 })),
+      axisName: { color: 'rgba(200,224,248,.92)', fontSize: 12.5 },
+      splitLine: { lineStyle: { color: 'rgba(94,148,214,.18)' } },
+      splitArea: { areaStyle: { color: ['rgba(79,195,255,.04)', 'rgba(79,195,255,.08)'] } },
+      axisLine: { lineStyle: { color: 'rgba(94,148,214,.22)' } }
+    },
+    series: [{
+      type: 'radar', symbolSize: 5,
+      data: MOCK.radar.map((r, i) => ({
+        name: r.name, value: r.value,
+        lineStyle: { width: 2, color: C(i * 3) }, itemStyle: { color: C(i * 3) },
+        areaStyle: { color: hexA(C(i * 3), 0.25) }
+      }))
+    }]
+  };
+}
+
+/* --- 桑基：上游 → 品类 → 园区分区 → 去向 --- */
+function buildSankey(){
+  const up = [{ n: '矿山/上游', v: 1 }, { n: '贸易商采购', v: 1 }, { n: '进口到港', v: 1 }];
+  const cargo = MOCK.rank.slice(-4).map(i => i.name);
+  const zones = (CONFIG.map.zones || []).slice(0, 4);
+  const down = ['钢厂/终端', '出口装船', '期货交割'];
+  const nodes = [], links = [];
+  const push = (name, col) => { if (!nodes.some(x => x.name === name))
+    nodes.push({ name: name, itemStyle: { color: SANKEY_COLORS[col] } }); };
+  up.forEach(u => { push(u.n, 0);
+    cargo.forEach(c => { const v = RI(120, 900); push(c, 1); links.push({ source: u.n, target: c, value: v }); });
+  });
+  cargo.forEach((c, ci) => { zones.forEach((z, zi) => {
+    if ((ci + zi) % 2 === 0) return;                       // 稀疏化，避免连成一团
+    push(z, 2); links.push({ source: c, target: z, value: RI(80, 640) });
+  }); });
+  zones.forEach((z, zi) => { down.forEach((d, di) => {
+    if ((zi + di) % 2 === 1) return;
+    push(d, 3); links.push({ source: z, target: d, value: RI(60, 520) });
+  }); });
+  return { nodes, links };
+}
+/* 桑基四层级配色：上游→品类→园区→去向，同色系渐变避免"糖果盘" */
+const SANKEY_COLORS = ['#38bdf8', '#2dd4bf', '#818cf8', '#fbbf24'];
+function optSankey(){
+  const { nodes, links } = buildSankey();
+  return {
+    tooltip: Object.assign(tipBase(), { trigger: 'item' }),
+    series: [{
+      type: 'sankey', left: 10, right: 58, top: 10, bottom: 8,
+      nodeWidth: 10, nodeGap: 10, nodeAlign: 'justify',
+      label: { color: 'rgba(214,232,250,.92)', fontSize: 11 },
+      itemStyle: { borderWidth: 0 },
+      lineStyle: { color: 'gradient', opacity: 0.42, curveness: 0.5 },
+      emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.66 } },
+      data: nodes, links: links
+    }]
+  };
+}
+
+/* --- 地图：三种底图模式 ---
+ * china      内置中国省界。scaffold 生成页面时把 assets/map/china.json 内联为 window.__CHINA_GEO__；
+ *             直接打开骨架时异步 fetch map/china.json；两者都没有则回退 schematic，保证不白屏。
+ * schematic  自生成园区矩形栅格（零外部数据兜底），坐标用分区名。
+ * geo        自定义 GeoJSON（map.geoJSONUrl），站点坐标由 map.sites 显式给出。
+ */
+/* 中国省界拆分：主图（大陆+台湾+海南本岛，剔除三沙岛礁与南海诸岛）+ 南海诸岛插图底图。
+ * 主图 bbox 约 61.6°x35.4°（横纵比 1.74）：与宽屏地图面板比例接近，等比撑满不变形；
+ * 九段线与三沙岛礁在右下角插图单独呈现（国家标准地图画法，合规且不挤占主图）。 */
+function buildChinaGeo(j){
+  const all = (j && j.features) || [];
+  const main = all.filter(f => (f.properties || {}).name !== '南海诸岛');
+  const jd = all.filter(f => (f.properties || {}).name === '南海诸岛');
+  const g = { geo: { type: 'FeatureCollection', features: main },
+              jd: jd.length ? { type: 'FeatureCollection', features: jd } : null,
+              centers: {}, names: [], jdNames: [] };
+  main.forEach(f => {
+    const p = f.properties || {};
+    if (!p.name) return;
+    g.names.push(p.name);
+    g.centers[p.name] = p.centroid || p.center || null;
+  });
+  jd.forEach(f => { const p = f.properties || {}; if (p.name) g.jdNames.push(p.name); });
+  return g;
+}
+
+let GEO = null;
+function ensureGeo(){
+  if (GEO) return GEO;
+  if (CONFIG.map.mode === 'geo' && !CONFIG.map.geoJSONUrl){
+    console.warn('[dash] map.mode=geo 但未提供 geoJSONUrl，自动回退示意园区底图');
+    CONFIG.map.mode = 'schematic';
+  }
+  if (CONFIG.map.mode === 'geo'){
+    GEO = { geo: null, centers: {} };
+    const sites = (CONFIG.map.sites || []);
+    sites.forEach(s => { GEO.centers[s.name] = s.coord; });
+    return GEO;
+  }
+  if (CONFIG.map.mode === 'china' && window.__CHINA_GEO__){
+    GEO = buildChinaGeo(window.__CHINA_GEO__);
+    return GEO;
+  }
+  if (CONFIG.map.mode === 'china'){
+    // 无内联数据：geo=null，optMap 先走 schematic 兜底，boot 里异步拉 china.json 成功后再切回
+    GEO = { geo: null, centers: {}, names: [] };
+    return GEO;
+  }
+  GEO = buildParkGeo(CONFIG.map.zones || [], CONFIG.map.cols || 4);
+  return GEO;
+}
+/* 省名简称：'内蒙古自治区'→'内蒙古'、'北京市'→'北京'、'香港特别行政区'→'香港' */
+function shortName(n){
+  return String(n || '')
+    .replace(/(维吾尔|壮族|回族)?自治区$/, '')
+    .replace(/特别行政区$/, '')
+    .replace(/[省市]$/, '');
+}
+/* 中国省界地图：暗底省界 + 重点省坡度着色 + 港口脉冲 + 干线流向光带（南海诸岛右下角插图） */
+function optMapChina(g){
+  const vals = MOCK.mapData || {};
+  const ports = CONFIG.map.ports || {};
+  const coordOf = (n) => ports[n] || g.centers[n] || null;
+  const regions = (g.names || []).map(n => {
+    const v = vals[n];
+    if (v == null) return { name: n, label: { show: false } };   // 无数据省：暗底不显标签
+    return {
+      name: n,
+      // 重点省填色：「深蓝 → 亮青」坡度，只让数值高的省发亮；>85 补贴金描边
+      itemStyle: { areaColor: mixHex('#143f73', '#4cc7ff', Math.min(0.95, v / 100)),
+        borderColor: v > 85 ? 'rgba(255,181,77,.85)' : 'rgba(125,215,255,.55)',
+        borderWidth: v > 85 ? 1.4 : .7,
+        shadowColor: v > 78 ? 'rgba(76,199,255,.55)' : 'transparent',
+        shadowBlur: v > 78 ? 16 : 0 },
+      label: { show: true, formatter: shortName(n) + '\n' + Math.round(v) + '%',
+        color: '#fff', fontSize: 12, fontWeight: 600, lineHeight: 16,
+        textShadowColor: 'rgba(4,12,30,.95)', textShadowBlur: 5, textShadowOffsetY: 1 }
+    };
+  });
+  /* 流向：优先用 map.ports 的港口/枢纽坐标（沿海或物流节点，线形干净），省质心仅作兜底 */
+  const flows = (CONFIG.map.flows || []).filter(f => coordOf(f.from) && coordOf(f.to));
+  const portVals = MOCK.portData || {};
+  const hubs = [];
+  flows.forEach(f => [f.from, f.to].forEach(n => { if (hubs.indexOf(n) < 0) hubs.push(n); }));
+  const sites = hubs.map(n => {
+    const v = portVals[n] || 0;
+    return { name: n, value: coordOf(n).concat([v]),
+      itemStyle: { color: v > 85 ? THEME.upColor : (v > 65 ? C(4) : C(0)),
+        borderColor: 'rgba(255,255,255,.9)', borderWidth: 1.2, shadowBlur: 10,
+        shadowColor: v > 85 ? 'rgba(255,181,77,.8)' : 'rgba(79,195,255,.8)' } };
+  });
+  const maxV = flows.reduce((m, f) => Math.max(m, f.value), 1);
+  const lines = flows.map(f => ({
+    coords: [coordOf(f.from), coordOf(f.to)], value: f.value,
+    // 起端暗、末端亮的渐变（按线段包围盒方向），线上再跑一个匀速光点
+    lineStyle: { width: 1.2 + 2.4 * f.value / maxV,
+      color: new echarts.graphic.LinearGradient(0, 0, 1, 0,
+        [{ offset: 0, color: hexA(C(0), 0.12) }, { offset: 1, color: hexA(C(0), 0.72) }]) }
+  }));
+  const series = [
+    { type: 'effectScatter', coordinateSystem: 'geo', geoIndex: 0, data: sites,
+      symbolSize: (v) => 7 + v[2] / 14,
+      rippleEffect: { scale: 3, brushType: 'stroke', period: 3.4 },
+      label: { show: true, position: 'top', formatter: '{b}', fontSize: 10,
+        color: 'rgba(205,232,255,.9)', textShadowColor: 'rgba(4,12,30,.9)', textShadowBlur: 4 },
+      labelLayout: { hideOverlap: true },
+      zlevel: 4 }
+  ];
+  if (lines.length){
+    series.push({ type: 'lines', coordinateSystem: 'geo', geoIndex: 0, data: lines, zlevel: 3,
+      effect: { show: true, period: 5, trailLength: 0.18, symbol: 'circle', symbolSize: 5, color: '#eaf8ff' },
+      lineStyle: { curveness: 0.22, opacity: 0.95,
+        shadowColor: 'rgba(79,195,255,.45)', shadowBlur: 8 } });
+  }
+  /* 主图：aspectScale 1 = 等比投影（1°经度 = 1°纬度），省形零压缩。
+   * 主图 bbox 61.6°x35.4°（1.74），layoutSize 172% 时宽 ≈100%、高 ≈94% 双向撑满；
+   * layoutSize 语义（实测）：X% → 地图外接正方形边长 = X% × 0.953 × min(面板宽,高)，
+   * 再对地图 bbox 做 contain 适配；992×604 面板下 172% ≈ 撑满，改面板比例需重调该值；
+   * 不要再动 aspectScale——>1 就是纵向压扁（v7 踩坑） */
+  const mainGeo = {
+    map: 'dashmap', roam: false,
+    aspectScale: 1, zoom: 1,
+    layoutCenter: ['50%', '50%'], layoutSize: '172%',
+    itemStyle: { areaColor: 'rgba(16,40,76,.50)', borderColor: 'rgba(110,185,240,.42)', borderWidth: .8,
+      shadowColor: 'rgba(79,195,255,.26)', shadowBlur: 16 },
+    emphasis: { label: { show: true, color: '#fff', fontSize: 12 },
+                itemStyle: { areaColor: 'rgba(79,195,255,.30)' } },
+    // hideOverlap：京津冀鲁苏沪等重点省挤在一处，让 ECharts 自动隐藏被遮挡的标签
+    labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
+    label: { show: false },
+    regions: regions,
+    zlevel: 1
+  };
+  const geos = [mainGeo];
+  if (g.jd){
+    geos.push({
+      /* 南海诸岛插图：右下角小框。九段线+岛礁原样呈现（国界组成部分，合规永不省略）；
+       * 位置压在右下角公海空白区，避开台湾（最东 124.6°E）与海南本岛 */
+      map: 'dashmap_jd', roam: false, silent: true,
+      left: '86%', right: '1.5%', top: '71%', bottom: '4%',
+      aspectScale: 1,
+      itemStyle: { areaColor: 'rgba(14,36,70,.55)', borderColor: 'rgba(255,190,90,.45)', borderWidth: .8 },
+      label: { show: true, color: 'rgba(255,205,120,.78)', fontSize: 10 },
+      regions: [{ name: '南海诸岛',
+        itemStyle: { areaColor: 'rgba(20,48,90,.42)', borderColor: 'rgba(255,190,90,.65)', borderWidth: 1 } }],
+      zlevel: 2
+    });
+  }
+  return {
+    tooltip: Object.assign(tipBase(), {
+      trigger: 'item',
+      formatter: (p) => {
+        if (p.seriesType === 'lines') return '物流流量 <b>' + fmt(p.value) + '</b> 吨';
+        if (p.seriesType === 'effectScatter') return p.name + '<br/>吞吐指数 <b>' + Math.round(p.value[2]) + '</b>';
+        const v = (MOCK.mapData || {})[p.name];
+        return p.name + (v != null ? '<br/>饱和度 <b>' + Math.round(v) + '%</b>'
+                                   : '<br/><span style="color:#5f7d9e">暂无数据</span>');
+      }
+    }),
+    geo: geos,
+    series: series
+  };
+}
+/* 园区示意地图（schematic）/ 自定义底图（geo）：分区着色 + 站点脉冲 + 流向光带 */
+function optMapSchematic(g){
+  const regions = [{ name: '__boundary__', label: { show: false },
+    itemStyle: { areaColor: 'rgba(10,24,48,.35)', borderColor: 'rgba(79,195,255,.25)', borderWidth: 1 } }];
+  for (const z of MOCK.zones){
+    regions.push({
+      name: z.name,
+      // 分区填色：「深蓝 → 青」暗色坡度，只让数值高的分区发亮；>85 补贴金描边
+      itemStyle: { areaColor: mixHex('#0d2547', '#2f9fd0', Math.min(0.92, z.value / 100)),
+        borderColor: z.value > 85 ? 'rgba(255,181,77,.75)' : 'rgba(120,210,255,.5)' },
+      label: { formatter: z.name + '\n' + z.value + '%', color: '#fff', fontSize: 12 }
+    });
+  }
+  const sites = MOCK.zones.filter(z => GEO.centers[z.name]).map(z => ({
+    name: z.name, value: GEO.centers[z.name].concat(z.value),
+    itemStyle: { color: z.value > 85 ? THEME.upColor : (z.value > 65 ? C(4) : C(0)) }
+  }));
+  const lines = (CONFIG.map.flows || []).filter(f => GEO.centers[f.from] && GEO.centers[f.to])
+    .map(f => ({ coords: [GEO.centers[f.from], GEO.centers[f.to]], value: f.value,
+      lineStyle: { width: Math.max(1.2, f.value / 260) } }));
+  const series = [
+    { type: 'effectScatter', coordinateSystem: 'geo', data: sites, symbolSize: (v) => 6 + v[2] / 13,
+      rippleEffect: { scale: 3.5, brushType: 'stroke', period: 3.4 },
+      label: { show: false }, zlevel: 3 }
+  ];
+  if (lines.length){
+    series.push({ type: 'lines', coordinateSystem: 'geo', data: lines, zlevel: 2,
+      effect: { show: true, period: 4.2, trailLength: 0.3, symbol: 'arrow', symbolSize: 7, color: C(0) },
+      lineStyle: { color: hexA(C(0), 0.5), curveness: 0.32, opacity: 0.8 } });
+  }
+  return {
+    tooltip: Object.assign(tipBase(), {
+      trigger: 'item',
+      formatter: (p) => p.seriesType === 'lines' ? '流量 ' + p.value : (p.name + '<br/>饱和度 ' + (p.value && p.value[2] != null ? p.value[2] + '%' : '—'))
+    }),
+    geo: {
+      map: 'dashmap', roam: false, top: 16, bottom: 12, left: 24, right: 24,
+      label: { show: true, color: 'rgba(226,240,255,.95)', fontSize: 12, lineHeight: 16 },
+      itemStyle: { areaColor: 'rgba(13,34,68,.55)', borderColor: 'rgba(79,195,255,.45)', borderWidth: 1,
+        shadowColor: 'rgba(79,195,255,.35)', shadowBlur: 18 },
+      emphasis: { label: { color: '#fff' }, itemStyle: { areaColor: 'rgba(79,195,255,.28)' } },
+      regions: regions,
+      zlevel: 1
+    },
+    series: series
+  };
+}
+function optMap(){
+  const g = ensureGeo();
+  if (CONFIG.map.mode === 'china' && g.geo) return optMapChina(g);
+  return optMapSchematic(g);   // china 数据未就绪 / schematic / geo 未注册时的兜底
+}
+
+/* --- 地图浮层：右上角数据胶囊（省数/重点省/流向/平均饱和度） --- */
+function buildMapStats(){
+  const st = h('div', 'map-stats');
+  const g = ensureGeo();
+  const zonesN = (g.names || []).length || Object.keys(g.centers || {}).length;
+  const hotN = (CONFIG.map.hot || []).length || (CONFIG.map.zones || []).length;
+  const flowN = (CONFIG.map.flows || []).length;
+  [['省级单位', zonesN], ['重点覆盖', hotN], ['主干流向', flowN], ['平均饱和度', '—']]
+    .forEach(([k, v]) => {
+      const it = h('span', 'it');
+      it.innerHTML = k + ' <b>' + v + '</b>';
+      st.appendChild(it);
+    });
+  return st;
+}
+function updateMapStats(){
+  const vals = Object.values(MOCK.mapData || {});
+  const st = document.querySelector('.map-stats .it:last-child b');
+  if (st) st.textContent = vals.length
+    ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) + '%' : '—';
+}
+
+const OPT_BUILDERS = { line: optLine, bar: optBar, pie: optPie, radar: optRadar, sankey: optSankey, map: optMap };
+
+/* =========================================================================
+ * 6. 面板构建（配置 → DOM → 实例）
+ * ========================================================================= */
+const panelRefs = [];    // {cfg, type, body, chart, render}
+
+function h(tag, cls, txt){ const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
+
+function buildPanel(cfg, host){
+  const p = h('div', 'panel');
+  p.style.flex = String(cfg.weight == null ? 1 : cfg.weight) + ' 1 0';
+  const hd = h('div', 'p-hd');
+  const ic = h('span', 'ic'); ic.innerHTML = iconSVG(cfg.type || 'line');
+  hd.appendChild(ic);
+  hd.appendChild(h('span', 't', cfg.title || ''));
+  hd.appendChild(h('span', 'en', cfg.en || ''));
+  if (cfg.unit) hd.appendChild(h('span', 'x', cfg.unit));
+  p.appendChild(hd);
+  const body = h('div', 'p-bd p-bd-' + (cfg.type || 'line'));
+  p.appendChild(body);
+  host.appendChild(p);
+
+  const type = cfg.type || 'line';
+  const ref = { cfg, type, body, chart: null, render: null };
+
+  if (type === 'kpi')        ref.render = () => renderKpi(ref);
+  else if (type === 'alarm') ref.render = () => renderAlarm(ref);
+  else if (type === 'table') ref.render = () => renderTable(ref);
+  else if (type === 'gauge') ref.render = () => renderGauge(ref);
+  else if (type === 'progress') ref.render = () => renderProgress(ref);
+  else {                     ref.render = () => renderChart(ref); }
+
+  panelRefs.push(ref);
+  ref.render();
+  return ref;
+}
+
+/* --- KPI 卡：大数字滚动 + 环比色（涨红跌绿） --- */
+function renderKpi(ref){
+  const body = ref.body;
+  if (!body.querySelector('.kpis')){ body.innerHTML = ''; body.appendChild(h('div', 'kpis')); }
+  const wrap = body.querySelector('.kpis');
+  const list = CONFIG.kpis || [];
+  while (wrap.children.length > list.length) wrap.removeChild(wrap.lastChild);
+  list.forEach((k, i) => {
+    let card = wrap.children[i];
+    if (!card){
+      card = h('div', 'kpi');
+      card.innerHTML = '<span class="ic">' + iconSVG('kpi') + '</span>' +
+                       '<div class="kv"><div class="v"><span class="num">0</span><small></small></div>' +
+                       '<div class="l"><span class="lb"></span><span class="d"></span></div></div>';
+      wrap.appendChild(card);
+    }
+    card.className = 'kpi' + (k.level && k.level !== 'normal' ? ' ' + k.level : '');
+    card.querySelector('.lb').textContent = k.label || '';
+    card.querySelector('small').textContent = k.unit || '';
+    const num = card.querySelector('.num');
+    const fixed = k.fixed == null ? (typeof k.value === 'number' && k.value % 1 !== 0 ? 2 : 0) : k.fixed;
+    rollTo(num, typeof k.value === 'number' ? k.value : parseFloat(String(k.value).replace(/,/g, '')) || 0, fixed);
+    const d = card.querySelector('.d');
+    if (k.trend == null){ d.textContent = ''; d.className = 'd'; }
+    else {
+      const up = k.trend >= 0;
+      d.className = 'd ' + (up ? 'up' : 'down');
+      d.textContent = (up ? '▲ ' : '▼ ') + Math.abs(k.trend).toFixed(1) + '%';
+    }
+  });
+}
+
+/* --- 告警列表 --- */
+let alarms = (CONFIG.alarms || []).slice();
+function renderAlarm(ref, flashFirst){
+  const box = ref.body;
+  box.classList.add('alarms');
+  const max = ref.cfg.max || 6;
+  box.innerHTML = alarms.slice(0, max).map((a, i) => {
+    const lvCls = a.level === 'crit' ? 'crit' : (a.level === 'info' ? 'info' : '');
+    const lvTxt = a.level === 'crit' ? '严重' : a.level === 'info' ? '提示' : '预警';
+    return '<div class="alarm ' + lvCls + (flashFirst && i === 0 ? ' flash' : '') + '">' +
+      '<span class="lv">' + lvTxt + '</span>' +
+      '<span class="tx">' + a.text + '</span>' +
+      '<span class="tm">' + a.time + '</span>' +
+    '</div>';
+  }).join('');
+}
+const ALARM_POOL = [
+  { level: 'warn', text: '液体罐区 T-0{n} 液位 {v}% 接近上限' },
+  { level: 'crit', text: '{z} 堆取料机通讯中断' },
+  { level: 'info', text: '散粮筒仓 {n}号 温度 {v}℃ 恢复正常' },
+  { level: 'warn', text: '{z} 作业饱和度 {v}%，建议分流' },
+  { level: 'crit', text: '地磅 {n}号 称重异常，已暂停该道口' }
+];
+function pushAlarm(){
+  const t = ALARM_POOL[RI(0, ALARM_POOL.length - 1)];
+  const zone = (CONFIG.map.zones || ['作业区'])[RI(0, (CONFIG.map.zones || ['作业区']).length - 1)];
+  const text = t.text.replace('{n}', RI(1, 6)).replace('{v}', RI(70, 99)).replace('{z}', zone);
+  alarms.unshift({ level: t.level, text: text, time: nowHM() });
+  if (alarms.length > 12) alarms.pop();
+}
+
+/* --- 作业明细表 --- */
+function renderTable(ref){
+  const box = ref.body;
+  box.classList.add('scroll');
+  const rows = MOCK.ops.slice(0, 9).map(o => {
+    const cls = o.state === '已完成' ? 'ok' : o.state === '待检' ? 'warn' : 'crit';
+    return '<tr><td>' + o.no + '</td><td>' + o.type + '</td><td>' + o.cargo + '</td>' +
+      '<td class="r">' + fmt(o.qty) + '</td><td><span class="pill ' + cls + '">' + o.state + '</span></td>' +
+      '<td class="r">' + o.time + '</td></tr>';
+  }).join('');
+  box.innerHTML = '<table class="tbl"><thead><tr><th>单号</th><th>作业</th><th>货种</th>' +
+    '<th class="r">数量(吨)</th><th>状态</th><th class="r">时间</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+/* --- 进度条面板：DOM 渲染，width 过渡动画；>85% 走金色"烫手"配色 --- */
+function progressItems(ref){
+  if (ref.cfg.items && ref.cfg.items.length) return ref.cfg.items;
+  // 未配置 items：用园区分区饱和度兜底（Mock 场景立刻有东西看）
+  return MOCK.zones.slice(0, 3).map(z => ({ name: z.name + ' 饱和度', value: z.value, max: 100, unit: '%' }));
+}
+function renderProgress(ref){
+  const box = ref.body;
+  box.classList.add('progs');
+  const items = progressItems(ref);
+  if (!ref._progs || ref._progs.length !== items.length){
+    box.innerHTML = '';
+    ref._progs = items.map(() => {
+      const wrap = h('div', 'prog');
+      wrap.innerHTML = '<div class="top"><span class="nm"></span>' +
+                       '<span class="vl"><span class="num">0</span><small></small></span></div>' +
+                       '<div class="track"><div class="fill"></div></div>';
+      box.appendChild(wrap);
+      return { wrap, nm: wrap.querySelector('.nm'), num: wrap.querySelector('.num'),
+               unit: wrap.querySelector('.vl small'), fill: wrap.querySelector('.fill') };
+    });
+  }
+  items.forEach((it, i) => {
+    const r = ref._progs[i];
+    const max = it.max || 100, pct = Math.max(0, Math.min(100, it.value / max * 100));
+    r.nm.textContent = it.name || '';
+    r.unit.textContent = it.unit || '';
+    r.num.textContent = fmt(it.value, it.fixed == null ? (it.value % 1 ? 1 : 0) : it.fixed);
+    r.wrap.classList.toggle('hot', pct > 85);
+    r.fill.style.width = pct + '%';
+  });
+}
+
+/* --- 仪表盘（可选面板类型，配置 type:'gauge' 即用） --- */
+function renderGauge(ref){
+  if (!ref.chart){
+    ref.body.innerHTML = '<div class="chart"></div>';
+    ref.chart = echarts.init(ref.body.querySelector('.chart'), null, { renderer: 'canvas' });
+    charts.push(ref.chart);
+  }
+  const v = ref.cfg.value == null ? RI(45, 92) : ref.cfg.value;
+  ref.chart.setOption({
+    series: [{
+      type: 'gauge', startAngle: 210, endAngle: -30, min: 0, max: 100, radius: '86%', center: ['50%', '58%'],
+      progress: { show: true, width: 12, roundCap: true,
+        itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+          { offset: 0, color: '#3b82f6' }, { offset: 1, color: '#4fc3ff' } ]) } },
+      axisLine: { lineStyle: { width: 12, color: [[1, 'rgba(94,148,214,.16)']] } },
+      axisTick: { show: false }, splitLine: { show: false },
+      axisLabel: { color: 'rgba(160,190,215,.7)', fontSize: 11, distance: 16 },
+      pointer: { show: false }, anchor: { show: false },
+      detail: { valueAnimation: true, offsetCenter: [0, 0], fontSize: 30, fontWeight: 700,
+        color: '#fff', formatter: '{value}%' },
+      title: { offsetCenter: [0, '34%'], color: 'rgba(180,205,230,.85)', fontSize: 13 },
+      data: [{ value: v, name: ref.cfg.metric || ref.cfg.title || '' }]
+    }]
+  }, true);
+}
+
+/* --- 通用 ECharts 面板 --- */
+function renderChart(ref){
+  const builder = OPT_BUILDERS[ref.type] || optLine;
+  if (!ref.chart){
+    ref.body.innerHTML = '<div class="chart"></div>';
+    const el = ref.body.querySelector('.chart');
+    if (el.clientHeight < 20){                     // 布局还没稳定：等一帧再来，否则 ECharts 会以 0 高度初始化
+      requestAnimationFrame(() => ref.render());
+      return;
+    }
+    ref.chart = echarts.init(el, null, { renderer: 'canvas' });
+    charts.push(ref.chart);
+    if (ref.type === 'map') ref.body.appendChild(buildMapStats());
+  }
+  const opt = builder();
+  if (ref.cfg.option) deepMerge(opt, ref.cfg.option);       // 面板级微调：直接覆盖 option 片段
+  ref.chart.setOption(opt, true);
+  if (ref.type === 'map') updateMapStats();                 // 平均饱和度随刷新更新
+}
+
+/* =========================================================================
+ * 7. 媒体对象：自适应缩放 / 时钟 / 全屏 / 暂停
+ * ========================================================================= */
+const screenEl = document.getElementById('screen');
+function fitScreen(){
+  const dw = CONFIG.screen.designWidth, dh = CONFIG.screen.designHeight;
+  screenEl.style.setProperty('--dw', dw + 'px');       // 设计尺寸以配置为准，别让 CSS 与配置各说各话
+  screenEl.style.setProperty('--dh', dh + 'px');
+  const w = window.innerWidth, h = window.innerHeight, fit = CONFIG.screen.fit;
+  let kx = w / dw, ky = h / dh;
+  let k = fit === 'stretch' ? null : (fit === 'cover' ? Math.max(kx, ky) : Math.min(kx, ky));
+  screenEl.style.transform = k == null ? 'scale(' + kx + ',' + ky + ')' : 'scale(' + k + ')';
+  const skx = k == null ? kx : k, sky = k == null ? ky : k;
+  screenEl.style.left = Math.max(0, (w - dw * skx) / 2) + 'px';
+  screenEl.style.top  = Math.max(0, (h - dh * sky) / 2) + 'px';
+  for (const c of charts) c.resize();
+}
+let rzT = null;
+window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(fitScreen, 120); });
+
+const WD = ['日', '一', '二', '三', '四', '五', '六'];
+function tickClock(){
+  const d = new Date();
+  document.getElementById('hd-date').textContent =
+    d.getFullYear() + '年' + pad2(d.getMonth() + 1) + '月' + pad2(d.getDate()) + '日 周' + WD[d.getDay()];
+  document.getElementById('hd-time').textContent =
+    pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+}
+setInterval(tickClock, 1000); tickClock();
+
+document.getElementById('btn-full').onclick = () => {
+  if (!document.fullscreenElement) (document.documentElement.requestFullscreen || function(){}).call(document.documentElement);
+  else (document.exitFullscreen || function(){}).call(document);
+};
+
+let paused = false;
+document.getElementById('btn-pause').onclick = (e) => {
+  paused = !paused;
+  e.target.textContent = paused ? '继续刷新' : '暂停刷新';
+  e.target.style.color = paused ? '#fbbf24' : '';
+};
+
+/* 滚动播报：按文本长度算时长，保证速度稳定 */
+function renderTicker(){
+  const items = CONFIG.ticker || [];
+  const one = items.map(t => '<span>' + t + '</span>').join('');
+  const track = document.getElementById('tk-track');
+  track.innerHTML = one + one;                     // 复制两份做无缝循环
+  requestAnimationFrame(() => {
+    const w = track.scrollWidth / 2;
+    track.style.setProperty('--dur', Math.max(18, Math.round(w / 62)) + 's');
+    track.style.animationPlayState = paused ? 'paused' : 'running';
+  });
+}
+
+/* =========================================================================
+ * 8. 数据层：Mock 定时刷新 + HTTP 可替换
+ * ========================================================================= */
+function refreshAll(flashAlarm){
+  for (const ref of panelRefs){
+    if (ref.type === 'alarm') ref.render(flashAlarm);
+    else ref.render();
+  }
+  renderTicker();
+}
+async function pullRemote(){
+  const ds = CONFIG.dataSource;
+  if (ds.mode !== 'http') return false;
+  try {
+    if (ds.endpoints.kpis){
+      const j = await (await fetch(ds.endpoints.kpis)).json();
+      if (Array.isArray(j.kpis)) CONFIG.kpis = j.kpis;
+    }
+    if (ds.endpoints.series){
+      const j = await (await fetch(ds.endpoints.series)).json();
+      for (const k of ['hours', 'inbound', 'outbound', 'stock', 'days', 'inboundD', 'outboundD', 'rank', 'mix'])
+        if (j[k]) MOCK[k] = j[k];
+    }
+    if (ds.endpoints.alarms){
+      const j = await (await fetch(ds.endpoints.alarms)).json();
+      if (Array.isArray(j.alarms)) alarms = j.alarms.concat(alarms).slice(0, 12);
+    }
+    if (ds.endpoints.map){
+      const j = await (await fetch(ds.endpoints.map)).json();
+      if (Array.isArray(j.zones)) MOCK.zones = j.zones;
+    }
+    if (ds.endpoints.ticker){
+      const j = await (await fetch(ds.endpoints.ticker)).json();
+      if (Array.isArray(j.ticker)) CONFIG.ticker = j.ticker;
+    }
+    return true;
+  } catch (err){
+    console.warn('[dash] 接口拉取失败，降级为 Mock：', err);
+    return false;
+  }
+}
+let timer = null;
+function startTimer(){
+  if (timer) clearInterval(timer);
+  timer = setInterval(async () => {
+    if (paused || document.hidden) return;
+    const ok = await pullRemote();
+    if (!ok) mockTick();
+    if (rnd() > 0.45) pushAlarm();
+    refreshAll(true);
+  }, CONFIG.dataSource.refreshMs || 6000);
+}
+
+/* =========================================================================
+ * 9. 启动
+ * ========================================================================= */
+function boot(){
+  // 顶栏
+  document.getElementById('hd-title').textContent = CONFIG.meta.title;
+  document.getElementById('hd-sub').textContent = CONFIG.meta.subtitle;
+  document.getElementById('hd-scene').textContent = '行业：' +
+    ({ bulk: '大宗商品', warehouse: '仓储物流', gov: '政府监管' }[CONFIG.meta.industry] || CONFIG.meta.industry);
+  const mode = document.getElementById('hd-mode');
+  const isHttp = CONFIG.dataSource.mode === 'http';
+  mode.textContent = '数据：' + (isHttp ? '接口' : 'Mock');
+  mode.className = 'tag ' + (isHttp ? 'live' : 'mock');
+
+  // 地图注册：china（内联 → fetch 本地 → schematic 兜底）/ schematic 自生成 / geo 拉取
+  const g = ensureGeo();
+  if (g.geo) echarts.registerMap('dashmap', g.geo);
+  if (g.jd) echarts.registerMap('dashmap_jd', g.jd);
+  else if (CONFIG.map.mode === 'geo' && CONFIG.map.geoJSONUrl){
+    fetch(CONFIG.map.geoJSONUrl).then(r => r.json()).then(j => {
+      echarts.registerMap('dashmap', j);
+      GEO.geo = j;
+      for (const ref of panelRefs) if (ref.type === 'map') ref.render();
+    }).catch(e => {
+      console.warn('[dash] 底图加载失败，回退示意园区：', e);
+      GEO = buildParkGeo(CONFIG.map.zones || [], CONFIG.map.cols || 4);
+      echarts.registerMap('dashmap', GEO.geo);
+      for (const ref of panelRefs) if (ref.type === 'map') ref.render();
+    });
+  } else if (CONFIG.map.mode === 'china'){
+    // 无内联数据（直接打开骨架的场景）：试同目录 map/china.json，再试 assets/map/china.json
+    const loadChina = (url) => fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+    loadChina('map/china.json').catch(() => loadChina('assets/map/china.json')).then(j => {
+      const gj = buildChinaGeo(j);
+      echarts.registerMap('dashmap', gj.geo);
+      if (gj.jd) echarts.registerMap('dashmap_jd', gj.jd);
+      GEO = gj;
+      for (const ref of panelRefs) if (ref.type === 'map') ref.render();
+      console.log('%c[dash] 中国省界底图加载完成（%d 省）', 'color:#4fc3ff', gj.names.length);
+    }).catch(() => {
+      console.warn('[dash] 未找到 china.json，降级示意园区底图（用 scaffold.py 生成可获得内联真地图）');
+      GEO = buildParkGeo(CONFIG.map.zones || [], CONFIG.map.cols || 4);
+      echarts.registerMap('dashmap', GEO.geo);
+    });
+  }
+
+  const hosts = { left: document.getElementById('col-left'), center: document.getElementById('col-center'),
+                  right: document.getElementById('col-right') };
+  for (const area of ['left', 'center', 'right']){
+    for (const cfg of ((CONFIG.layout || {})[area] || [])) buildPanel(cfg, hosts[area]);
+  }
+  renderTicker();
+  fitScreen();
+  startTimer();
+  console.log('%c[dash] 启动完成', 'color:#4fc3ff', '面板数：' + panelRefs.length + '，数据模式：' + CONFIG.dataSource.mode);
+}
+boot();
+
+/* 演示调试入口：dash.CONFIG / dash.refresh() / dash.push() / dash.tick() */
+window.dash = {
+  CONFIG, MOCK, charts, panelRefs,
+  refresh: () => refreshAll(false),
+  tick: () => { mockTick(); refreshAll(false); },
+  push: () => { pushAlarm(); refreshAll(true); },
+  fit: fitScreen,
+  boot: boot
+};
+</script>
+</body>
+</html>

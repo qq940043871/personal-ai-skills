@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>时序图 · Sequence Diagram</title>
+<!--
+  ============================================================================
+  时序图骨架（单文件 · 零 CDN · 纯内联 CSS + 原生 JS）
+  ============================================================================
+  这是「交互时序 / 调用链路」图：参与者横排在顶部，生命线垂直向下，
+  消息按时间顺序自上而下排列。
+
+  改法只有三步，绝不手写坐标：
+    ① 参与者：.acts 里增删 .actor（顺序即列序），类名给配色 c-*
+    ② 消息：.track 里增删 .msg，data-a / data-b 填参与者序号（从 1 起）
+    ③ 消息色调：class 用 m-sync / m-ret / m-async / m-fail
+
+  生命线位置、消息跨列宽度全部由脚本按参与者数量算，加人不用改任何数值。
+
+  ⚠️ 配色类（c-*，用于参与者卡）必须写，漏写会静默失去边框与底色（浏览器不报错）。
+     自查：引用到的 c-* 是否都在 <style> 里有定义。
+  ============================================================================
+-->
+<style>
+:root{
+  --ink:#1F2937; --ink2:#4B5563; --ink3:#8A93A0;
+  --line:#E3E7EE; --paper:#FFFFFF; --canvas:#F1F4F9;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--canvas);
+  font-family:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Source Han Sans SC","Noto Sans CJK SC",sans-serif;
+  color:var(--ink); padding:22px 26px 26px; -webkit-font-smoothing:antialiased;
+}
+.sheet{
+  width:1740px; margin:0 auto; background:var(--paper);
+  border-radius:16px; padding:30px 30px 22px;
+  box-shadow:0 10px 34px rgba(23,42,77,.10), 0 2px 8px rgba(23,42,77,.05);
+}
+
+/* ---------- 头部 ---------- */
+.hd{border-bottom:1.6px solid var(--line); padding-bottom:15px; margin-bottom:22px;}
+.hd h1{font-size:25px; margin:0 0 8px; letter-spacing:.4px; font-weight:800;}
+.hd .sub{font-size:13px; color:var(--ink2); margin:0; line-height:1.6;}
+.hd .sub b{color:#2C6FBE; font-weight:800;}
+.hd .legend{display:flex; flex-wrap:wrap; gap:9px 20px; margin-top:14px;}
+.lg{display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--ink2); font-weight:600;}
+.lg .sw{width:26px; height:0; border-top-width:2px; border-top-style:solid;}
+.lg .sw.dash{border-top-style:dashed;}
+
+/* ---------- 参与者（顶部一排） ---------- */
+.acts{display:grid; gap:18px; position:relative; z-index:5;}
+.actor{
+  border:1.6px solid var(--c,#C9D2DE); background:var(--cbg,#FBFCFE);
+  border-radius:11px; padding:10px 8px; text-align:center;
+}
+.actor .an{font-size:12.5px; font-weight:800; color:var(--c,#374151); letter-spacing:.2px;}
+.actor .at{font-size:10.5px; color:var(--ink3); margin-top:3px; font-weight:700;}
+
+/* ---------- 生命线与消息 ---------- */
+.seq{position:relative;}
+.track{position:relative; display:grid; grid-auto-rows:40px; padding:18px 0 6px;}
+.life{
+  position:absolute; top:0; bottom:0; width:0;
+  border-left:1.6px dashed #D6DDE8; transform:translateX(-50%); z-index:0;
+}
+/* 消息行：整行占满，横线的 left/width 由脚本按参与者中心实测像素设定。
+   ⚠️ 不要把 .msg 写成 flex 而让 .bar 靠 margin 撑开 —— flex item 无 flex-grow
+      时宽度会塌成 0（实测八条消息全部零宽，线根本画不出来）。 */
+.msg{position:relative; z-index:4; grid-column:1 / -1;}
+.bar{
+  position:absolute; top:50%; height:0;
+  border-top:2px solid var(--ec,#4A88CE); color:var(--ec,#4A88CE);
+}
+/* 终点箭头（默认指向右） */
+.bar::after{
+  content:''; position:absolute; right:-1px; top:0; transform:translateY(-50%);
+  border-left:9px solid currentColor;
+  border-top:5.5px solid transparent; border-bottom:5.5px solid transparent;
+}
+/* 起点短竖线 */
+.bar::before{
+  content:''; position:absolute; left:0; top:0; width:2px; height:9px;
+  transform:translateY(-50%); background:currentColor; border-radius:1px;
+}
+/* 返回消息：箭头朝左、线走虚线 */
+.msg.m-ret .bar, .msg.m-async .bar, .msg.m-fail .bar{border-top-style:dashed;}
+.msg.m-ret .bar::after{
+  right:auto; left:-1px;
+  border-left:0; border-right:9px solid currentColor;
+}
+.msg.m-ret .bar::before{left:auto; right:0;}
+
+.mlbl{
+  position:absolute; left:50%; top:-12px; transform:translateX(-50%);
+  font-size:11px; font-weight:700; color:var(--ink2); letter-spacing:.2px;
+  background:var(--paper); padding:0 8px; white-space:nowrap;
+}
+
+/* 消息色调（--ec = edge color） */
+.m-sync {--ec:#2C6FBE;}   /* 同步请求 */
+.m-ret  {--ec:#8A93A0;}   /* 返回 / 响应 */
+.m-async{--ec:#2E9E8F;}   /* 异步推送 */
+.m-fail {--ec:#C0504D;}   /* 失败 / 异常 */
+
+/* ---------- 参与者配色类（务必与正文引用一一对应） ---------- */
+.c-blue  {--c:#2C6FBE; --cbg:#F3F8FE;}
+.c-teal  {--c:#2E9E8F; --cbg:#F1FAF8;}
+.c-purple{--c:#7C5CBF; --cbg:#F8F5FE;}
+.c-amber {--c:#C98A1F; --cbg:#FEFAF0;}
+.c-coral {--c:#D16B65; --cbg:#FEF7F6;}
+.c-gold  {--c:#C2803A; --cbg:#FDF8F0;}
+.c-sky   {--c:#4AA3D8; --cbg:#F2F9FD;}
+.c-red   {--c:#C0504D; --cbg:#FDF3F2;}
+.c-grey  {--c:#8A93A0; --cbg:#F7F8FA;}
+
+/* ---------- 页脚注 ---------- */
+.notes{border-top:1.6px solid var(--line); margin-top:20px; padding-top:14px;}
+.notes p{font-size:11.5px; color:var(--ink2); margin:0 0 7px; line-height:1.72;}
+.notes p:last-child{margin-bottom:0;}
+.notes p b{color:#2C6FBE;}
+.notes .no{
+  display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+  border-radius:50%; background:#EAF1FB; color:#2C6FBE; font-size:10px; font-weight:800;
+  margin-right:6px; vertical-align:1px;
+}
+</style>
+</head>
+<body>
+
+<div class="sheet">
+
+  <div class="hd">
+    <h1>套保报单链路 · 时序图</h1>
+    <p class="sub">
+      <b>5</b> 个参与者 · <b>8</b> 条消息 · <b>1</b> 条异步推送 · 端到端 P99 <b>180ms</b>
+    </p>
+    <div class="legend">
+      <span class="lg"><span class="sw" style="border-color:#2C6FBE"></span>同步请求</span>
+      <span class="lg"><span class="sw dash" style="border-color:#8A93A0"></span>返回 / 响应</span>
+      <span class="lg"><span class="sw dash" style="border-color:#2E9E8F"></span>异步推送</span>
+    </div>
+  </div>
+
+  <div class="seq">
+
+    <!-- ① 参与者：顺序即列序，增删自动重排 -->
+    <div class="acts">
+      <div class="actor c-sky"><div class="an">C/S 客户端</div><div class="at">交易员终端</div></div>
+      <div class="actor c-purple"><div class="an">微服务网关</div><div class="at">HTTP / 鉴权限流</div></div>
+      <div class="actor c-coral"><div class="an">交易核心</div><div class="at">C 语言 · 额度校验</div></div>
+      <div class="actor c-gold"><div class="an">CTP 接入服务</div><div class="at">C++ · 官方 API</div></div>
+      <div class="actor c-grey"><div class="an">期货交易柜台</div><div class="at">外部系统</div></div>
+    </div>
+
+    <!-- ② 消息：data-a / data-b = 参与者序号（从 1 起），自上而下即时间顺序 -->
+    <div class="track">
+      <div class="msg m-sync"  data-a="1" data-b="2"><div class="bar"><span class="mlbl">① 报单请求</span></div></div>
+      <div class="msg m-sync"  data-a="2" data-b="3"><div class="bar"><span class="mlbl">② 转发并校验套保额度</span></div></div>
+      <div class="msg m-sync"  data-a="3" data-b="4"><div class="bar"><span class="mlbl">③ 下发报单</span></div></div>
+      <div class="msg m-sync"  data-a="4" data-b="5"><div class="bar"><span class="mlbl">④ OrderInsert</span></div></div>
+      <div class="msg m-ret"   data-a="5" data-b="4"><div class="bar"><span class="mlbl">⑤ 委托回报</span></div></div>
+      <div class="msg m-async" data-a="4" data-b="3"><div class="bar"><span class="mlbl">⑥ 成交回报（携指令引用标识）</span></div></div>
+      <div class="msg m-sync"  data-a="3" data-b="2"><div class="bar"><span class="mlbl">⑦ 指令状态更新</span></div></div>
+      <div class="msg m-async" data-a="2" data-b="1"><div class="bar"><span class="mlbl">⑧ 状态推送 / 刷新</span></div></div>
+    </div>
+
+  </div>
+
+  <div class="notes">
+    <p><span class="no">①</span><b>成交回报必携指令引用标识</b>——跨 C++ / Java 多进程回调时，靠该标识自动关联到原始指令，无需按时间窗猜测。</p>
+    <p><span class="no">②</span>生命线与消息宽度由参与者数量自动计算，<b>增删参与者不需要改任何数值</b>；同列自发自收（data-a = data-b）会被自动隐藏。</p>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  var actors = Array.prototype.slice.call(document.querySelectorAll('.actor'));
+  var n = actors.length;
+  var acts = document.querySelector('.acts');
+  var track = document.querySelector('.track');
+  var cols = 'repeat(' + n + ',1fr)';
+  acts.style.gridTemplateColumns = cols;
+  track.style.gridTemplateColumns = cols;
+
+  // 参与者列中心的精确像素坐标（相对 .track）—— 生命线与消息共用同一组坐标。
+  // 用百分比近似会让线偏离列中心（实测偏 7px，且跨列消息的 margin 估算还会再偏）。
+  var tr = track.getBoundingClientRect();
+  var centers = actors.map(function (a) {
+    var ar = a.getBoundingClientRect();
+    return ar.left + ar.width / 2 - tr.left;
+  });
+
+  // 生命线：每个参与者列中心一条竖虚线
+  actors.forEach(function (a, i) {
+    var l = document.createElement('div');
+    l.className = 'life';
+    l.style.left = centers[i] + 'px';
+    track.appendChild(l);
+  });
+
+  // 消息：data-a → data-b 决定两端落在哪条生命线上，横线的 left/width 直接给像素
+  var msgs = Array.prototype.slice.call(document.querySelectorAll('.msg'));
+  msgs.forEach(function (m) {
+    var a = parseInt(m.dataset.a, 10);
+    var b = parseInt(m.dataset.b, 10);
+    if (!a || !b || b === a || centers[a - 1] == null || centers[b - 1] == null) {
+      m.style.display = 'none'; return;                 // 同列 / 越界 → 隐藏
+    }
+    var x1 = centers[a - 1], x2 = centers[b - 1];
+    var bar = m.querySelector('.bar');
+    bar.style.left = Math.min(x1, x2) + 'px';
+    bar.style.width = Math.abs(x2 - x1) + 'px';
+    if (a > b) m.classList.add('m-ret');                 // 右→左：箭头翻到左边
+  });
+
+  // 统计与就绪标志（导出脚本据此核对连线数量）
+  window.__DIAGRAM_STATS__ = {
+    type: 'sequence',
+    nodes: n,
+    edges: msgs.filter(function (m) { return m.style.display !== 'none'; }).length,
+    drawn: msgs.filter(function (m) { return m.style.display !== 'none'; }).length
+  };
+  window.__DIAGRAM_READY__ = true;
+})();
+</script>
+</body>
+</html>

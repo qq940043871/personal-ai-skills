@@ -1,0 +1,309 @@
+{
+  "title": "云栖新城 · 城市运行孪生中枢",
+  "subtitle": "REAL-TIME CITY OPERATION DIGITAL TWIN CENTER",
+  "scene": "city",
+  "pulse": true,
+  "pulseInterval": 3000,
+  "panels": {
+    "left": [
+      {
+        "type": "kpi",
+        "title": "全城运行总览",
+        "note": "REAL-TIME",
+        "data": {
+          "items": [
+            {
+              "label": "接入设备",
+              "value": 12846,
+              "unit": "台",
+              "trend": 2.4
+            },
+            {
+              "label": "今日人流",
+              "value": 86.3,
+              "unit": "万人次",
+              "trend": 5.1
+            },
+            {
+              "label": "综合能耗",
+              "value": 4218,
+              "unit": "MWh",
+              "trend": -3.2
+            },
+            {
+              "label": "在线率",
+              "value": 99.2,
+              "unit": "%",
+              "trend": 0.4
+            }
+          ]
+        }
+      },
+      {
+        "type": "lineChart",
+        "title": "24 小时人流与车流趋势",
+        "note": "HOURLY",
+        "data": {
+          "labels": [
+            "0",
+            "4",
+            "8",
+            "12",
+            "16",
+            "20",
+            "24"
+          ],
+          "series": [
+            {
+              "name": "人流",
+              "color": "#22d3ee",
+              "data": [
+                12,
+                8,
+                46,
+                62,
+                78,
+                54,
+                26
+              ]
+            },
+            {
+              "name": "车流",
+              "color": "#a855f7",
+              "data": [
+                20,
+                14,
+                58,
+                48,
+                66,
+                72,
+                34
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "type": "rank",
+        "title": "片区能耗排行",
+        "note": "MWh / 日",
+        "data": {
+          "items": [
+            {
+              "name": "中央商务区",
+              "value": 1286,
+              "unit": "",
+              "dataId": "cbd"
+            },
+            {
+              "name": "智造片区",
+              "value": 964,
+              "unit": "",
+              "dataId": "indust"
+            },
+            {
+              "name": "居住社区",
+              "value": 742,
+              "unit": "",
+              "dataId": "resi"
+            },
+            {
+              "name": "科创园区",
+              "value": 618,
+              "unit": "",
+              "dataId": "tech"
+            },
+            {
+              "name": "交通枢纽",
+              "value": 486,
+              "unit": "",
+              "dataId": "trans"
+            }
+          ]
+        }
+      },
+      {
+        "type": "donut",
+        "title": "用地构成",
+        "data": {
+          "items": [
+            {
+              "name": "商务",
+              "value": 32,
+              "color": "#3b82f6"
+            },
+            {
+              "name": "居住",
+              "value": 28,
+              "color": "#2dd4bf"
+            },
+            {
+              "name": "产业",
+              "value": 22,
+              "color": "#a855f7"
+            },
+            {
+              "name": "交通",
+              "value": 18,
+              "color": "#fbbf24"
+            }
+          ]
+        }
+      }
+    ],
+    "right": [
+      {
+        "type": "ringGroup",
+        "title": "运行体征指标",
+        "data": {
+          "items": [
+            {
+              "label": "交通顺畅度",
+              "value": 82,
+              "max": 100,
+              "color": "#22d3ee"
+            },
+            {
+              "label": "能源负载",
+              "value": 67,
+              "max": 100,
+              "color": "#fbbf24"
+            },
+            {
+              "label": "环境质量",
+              "value": 91,
+              "max": 100,
+              "color": "#34d399"
+            },
+            {
+              "label": "安防指数",
+              "value": 96,
+              "max": 100,
+              "color": "#3b82f6"
+            }
+          ]
+        }
+      },
+      {
+        "type": "entities",
+        "title": "关键设施状态",
+        "note": "CLICK TO LOCATE",
+        "data": {
+          "items": [
+            {
+              "id": "cbd",
+              "name": "中央商务区枢纽站",
+              "status": "run",
+              "value": 94,
+              "unit": "%"
+            },
+            {
+              "id": "tech",
+              "name": "科创园区数据中心",
+              "status": "run",
+              "value": 88,
+              "unit": "%"
+            },
+            {
+              "id": "resi",
+              "name": "居住社区换热站",
+              "status": "normal",
+              "value": 76,
+              "unit": "%"
+            },
+            {
+              "id": "indust",
+              "name": "智造片区配电房",
+              "status": "warn",
+              "value": 52,
+              "unit": "%"
+            },
+            {
+              "id": "trans",
+              "name": "交通枢纽换乘中心",
+              "status": "alarm",
+              "value": 38,
+              "unit": "%"
+            }
+          ]
+        }
+      },
+      {
+        "type": "switches",
+        "title": "图层控制",
+        "data": {
+          "items": [
+            {
+              "id": "buildings",
+              "label": "建筑体块",
+              "on": true
+            },
+            {
+              "id": "roads",
+              "label": "路网车流",
+              "on": true
+            },
+            {
+              "id": "fly",
+              "label": "跨域飞线",
+              "on": true
+            },
+            {
+              "id": "labels",
+              "label": "区域标签",
+              "on": true
+            },
+            {
+              "id": "beacon",
+              "label": "地标光柱",
+              "on": true
+            }
+          ]
+        }
+      },
+      {
+        "type": "alarms",
+        "title": "实时告警",
+        "note": "TOP 6",
+        "data": {
+          "items": []
+        }
+      }
+    ]
+  },
+  "alarms": [
+    {
+      "time": "10:24",
+      "name": "换乘中心",
+      "text": "客流密度超限，已启动分流预案",
+      "level": "err"
+    },
+    {
+      "time": "10:11",
+      "name": "配电房 #3",
+      "text": "母线温度 78℃ 接近阈值",
+      "level": "warn"
+    },
+    {
+      "time": "09:52",
+      "name": "主干道 A",
+      "text": "平均车速下降 21%，建议绿波调优",
+      "level": "info"
+    },
+    {
+      "time": "09:30",
+      "name": "换热站 B",
+      "text": "回水温度恢复正常区间",
+      "level": "info"
+    },
+    {
+      "time": "09:04",
+      "name": "数据中心",
+      "text": "新增机柜 12 台已接入完成",
+      "level": "info"
+    }
+  ],
+  "env": {
+    "timeOfDay": "day"
+  }
+}

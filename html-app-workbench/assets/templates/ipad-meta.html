@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<!-- ===== iPad 全屏 APP meta 三件套（勿删勿改）===== -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#0B1220">
+<title>工作台</title>
+<style>
+  /* ===== 主题变量：默认 ocean-dark；换主题时用 references/design-system.md 里
+     对应主题的 :root 块整体替换，其余样式不动 ===== */
+  :root {
+    --bg: #0B1220;
+    --bg-soft: #101A2C;
+    --surface: rgba(255, 255, 255, 0.06);
+    --surface-solid: #131C2E;
+    --border: rgba(255, 255, 255, 0.10);
+    --text: #E6EDF7;
+    --text-2: #94A3B8;
+    --text-3: #64748B;
+    --primary: #22D3EE;
+    --secondary: #818CF8;
+    --accent: linear-gradient(135deg, #22D3EE 0%, #818CF8 100%);
+    --success: #34D399;
+    --warning: #FBBF24;
+    --danger: #F87171;
+    --glow: 0 0 24px rgba(34, 211, 238, 0.35);
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+    --radius-s: 12px; --radius-m: 16px; --radius-l: 24px;
+    --blur: saturate(160%) blur(18px);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body {
+    position: fixed; inset: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 16px; touch-action: manipulation;
+    -webkit-user-select: none; -webkit-touch-callout: none; user-select: none;
+  }
+  input, textarea, select { -webkit-user-select: auto; user-select: auto; }
+
+  /* ===== 布局骨架（见 design-system.md「布局骨架」）===== */
+  .app {
+    display: flex; flex-direction: column; height: 100dvh; width: 100%;
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .app-header {
+    flex: none; height: 56px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 20px;
+  }
+  .app-header-title { font-size: 22px; font-weight: 700; }
+  .app-main {
+    flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    width: 100%; max-width: 720px; margin: 0 auto; padding: 8px 20px;
+    /* 底部留出 tabbar + 安全区 */
+    padding-bottom: calc(env(safe-area-inset-bottom) + 84px + 20px);
+  }
+
+  /* ===== tabbar ===== */
+  .tabbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: flex; max-width: 720px; margin: 0 auto;
+    background: var(--surface-solid);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabbar-item {
+    flex: 1; min-height: 64px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    background: none; border: none; cursor: pointer;
+    color: var(--text-2); font-size: 11px;
+  }
+  .tabbar-item.active { color: var(--primary); }
+  .tabbar-item svg { width: 24px; height: 24px; }
+
+  /* ===== 触控反馈（所有可点元素挂 .tap）===== */
+  .tap { cursor: pointer; transition: transform .15s, opacity .15s; }
+  .tap:active { transform: scale(0.96); opacity: 0.85; }
+
+  /* ===== 页面段切换 ===== */
+  .page { display: none; animation: fadein .15s ease; }
+  .page.active { display: block; }
+  @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
+  /* ===== 常用组件（规格见 design-system.md，按需增删）===== */
+  .icon-btn {
+    width: 44px; height: 44px; border: none; border-radius: 50%;
+    background: var(--surface); color: var(--text);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn svg { width: 22px; height: 22px; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-m); padding: 16px; margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .stat-value { font-size: 36px; font-weight: 700; line-height: 1.1; }
+  .stat-label { font-size: 13px; color: var(--text-2); margin-top: 4px; }
+
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 64px; padding: 10px 14px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .row-title { font-size: 16px; color: var(--text); }
+  .row-sub { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+  .row-grow { flex: 1; min-width: 0; }
+
+  .btn {
+    min-height: 52px; min-width: 52px; padding: 0 24px;
+    border: none; border-radius: var(--radius-m);
+    font-size: 17px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .btn-primary { background: var(--primary); color: #fff; box-shadow: var(--glow); }
+  .btn-ghost { background: transparent; color: var(--text-2); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-block { width: 100%; }
+
+  /* ===== 弹层：bottom-sheet / 确认 modal / toast ===== */
+  .sheet-mask {
+    position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, 0.45);
+    opacity: 0; pointer-events: none; transition: opacity 220ms;
+  }
+  .sheet-mask.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 51;
+    max-width: 720px; margin: 0 auto;
+    padding: 20px 20px calc(env(safe-area-inset-bottom) + 20px);
+    background: var(--surface-solid);
+    border-radius: var(--radius-l) var(--radius-l) 0 0;
+    transform: translateY(100%); transition: transform 220ms ease;
+  }
+  .sheet.open { transform: translateY(0); }
+
+  .field { margin-bottom: 16px; }
+  .field-label { display: block; font-size: 14px; color: var(--text-2); margin-bottom: 6px; }
+  .field-input {
+    width: 100%; min-height: 48px; padding: 10px 14px;
+    font-size: 16px; color: var(--text);
+    background: var(--bg-soft); border: 1.5px solid var(--border);
+    border-radius: var(--radius-s);
+  }
+  .field-input:focus { outline: none; border-color: var(--primary); }
+
+  .toast {
+    position: fixed; top: calc(env(safe-area-inset-top) + 16px); left: 50%;
+    transform: translateX(-50%); z-index: 60;
+    background: var(--surface-solid); color: var(--text);
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 10px 22px; font-size: 14px;
+    opacity: 0; pointer-events: none; transition: opacity 200ms;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="app-header">
+    <div class="app-header-title" id="pageTitle">首页</div>
+    <button class="icon-btn tap" id="btnAdd" aria-label="添加">
+      <!-- 内联 SVG：plus，24×24，stroke 继承 currentColor -->
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+  </header>
+
+  <main class="app-main">
+    <!-- 页面段 1：首页（统计卡 + 今日列表） -->
+    <section class="page active" id="page-home">
+      <div class="stat-grid">
+        <div class="card"><div class="stat-value" id="statToday">0</div><div class="stat-label">今日记录</div></div>
+        <div class="card"><div class="stat-value" id="statDone">0</div><div class="stat-label">已完成</div></div>
+      </div>
+      <div id="todayList"><!-- .row 列表由 JS 渲染 --></div>
+    </section>
+
+    <!-- 页面段 2：全部记录 -->
+    <section class="page" id="page-records">
+      <div id="allList"></div>
+    </section>
+  </main>
+</div>
+
+<!-- 底部 tabbar：图标全部内联 SVG -->
+<nav class="tabbar">
+  <button class="tabbar-item tap active" data-page="page-home" aria-label="首页">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5V21h-6v-6h-6v6H3z"/></svg>
+    <span>首页</span>
+  </button>
+  <button class="tabbar-item tap" data-page="page-records" aria-label="记录">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+    <span>记录</span>
+  </button>
+</nav>
+
+<!-- 录入 sheet + 遮罩 -->
+<div class="sheet-mask" id="sheetMask"></div>
+<div class="sheet" id="addSheet">
+  <div class="field">
+    <label class="field-label" for="inpTitle">标题</label>
+    <input class="field-input" id="inpTitle" type="text" maxlength="50" placeholder="今天做了什么">
+  </div>
+  <button class="btn btn-primary btn-block tap" id="btnSave">保存</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===== 1. 在此粘贴 assets/templates/sdk-init.js 全文（WorkbenchDB）===== */
+
+/* ===== 2. 业务逻辑（同样保持 ES5）=====
+var SCHEMA = { /* 复制 schema-template.json 内容并按需求修改 *\/ };
+
+function $(id) { return document.getElementById(id); }
+function todayStr() {
+  var d = new Date();
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+}
+
+function render() {
+  var rows = WorkbenchDB.list('records', function (r) { return r.date === todayStr(); });
+  $('statToday').textContent = rows.length;
+  $('statDone').textContent = rows.filter(function (r) { return r.done; }).length;
+  /* 渲染 todayList / allList：拼 HTML 时对用户输入做转义（& < > "）防注入 */
+}
+
+function showToast(msg) {
+  var t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(function () { t.classList.remove('show'); }, 2000);
+}
+
+tabbar 切换、btnAdd 开 sheet、btnSave 调 WorkbenchDB.insert 后 render + showToast，
+删除走确认 modal（见 design-system.md 组件 6）。绑定事件用 addEventListener。
+*/
+</script>
+</body>
+</html>
