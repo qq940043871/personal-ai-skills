@@ -1,0 +1,52 @@
+{
+  "name": "b2b-commodity-bid-expert",
+  "version": "1.0.0",
+  "description": "B2B commodity tender expert: parses tender requirements, extracts evaluation criteria, generates structured proposal responses and pricing strategies",
+  "author": {
+    "name": "hasWhere"
+  },
+  "agents": ["./agents/b2b-commodity-bid-expert.md"],
+  "skills": ["./skills/bid-toolkit"],
+
+  "expertType": "agent",
+  "agentName": "b2b-commodity-bid-expert",
+
+  "displayName": {
+    "en": "Bid Master",
+    "zh": "标书军师"
+  },
+  "profession": {
+    "en": "B2B Commodity Bid Consultant",
+    "zh": "B2B 大宗商品标书专家"
+  },
+  "displayDescription": {
+    "en": "Specialized in B2B commodity tendering: parses tender documents, extracts commercial and technical evaluation criteria, generates structured bid responses and pricing strategies, flags compliance risks.",
+    "zh": "专精 B2B 大宗商品招投标：解析招标需求、提取评标要点、生成投标方案与报价策略，预警合规风险。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "07-SalesCommerce",
+  "defaultInitPrompt": {
+    "zh": "解析这份招标文件，提取商务与技术评标要点",
+    "en": "Analyze this tender document and extract commercial and technical evaluation criteria"
+  },
+  "plugin": "b2b-commodity-bid-expert",
+  "tags": [
+    { "en": "Bidding & Tendering", "zh": "招投标" },
+    { "en": "Proposal Writing", "zh": "标书撰写" },
+    { "en": "Pricing Strategy", "zh": "报价策略" }
+  ],
+  "quickPrompts": [
+    {
+      "en": "Analyze this tender document and extract commercial and technical evaluation criteria",
+      "zh": "解析这份招标文件，提取商务与技术评标要点"
+    },
+    {
+      "en": "Generate the proposal outline and pricing strategy for this project",
+      "zh": "生成本项目的标书结构大纲与报价策略"
+    },
+    {
+      "en": "Review my proposal and list compliance risks and missing materials",
+      "zh": "审查我的标书，列出合规风险与缺失材料清单"
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "name": "b2b-business-expert",
+  "version": "1.0.0",
+  "description": "A B2B business strategist providing structured, actionable advice on enterprise customer analysis, sales and marketing strategy, industry trends, negotiation, and client collaboration workflows.",
+  "author": {
+    "name": "hasWhere"
+  },
+  "agents": ["./agents/b2b-business-expert.md"],
+
+  "expertType": "agent",
+  "agentName": "b2b-business-expert",
+
+  "displayName": {
+    "en": "B2B Strategist",
+    "zh": "B2B商略"
+  },
+  "profession": {
+    "en": "B2B Business Consultant",
+    "zh": "B2B商务策略顾问"
+  },
+  "displayDescription": {
+    "en": "A seasoned B2B business consultant skilled in enterprise customer analysis, sales and marketing strategy, industry trend interpretation, negotiation coaching, and client collaboration process optimization, delivering structured and actionable advice.",
+    "zh": "深耕B2B商业，擅长企业客户分析、销售营销策略、行业趋势解读、商务谈判与合作流程优化，建议可落地。"
+  },
+  "avatar": "avatars/expert.png",
+  "categoryId": "07-SalesCommerce",
+  "defaultInitPrompt": {
+    "zh": "帮我分析一个B2B大客户的采购决策链，并制定针对性的攻坚策略",
+    "en": "Help me map a key B2B customer's buying committee and build a targeted engagement strategy"
+  },
+  "plugin": "b2b-business-expert",
+  "tags": [
+    { "en": "Enterprise Customer Analysis", "zh": "企业客户分析" },
+    { "en": "Sales Strategy", "zh": "销售策略" },
+    { "en": "Business Negotiation", "zh": "商务谈判" }
+  ],
+  "quickPrompts": [
+    { "en": "Help me map a key B2B customer's buying committee and build a targeted engagement strategy", "zh": "帮我分析一个B2B大客户的采购决策链，并制定针对性的攻坚策略" },
+    { "en": "Draft next quarter's sales and marketing strategy for our B2B product", "zh": "为我们的B2B产品制定下季度的销售与营销策略" },
+    { "en": "Prepare a negotiation plan with concession scenarios for our key-account renewal next week", "zh": "下周与大客户续约谈判，帮我准备谈判策略和让步预案" }
+  ]
+}
