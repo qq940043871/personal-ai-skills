@@ -1,6 +1,6 @@
 ---
 name: dev-jvm-triage
-description: Java/JVM 服务故障现场取证与内存分析——现场一键采集（jstack/GC/堆直方图/Perm/句柄/连接/系统指标自包含诊断包，兼容 JDK7 目标进程）+ 大体积 heap dump 零依赖流式分析（类直方图、基本类型数组长度指纹、char[] 关键词取证、字节码反查分配点）+ 判读手册（异常风暴/异步队列积压/日志风暴/固定容量缓冲区指纹/Perm 满/CLOSE_WAIT 堆积/基线对比）。当用户提到 OOM、内存溢出、OutOfMemory、heap dump、hprof、jstack、jmap、jstat、Full GC 频繁、GC 停顿、线程堆积、服务假死卡顿、CPU 飙高排查、句柄/连接泄漏，或压测/探顶把服务打挂后要取证归因时使用；用户说"帮我分析这个 heap dump/hprof""服务又内存溢出了""采一份 JVM 诊断"也应触发。
+description: Java/JVM 服务故障现场取证与内存分析——现场一键采集（jstack/GC/堆直方图/Perm/句柄/连接/系统指标自包含诊断包，兼容 JDK7 目标进程）+ 大体积 heap dump 零依赖流式分析（类直方图、基本类型数组长度指纹、堆内字符串关键词取证（char[]+byte[] 双通道，兼容 JDK9+ Compact Strings）、字节码反查分配点）+ 判读手册（异常风暴/异步队列积压/日志风暴/固定容量缓冲区指纹/Perm 满/CLOSE_WAIT 堆积/基线对比）。当用户提到 OOM、内存溢出、OutOfMemory、heap dump、hprof、jstack、jmap、jstat、Full GC 频繁、GC 停顿、线程堆积、服务假死卡顿、CPU 飙高排查、句柄/连接泄漏，或压测/探顶把服务打挂后要取证归因时使用；用户说"帮我分析这个 heap dump/hprof""服务又内存溢出了""采一份 JVM 诊断"也应触发。
 ---
 
 # JVM 故障现场取证与内存分析
@@ -38,10 +38,36 @@ description: Java/JVM 服务故障现场取证与内存分析——现场一键�
 | 工具 | 场景 | 用法 |
 |---|---|---|
 | `HprofHistogram.java` | 任何 >1GB hprof 的第一刀：类直方图 + 全量 CSV | `javac -encoding UTF-8 HprofHistogram.java && java -Xmx1g HprofHistogram heap.hprof out.csv` |
-| `HprofArrays.java` | 直方图发现海量基本类型数组/char[] 后的第二刀：长度分布指纹 + char[] 关键词取证 | `java HprofArrays heap.hprof [keywords.txt]` |
+| `HprofArrays.java` | 直方图发现海量基本类型数组后的第二刀：长度分布指纹 + **堆内字符串关键词取证（char[] + byte[] 双通道）** | `java -Dfile.encoding=UTF-8 HprofArrays heap.hprof [keywords.txt]` |
 | `scan_bytecode.py` | 拿到数组长度指纹后回代码定位分配点 | `python3 scan_bytecode.py <解包jar根> --sizes 32 --types short,int` |
 
 分析顺序固定：**直方图 → 找可疑类与数组 → 数组长度分布 → 关键词扫描 → 字节码反查 → jstack 交叉验证**。判读信号表见 `references/triage-playbook.md`（异常风暴、队列积压、日志风暴、固定容量缓冲区指纹、驱动类定位等，全部带实战数字）。
+
+### 关键词取证：必须扫 byte[]，否则 JDK9+ 上全是假阴性
+
+**JDK9 引入 Compact Strings（JEP 254）后，`String` 内部存储从 `char[]` 改成了 `byte[] value + byte coder`**
+（coder=0 Latin-1 / coder=1 UTF-16）。只扫 `char[]` 在 JDK11/17/21 的堆上会**静默返回 0 命中**——
+字符串明明就在堆里，工具却说没有。静默空结果比报错危险得多，会让整个归因走偏。
+
+`HprofArrays` 因此对每个 `byte[]` 解出三种视图再做匹配（同一数组内同词只计一次）：
+- **Latin-1**：coder=0，纯 ASCII/西文字符串走这条
+- **UTF-16LE**：coder=1，HotSpot 用 native byte order（x86/ARM 皆小端），**含中文的字符串必走这条**
+- **UTF-16BE**：兜底，兼容其他工具链写出的堆快照
+
+输出会标注每条命中来自哪个通道，并在结尾给出判读提示：
+
+```
+提示：命中 2922987 条全部来自 byte[]（char[] 贡献 0）—— 目标 JVM 为 JDK9+ Compact Strings，符合预期。
+```
+
+**用法要点**：
+- 第二个参数是 `keywords.txt` **文件路径**（不是关键词本身），一行一个词，`#` 开头为注释；文件存 UTF-8。
+- 省略该参数则用内置默认清单（源自 openGauss SQLWarning 风暴实战），**务必按业务替换**：
+  驱动异常类名、业务表名、协议词、订单号前缀等。
+- 中英文关键词都可以，中文在 JDK9+ 堆上经 UTF-16 通道命中。
+- **Windows 控制台默认 GBK，输出中文会乱码** → 加 `-Dfile.encoding=UTF-8`（或先 `chcp 65001`）。
+- 只取每个数组前 512 字节做匹配，超大缓冲区不会被拖慢；实测 289MB dump 含 76 万数组，全扫 1.2 秒。
+- 工具自带防呆：没找到 heap-dump 记录会直接 `exit 2` 并拒绝输出空结果，不会让你误以为"堆里很干净"。
 
 ## 实战样例（复用前确认路径仍存在）
 

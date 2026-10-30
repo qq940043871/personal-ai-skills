@@ -258,9 +258,20 @@ body{
 ## 导出与质量校验
 
 ```bash
-python <skill>/scripts/export_png.py 图.html [输出.png] [--width 1860] [--scale 2] [--strict]
-python <skill>/scripts/export_png.py a.html b.html c.html --outdir ./png     # 批量
+# 输出路径三选一，优先级 --out > --outdir > 输入同目录
+python <skill>/scripts/export_png.py 图.html                        # → 图.png（同目录）
+python <skill>/scripts/export_png.py 图.html --out 成果/时序图.png    # 指定文件
+python <skill>/scripts/export_png.py a.html b.html --outdir ./png   # 批量
+
+# 可选
+--width 1860   --scale 2   --wait 900   --strict
 ```
+
+**不要用位置参数当输出名**：`export_png.py 图.html 输出.png` 里的 `输出.png` 会被
+argparse 当成第二个输入 HTML（`html` 是 `nargs='+'`，贪婪匹配在前），
+结果是「找不到输入文件」而不是导出成功。输出一律走 `--out` / `--outdir`。
+
+（本脚本与 `visual-arch-diagram` 的 `export_png.py` 参数完全一致，可互换记忆。）
 
 脚本会依次报告：`console errors`（**必须为空**）、图形类型 / 节点数 / **声明连线数 vs 实际绘制数**、导出尺寸与旧尺寸对比。
 

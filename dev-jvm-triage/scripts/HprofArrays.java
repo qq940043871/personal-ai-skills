@@ -8,7 +8,7 @@ import java.util.*;
 /**
  * Scan primitive-array payloads in an HPROF dump:
  *  - length distribution of char[]/short[]/int[]/byte[] (fixed-size buffer fingerprint)
- *  - keyword scan over char[] text (identify driver/business strings in the heap)
+ *  - keyword scan over char[] AND byte[] text (identify driver/business strings in the heap)
  * Zero-dependency, Java 8+; 8MB direct buffer handles multi-GB dumps.
  *
  * Usage:   java HprofArrays <heap.hprof> [keywords.txt]
@@ -16,6 +16,12 @@ import java.util.*;
  * built-in default list is used — it comes from the openGauss SQLWarning-storm
  * case (2026-10 iface OOM). CUSTOMIZE IT for your driver/business before use:
  * include driver exception class names, business table names, protocol words.
+ *
+ * 为什么也要扫 byte[]：
+ *   JDK9+ 引入 Compact Strings（JEP 254），String 内部存储从 char[] 改成
+ *   byte[] value + byte coder（coder=0 Latin-1 / coder=1 UTF-16）。
+ *   只扫 char[] 在 JDK9+ 堆上会静默返回 0 命中 —— 明明字符串就在堆里，
+ *   工具却说没有，这是最危险的假阴性。故两种 coder 都解码后匹配。
  */
 public class HprofArrays {
     static FileChannel ch;
@@ -60,12 +66,17 @@ public class HprofArrays {
         "SELECT", "INSERT", "UPDATE", "DELETE"
     };
     static String[] KEYWORDS = DEFAULT_KEYWORDS;
+    static String[] KEYWORDS_LOW;            // 预先小写，避免每个数组都 toLowerCase
     static long[] kwCount;
+    static long[] kwCountFromByte;           // JDK9+ Compact Strings 来源单独计数
     static List<List<String>> kwSamples;
 
     static void initKeywords(String[] kws) {
         KEYWORDS = kws;
+        KEYWORDS_LOW = new String[kws.length];
+        for (int i = 0; i < kws.length; i++) KEYWORDS_LOW[i] = kws[i].toLowerCase();
         kwCount = new long[kws.length];
+        kwCountFromByte = new long[kws.length];
         kwSamples = new ArrayList<>();
         for (int i = 0; i < kws.length; i++) kwSamples.add(new ArrayList<>());
     }
@@ -166,19 +177,22 @@ public class HprofArrays {
                                     System.out.println("INT len=" + n + " " + Arrays.toString(v));
                                 }
                                 skip((n - take) * 4L);
-                            } else if (et == 8) { // byte[]
-                                byteArrays++;
-                                int take = (int) Math.min(n, 256);
-                                need(take);
-                                byte[] b = new byte[take];
-                                bb.get(b); pos += take;
-                                if (byteSamples < 5) {
-                                    byteSamples++;
-                                    String s = new String(b, StandardCharsets.ISO_8859_1).replaceAll("[^\\x20-\\x7e]", ".");
-                                    System.out.println("BYTE len=" + n + " " + s);
-                                }
-                                skip(n - take);
-                            } else {
+                        } else if (et == 8) { // byte[]
+                            byteArrays++;
+                            // 取前 512 字节：足够覆盖关键词，又不至于让超大缓冲区拖垮扫描
+                            int take = (int) Math.min(n, 512);
+                            need(take);
+                            byte[] b = new byte[take];
+                            bb.get(b); pos += take;
+                            if (byteSamples < 5) {
+                                byteSamples++;
+                                String s = new String(b, StandardCharsets.ISO_8859_1).replaceAll("[^\\x20-\\x7e]", ".");
+                                System.out.println("BYTE len=" + n + " " + s);
+                            }
+                            // JDK9+ Compact Strings：String 的文本内容住在这里
+                            scanBytes(b, take);
+                            skip(n - take);
+                        } else {
                                 skip(n * sz);
                             }
                             break;
@@ -231,11 +245,62 @@ public class HprofArrays {
         System.out.println("short length top: " + top(shortLens));
         System.out.println("int length top: " + top(intLens));
         System.out.println("short zero(first32)=" + shortZero + " int zero(first32)=" + intZero);
-        System.out.println("\n=== KEYWORD HITS IN char[] ===");
+        System.out.println("\n=== KEYWORD HITS (char[] + byte[]) ===");
         for (int i = 0; i < KEYWORDS.length; i++) {
             if (kwCount[i] == 0) continue;
-            System.out.println(KEYWORDS[i] + " : " + kwCount[i]);
+            System.out.println(KEYWORDS[i] + " : " + kwCount[i] + "  (byte[]=" + kwCountFromByte[i] + ")");
             for (String s : kwSamples.get(i)) System.out.println("    " + s);
+        }
+        long fromByte = 0, total = 0;
+        for (int i = 0; i < KEYWORDS.length; i++) { fromByte += kwCountFromByte[i]; total += kwCount[i]; }
+        if (total == 0) {
+            System.out.println("(无命中：堆里没有这些关键词。若业务串确应在场，请按业务定制 keywords.txt 后再跑)");
+        } else if (fromByte == total) {
+            System.out.println("提示：命中 %d 条全部来自 byte[]（char[] 贡献 0）—— 目标 JVM 为 JDK9+ Compact Strings，符合预期。"
+                    .replace("%d", String.valueOf(total)));
+        } else if (fromByte > 0) {
+            System.out.println("提示：命中来自 char[] 与 byte[] 两处，其中 byte[] 占 " + fromByte + "/" + total + "。");
+        } else {
+            System.out.println("提示：命中全部来自 char[] —— 目标 JVM 为 JDK8，或该堆无 Compact Strings。");
+        }
+    }
+
+    /**
+     * 扫描单个 byte[] 的文本内容——JDK9+ Compact Strings 时 String 就存在这里。
+     *
+     * coder=0 → Latin-1（1 字节 1 字符）
+     * coder=1 → UTF-16，HotSpot 用 native byte order（x86/ARM 皆小端），故先 UTF-16LE；
+     *           再兜底一次 UTF-16BE，兼容其他工具链写出的堆快照。
+     *
+     * 同一个数组内、同一个关键词只计一次，避免三个视图互相放大计数。
+     */
+    static void scanBytes(byte[] b, int len) {
+        if (len < 4) return;
+        boolean[] hit = new boolean[KEYWORDS.length];
+        collectHits(new String(b, 0, len, StandardCharsets.ISO_8859_1), hit);   // coder=0
+        int pairs = len & ~1;                                                    // 对齐到偶数
+        if (pairs >= 2) {
+            collectHits(new String(b, 0, pairs, StandardCharsets.UTF_16LE), hit); // coder=1 小端
+            collectHits(new String(b, 0, pairs, StandardCharsets.UTF_16BE), hit); // 兜底大端
+        }
+        for (int k = 0; k < KEYWORDS.length; k++) {
+            if (hit[k]) { kwCount[k]++; kwCountFromByte[k]++; }
+        }
+    }
+
+    /** 在一个解码视图里匹配全部关键词；命中则记账 + 留存样本（每词最多 5 条）。 */
+    static void collectHits(String s, boolean[] hit) {
+        String low = s.toLowerCase();
+        for (int k = 0; k < KEYWORDS.length; k++) {
+            if (hit[k]) continue;
+            if (low.indexOf(KEYWORDS_LOW[k]) < 0) continue;
+            hit[k] = true;
+            List<String> list = kwSamples.get(k);
+            if (list.size() < 5) {
+                String t = s.length() > 300 ? s.substring(0, 300) : s;
+                t = t.replaceAll("[\\r\\n\\t\\x00]", " ");
+                if (!list.contains(t)) list.add(t);
+            }
         }
     }
 

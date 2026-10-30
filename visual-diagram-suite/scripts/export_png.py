@@ -123,8 +123,8 @@ def export_one(html, png, width, scale, wait, strict):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('html', nargs='+', help='一个或多个输入 HTML')
-    ap.add_argument('png', nargs='?', help='输出 PNG（单文件时可用）')
-    ap.add_argument('--outdir', help='批量模式输出目录')
+    ap.add_argument('--out', help='输出 PNG 文件路径（仅单文件模式可用）')
+    ap.add_argument('--outdir', help='批量输出目录（默认各输入文件同目录）')
     ap.add_argument('--width', type=int, default=1860, help='视口宽（默认 1860 = 1740 画布 + padding）')
     ap.add_argument('--scale', type=float, default=2.0, help='导出倍率（默认 2）')
     ap.add_argument('--wait', type=int, default=900, help='额外等待毫秒（默认 900）')
@@ -137,7 +137,10 @@ def main():
         print('✗ 缺少 playwright：pip install playwright && playwright install chrome')
         return 1
 
-    batch = len(args.html) > 1 or args.outdir
+    multi = len(args.html) > 1
+    if multi and args.out:
+        print('✗ --out 只用于单文件；批量导出请用 --outdir')
+        return 1
     failed = 0
     for i, h in enumerate(args.html, 1):
         hp = Path(h).resolve()
@@ -145,12 +148,16 @@ def main():
             print('✗ 找不到输入文件:', hp)
             failed += 1
             continue
-        if batch:
-            outdir = Path(args.outdir).resolve() if args.outdir else hp.parent
+        # 优先级：--out（显式文件）> --outdir（输出目录）> 输入同目录
+        # 与 visual-arch-diagram 的 export_png.py 保持完全一致
+        if args.out:
+            pp = Path(args.out).resolve()
+        elif args.outdir:
+            outdir = Path(args.outdir).resolve()
             outdir.mkdir(parents=True, exist_ok=True)
             pp = outdir / (hp.stem + '.png')
         else:
-            pp = Path(args.png).resolve() if args.png else hp.with_suffix('.png')
+            pp = hp.with_suffix('.png')
 
         print('[%d/%d] %s' % (i, len(args.html), hp.name))
         ok, _, msg = export_one(hp, pp, args.width, args.scale, args.wait, args.strict)

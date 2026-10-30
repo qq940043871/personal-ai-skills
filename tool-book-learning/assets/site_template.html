@@ -597,13 +597,21 @@ $("#wideBtn").addEventListener("click",function(){ wide=!wide; applyWide(); });
       var loc={card:0,concept:0,qa:0,code:0};
       var h2=ch.querySelector("h2");
       var chHit=!!h2 && (h2.textContent||"").toLowerCase().indexOf(kw)>=0;
+      // 先算出每个小节的标题命中标记：卡片判定依赖它，故必须先于卡片执行
+      $$(".sec",ch).forEach(function(s){
+        var tt=s.querySelector(".sec-title");
+        s._secHit=!!tt && tt.textContent.toLowerCase().indexOf(kw)>=0;
+      });
+      // 卡片命中 = 自身内容 / 章节标题 / 所属小节标题
+      // 少了「小节标题」这条，会出现「小节标题搜到了、点进去卡片全是空的」的假象
       $$(".card",ch).forEach(function(c){
-        var hit=chHit || (c.getAttribute("data-search")||"").indexOf(kw)>=0;
+        var s=c.closest(".sec");
+        var secHit=!!(s && s._secHit);
+        var hit=chHit || secHit || (c.getAttribute("data-search")||"").indexOf(kw)>=0;
         c.classList.toggle("hide",!hit); if(hit) loc.card++;
       });
       $$(".sec",ch).forEach(function(s){
-        var tt=s.querySelector(".sec-title");
-        var sHit=!!tt && tt.textContent.toLowerCase().indexOf(kw)>=0;
+        var sHit=s._secHit;
         var vis=s.querySelectorAll(".card:not(.hide)").length;
         s.classList.toggle("hide", vis===0 && !chHit && !sHit);
         var na=nav.querySelector('.nav-sec[href="#'+s.id+'"]');

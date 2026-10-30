@@ -53,7 +53,8 @@ permission_notes_zh: 本 Skill 会读取骨架 HTML / 待还原的位图，在�
 cp <skill>/assets/arch-skeleton.html ./我的架构图.html
 
 # 2. 导出 2× 高清 PNG（同时会校验 console 报错）
-python <skill>/scripts/export_png.py 我的架构图.html 我的架构图.png
+#    不指定 --out 时默认输出到同目录同名 .png，下面这行其实可省略
+python <skill>/scripts/export_png.py 我的架构图.html --out 我的架构图.png
 
 # 3. 目视校验（裁剪改动区域，见「质量校验」）
 ```
@@ -203,8 +204,20 @@ grep -o '\.lang\.[a-z]*' 图.html | sort -u                          # 已定义
 ## 导出 2× 高清 PNG
 
 ```bash
-python <skill>/scripts/export_png.py <输入.html> [输出.png] [--width 1860] [--scale 2]
+# 输出路径三选一，优先级 --out > --outdir > 输入同目录
+python <skill>/scripts/export_png.py 图.html                        # → 图.png（同目录）
+python <skill>/scripts/export_png.py 图.html --out 成果/架构图.png   # 指定文件
+python <skill>/scripts/export_png.py a.html b.html --outdir ./png   # 批量
+
+# 可选
+--width 1860   --scale 2   --wait 1200
 ```
+
+**不要用位置参数当输出名**：`export_png.py 图.html 输出.png` 里的 `输出.png` 会被
+argparse 当成第二个输入 HTML（`html` 是 `nargs='+'`，贪婪匹配在前），
+结果是「找不到输入文件」而不是导出成功。输出一律走 `--out` / `--outdir`。
+
+（本脚本与 `visual-diagram-suite` 的 `export_png.py` 参数完全一致，可互换记忆。）
 
 关键参数与理由：
 

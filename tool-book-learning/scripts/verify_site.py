@@ -151,9 +151,11 @@ def main():
             qc = page.inner_text(SEL["qcount"])
             vis = page.eval_on_selector_all(
                 SEL["card"], "els=>els.filter(e=>!e.classList.contains('hide')).length")
-            m = re.search(r"(\d+)", qc)
-            # 零命中时 qcount 显示「无匹配」不含数字，此时 claimed 必须是 0 而不是 -1。
-            # 历史 bug：无匹配被算成 claimed=-1 vs vis=0，误报 FAIL。
+            # 必须精确取「卡N」这一段，不能笼统取 qcount 的第一个数字：
+            # qcount 形如「卡2 · 概念1 · 代码1」，各通道命中数互不等价，
+            # 拿「概念1」当卡片命中数去比可见卡片数就会误报 FAIL。
+            m = re.search(r"卡\s*(\d+)", qc)
+            # 卡片通道无命中时 qcount 里没有「卡N」段，此时 claimed 必须是 0 而不是 -1。
             claimed = int(m.group(1)) if m else 0
             check("搜索「%s」命中数与可见卡片一致（%d vs %d）" % (kw, claimed, vis),
                   claimed == vis, "qcount=%s 可见=%d" % (qc, vis))
