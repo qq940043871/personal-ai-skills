@@ -32,6 +32,21 @@ agent_created: true
 - pywinauto 的 `mouse.click` 发送的是真实系统输入（SetCursorPos + mouse_event），Electron 能正常接收。
 - 含反斜杠/正则的 Python 代码一律先 Write 成 .py 文件再跑，不要走 heredoc 内联。
 
+## 从二维码提取链接（配对/遥控/分享场景）
+
+很多桌面应用把"手机控制/远程配对/分享"的链接编码在二维码里，点「复制链接」按钮常点不中（弹窗内小按钮热区刁钻，且可能复制失败仍保持旧剪贴板内容）。**直接截图 + 解码二维码**更可靠：
+
+```bash
+# 先截图拿到弹窗
+python electron_click.py shot "ZCode" shot.png
+# 再解码（可给裁剪框 x1 y1 x2 y2 提升成功率）
+python qr_extract.py shot.png 655 580 915 850
+```
+
+- 无裁剪框时先尝试整图解码；有裁剪框时按 1~4 倍放大 + 灰度多次重试。
+- 输出 `NO_QR_DECODED` 说明框选错了，重新看图调整坐标。
+- 实测 ZCode 的「移动端远程控制」链接格式：`https://zcode.z.ai/remote/v4?sid=...&mid=...&name=work&app_version=...`；其中 `sid` 为工作区持久凭证，重复打开弹窗不会变，只有 `app_version` 跟随升级变化。
+
 ## 附带脚本
 
 `scripts/electron_click.py` —— 通用命令行工具：
@@ -42,3 +57,13 @@ python electron_click.py click "<窗口标题子串>" <x> <y> [wait_sec] [out.pn
 ```
 
 自动按标题子串找窗口（不依赖 PID）、自动 restore/focus、截图 / 点击并回拍验证。
+
+`scripts/qr_extract.py` —— 二维码解码（截图取链接）：
+
+```bash
+python qr_extract.py <image.png> [x1 y1 x2 y2]
+```
+
+## 目录说明
+
+skill 目录可能被平台迁移改名（如 `electron-gui-click` → `tool-electron-gui-click`），脚本相对路径不变，但**调用时必须先确认当前目录名**，否则会报 `can't open file`。
