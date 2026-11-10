@@ -140,10 +140,3 @@ python html-b2b-portal/scripts/check_prototype.py 原型.html
 - 其余技能可自由读取与修改；对外发布时请遵守各技能 `SKILL.md` 中的权限与依赖声明。
 
 ## 维护提示
-
-- JVM 取证工具只有一份：`dev-prod-triage/scripts/jvm/`（`dev-jvm-triage` 已整体并入，勿再新建副本）。
-- `dev-feature-scaffold` 已整体并入 `html-b2b-portal`（路径 B：澄清 → 蓝图 → 原型或前后端代码），布局库 L/P/D/M/R 在 `html-b2b-portal/references/feature-scaffold.md`；勿重建该目录。
-- `visual-arch-diagram` 与 `visual-diagram-suite` 的 `export_png.py` CLI 相同但实现不同，不要互相覆盖。
-- `html-*` 技能描述的是外部原型工程（`01-design/`、`02-manage/`、`03-client/`、`04-mobile/`），这些目录不在本仓库内。
-- HTML 原型只有一个技能：`html-prototype-base`。四象限已并入其 `references/`（`01-design-architecture.md`、`02-manage-pages.md`、`03-client-pages.md`、`04-mobile-pages.md`），shell 模板与页面模式分别在 `layouts.md`、`page-patterns.md`；不要重建 `html-manage-pages` 等旧目录。
-- `visual-threejs-scene` 已并入 `visual-real-twin`（Blender 实景资产管线），勿重建该目录；跨技能引用较多（如 `arch-diagram` ↔ `diagram-suite`、`digital-twin` ↔ `threejs-scene`），重命名技能后需全仓搜索引用。
