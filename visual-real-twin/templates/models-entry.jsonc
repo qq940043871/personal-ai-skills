@@ -1,0 +1,18 @@
+// models[] 配置片段模板 —— integrate_glb.py 会自动生成/合并，此文件供手写参考
+// 适用：visual-digital-twin（build_twin.py 的 --config）与 visual-threejs-scene 顶层 models 字段
+{
+  "models": [
+    {
+      "id": "TANK-01",              // 唯一键：告警/设备清单/相机聚焦回挂用
+      "name": "1号储罐",
+      "url": "models/bl-tank.glb",  // 相对 assets/ 目录；构建时自动 Draco 解码器内联
+      "position": [190, 0, 40],     // 世界坐标 [x, y, z]，y=0 落地
+      "rotation": 30,               // 绕 Y 角度（度），可选
+      "scale": 1,                   // 等比缩放，可选（模型按米制建好后一般 1）
+      "fallback": {                 // GLB 加载失败时的占位体（必须给，别让场景缺角）
+        "type": "cylinder",
+        "size": [32, 26, 32]        // [直径或长, 高, 深或宽]，与模型包围盒近似
+      }
+    }
+  ]
+}

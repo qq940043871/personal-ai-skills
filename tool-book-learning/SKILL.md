@@ -1,9 +1,42 @@
 ---
 name: tool-book-learning
+display_name: 书籍学习站
+display_name_en: Book to Learning Site
 description: 把一本书（技术 PDF / 扫描件 / 公众号合集 / 无 PDF 的原著导读）整理成可交互的单文件 HTML 学习网站。当用户说"整理这本书的要点"、"把 PDF 书做成学习网站/笔记站"、"帮我读这本书并产出学习页面"，或给出书籍要求提炼章节知识点、核心概念、代码要点/关键论断、自测题时使用。产出：章节要点卡片、核心概念表、代码片段、常见误区、自测问答，支持章→节两级目录、全文检索、掌握度打卡、深浅主题、快捷键，零 CDN 离线可用。
+description_zh: 把书或原创内容整理成单文件 HTML 学习站：章节卡片、概念表、自测题、全文检索、打卡进度，离线可用。
+description_en: Turn a book or your own manuscript into a single-file HTML learning site with chapter cards, concept tables, quizzes, full-text search and progress tracking.
+category: Education & Learning
+version: 0.1.0
+author: hasWhere
+allowed-tools: Read,Write,Bash,Glob,Grep
+permissions:
+  - file_read
+  - file_write
+  - shell_exec
+permission_notes_zh: 读本地 PDF/文档并调用本地脚本抽取与编译，产出单文件 HTML；不联网、零 CDN。
+tags: ["读书", "学习网站", "知识管理", "内容产品化", "HTML", "教育"]
+metadata:
+  last_updated: "2026-10-31"
 ---
 
 # 书籍 → 学习网站
+
+## 第 0 条：版权红线（优先级高于一切功能）
+
+**这个技能的产物会公开发布，所以版权先于效果。** 以下四条为硬约束，任何情况下不得绕过：
+
+1. **在售版权书（含中文译本）不得产出原文全文站点。**
+   只能做「原创导读」：要点、概念表、自测题**全部用自己的话重写**，
+   不含译本原文段落。单段直接引用不超过 150 字，且必须标注出处。
+2. **交付时必须向用户明示**：站点内容为原创整理，非原书替代品；
+   若涉及原文引用，注明来源与页码。
+3. **用户声称"我有授权"时，要求其明确授权范围**（内部培训 / 公开发布 / 仅自用），
+   并按范围控制站点是否可外发。范围不明时按最严格处理。
+4. **拒绝以下请求**：把整本在售书 OCR 成可读全文站、把付费课程逐页搬运成站、
+   去水印后发布他人付费内容。遇到时说明原因，并给合规替代（原创导读 / 内部摘要）。
+
+> 公众号合集、内部讲义、自有手稿、已过版权保护期的公版书 —— 不受上述限制，
+> 但仍要在站点页脚注明来源。
 
 ## 做什么
 
@@ -166,6 +199,17 @@ $PY scripts/audit_notes.py --book $BOOK_DIR --profile tech --check-site $BOOK_DI
 ### 5. 交付
 
 `present_files` 交付 `<书名>/index.html`，附一句统计（N 章 / M 张卡片 / K 个代码块 / J 道自测题）。
+
+**交付前过一遍版权自检（4 问，缺一不可）**：
+
+| # | 问题 | 不合格的处置 |
+|---|---|---|
+| 1 | 站点里有没有连续 >150 字的原文段落？ | 删掉，改写成自己的话 |
+| 2 | 页脚有没有注明"原创整理 + 来源书名/作者"？ | 补上 |
+| 3 | 这本书是否在售？若在售，是否只有导读没有全文？ | 删原文，只留导读 |
+| 4 | 用户是否打算公开发布？公开发布的授权范围确认了吗？ | 未确认则只交付自用版 |
+
+自检不通过的站点，**不要交付**——发布后是用户担责，但产出是你做的。
 
 ## 产物结构
 

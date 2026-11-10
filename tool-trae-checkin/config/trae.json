@@ -1,0 +1,26 @@
+{
+  "process": "Trae CN.exe",
+  "exe": "C:\\Users\\qq940\\AppData\\Local\\Programs\\Trae CN\\Trae CN.exe",
+  "launch_wait": 30,
+  "anchor": "bl",
+  "close_menu_after": true,
+  "quit_app_after": false,
+  "shot_dir": "C:\\Users\\qq940\\.agents\\skills\\tool-trae-checkin\\shots",
+  "note": "坐标相对主窗口左下角(bl)偏移，dy 负值向上；基于 1936x1168 最大化窗口、125% 缩放实测录入于 2026-11-01。菜单从左下角头像栏弹出，行位固定。",
+  "steps": [
+    {
+      "name": "avatar",
+      "dx": 60,
+      "dy": -30,
+      "wait_after": 1.2,
+      "note": "左下角账号栏（头像/hasWhere/免费 整条均可点），点击展开账号菜单"
+    },
+    {
+      "name": "daily_claim",
+      "dx": 248,
+      "dy": -425,
+      "wait_after": 2.2,
+      "note": "菜单中「每日领 100 积分」行右侧按钮；未签到为可点的签到/领取态，已签到为灰色「已签到」(点击无副作用)"
+    }
+  ]
+}

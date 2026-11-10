@@ -6,6 +6,9 @@ description: >
   要自己搭或深度改造三维场景（程序化几何、GLB、巡检漫游、离线打包）走 visual-threejs-scene。
   触发词：数字孪生、可视化大屏、3D 大屏、三维大屏、数据驾驶舱、智慧城市大屏、工厂大屏、港口大屏、孪生平台。
 version: 2.0.0
+author: hasWhere
+category: Design Tools
+tags: ["数字孪生", "可视化大屏", "3D", "智慧城市", "投标演示"]
 ---
 
 # Digital Twin Screen — 数字孪生可视化大屏生成器（写实引擎版）
