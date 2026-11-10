@@ -1,0 +1,266 @@
+{
+  "meta": {
+    "title": "恒信装备制造厂 数字沙盘",
+    "subtitle": "Hengxin Equipment Plant · Digital Sandbox",
+    "badge": "智能工厂"
+  },
+  "base": {
+    "size": [360, 24, 280],
+    "terrain": 2.6,
+    "terrainSeed": 27,
+    "surface": "asphalt"
+  },
+  "env": {
+    "timeOfDay": "night",
+    "fog": 0,
+    "exposure": 1.12,
+    "shadow": true
+  },
+  "camera": {
+    "fov": 36,
+    "position": [300, 258, 340],
+    "target": [0, 0, -20],
+    "minPolar": 8,
+    "maxPolar": 82,
+    "minRadius": 80,
+    "maxRadius": 780,
+    "autoRotate": true,
+    "autoRotateSpeed": 0.08
+  },
+  "presets": [
+    { "id": "overview", "label": "全景", "position": [300, 258, 340], "target": [0, 0, -20] },
+    { "id": "shop", "label": "主车间", "position": [10, 120, 150], "target": [0, 0, -50] },
+    { "id": "store", "label": "成品库", "position": [150, 96, 40], "target": [110, 0, -55] },
+    { "id": "top", "label": "俯视", "position": [0, 560, 10], "target": [0, 0, 0] }
+  ],
+  "layers": [
+    {
+      "id": "zone",
+      "label": "生产分区",
+      "color": "#7c8cff",
+      "on": true,
+      "entities": [
+        {
+          "id": "Z1",
+          "type": "zone",
+          "name": "生产制造区",
+          "color": "#35e0ff",
+          "opacity": 0.06,
+          "polygon": [[-175, -135], [175, -135], [175, -5], [-175, -5]]
+        }
+      ]
+    },
+    {
+      "id": "road",
+      "label": "路网",
+      "color": "#8fb2c6",
+      "on": true,
+      "entities": [
+        {
+          "id": "R1",
+          "type": "road",
+          "name": "厂区主干道",
+          "width": 16,
+          "points": [[-170, 0.5, 10], [-60, 0.5, 10], [20, 0.5, 10], [170, 0.5, 10]]
+        },
+        {
+          "id": "R2",
+          "type": "road",
+          "name": "装卸支路",
+          "width": 8,
+          "points": [[64, 0.5, -128], [64, 0.5, -60], [64, 0.5, 10], [64, 0.5, 128]]
+        }
+      ]
+    },
+    {
+      "id": "building",
+      "label": "建筑",
+      "color": "#35e0ff",
+      "on": true,
+      "entities": [
+        {
+          "id": "P1",
+          "type": "plant",
+          "name": "主车间",
+          "position": [0, 0, -50],
+          "size": [110, 18, 70],
+          "status": "warn",
+          "metrics": [
+            { "label": "在产工单", "value": "WO-4417" },
+            { "label": "产线稼动率", "value": "88%", "pct": 88 },
+            { "label": "车间温度", "value": "31.2 ℃" }
+          ]
+        },
+        {
+          "id": "P2",
+          "type": "plant",
+          "name": "机加工车间",
+          "position": [-115, 0, -60],
+          "size": [64, 14, 36],
+          "metrics": [
+            { "label": "设备在线", "value": "42 / 45", "pct": 93 },
+            { "label": "刀具寿命", "value": "61%", "pct": 61 }
+          ]
+        },
+        {
+          "id": "W1",
+          "type": "warehouse",
+          "name": "成品库",
+          "position": [110, 0, -55],
+          "size": [64, 12, 34],
+          "metrics": [
+            { "label": "库容占用", "value": "74%", "pct": 74 },
+            { "label": "待发运", "value": 58 }
+          ]
+        },
+        {
+          "id": "B1",
+          "type": "block",
+          "name": "动力辅房",
+          "position": [-140, 0, 40],
+          "size": [26, 20, 22],
+          "metrics": [
+            { "label": "空压机", "value": "3 / 4 运行", "pct": 75 },
+            { "label": "供气压力", "value": "0.72 MPa" }
+          ]
+        },
+        {
+          "id": "T1",
+          "type": "tower",
+          "name": "厂部办公楼",
+          "position": [-70, 0, 60],
+          "size": [26, 42, 24],
+          "metrics": [
+            { "label": "在岗人数", "value": 168 },
+            { "label": "会议室占用", "value": "5 / 9", "pct": 55 }
+          ]
+        },
+        {
+          "id": "T2",
+          "type": "tower",
+          "name": "研发楼",
+          "position": [-10, 0, 70],
+          "size": [22, 30, 20],
+          "metrics": [
+            { "label": "在研项目", "value": 12 },
+            { "label": "试验台占用", "value": "3 / 6", "pct": 50 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pipe",
+      "label": "动力管线",
+      "color": "#ffb23f",
+      "on": true,
+      "entities": [
+        {
+          "id": "PL1",
+          "type": "pipe",
+          "name": "压缩空气主管",
+          "color": "#5b7484",
+          "radius": 0.85,
+          "flow": true,
+          "points": [[-83, 10, -60], [-40, 10, -60], [0, 10, -60], [40, 10, -40], [78, 10, -45]]
+        }
+      ]
+    },
+    {
+      "id": "vehicle",
+      "label": "车辆",
+      "color": "#dff2fb",
+      "on": true,
+      "entities": [
+        {
+          "id": "V1",
+          "type": "vehicle",
+          "name": "成品转运车",
+          "speed": 20,
+          "phase": 0.15,
+          "path": [[-165, 0, 12], [-60, 0, 10], [30, 0, 10], [165, 0, 12]]
+        },
+        {
+          "id": "V2",
+          "type": "vehicle",
+          "name": "物料车",
+          "speed": 15,
+          "phase": 0.55,
+          "kind": "car",
+          "path": [[64, 0, -125], [64, 0, -60], [64, 0, 10], [64, 0, 125]]
+        },
+        {
+          "id": "V3",
+          "type": "vehicle",
+          "name": "叉车",
+          "speed": 11,
+          "phase": 0.78,
+          "kind": "car",
+          "path": [[-160, 0, -100], [-100, 0, -100], [0, 0, -100], [58, 0, -96]]
+        }
+      ]
+    },
+    {
+      "id": "green",
+      "label": "绿化",
+      "color": "#37e0a6",
+      "on": true,
+      "entities": [
+        {
+          "id": "G1",
+          "type": "tree",
+          "name": "厂前绿化带",
+          "label": false,
+          "position": [-150, 0, 120],
+          "count": 18,
+          "spread": [50, 34],
+          "seed": 51
+        }
+      ]
+    },
+    {
+      "id": "alarm",
+      "label": "告警点",
+      "color": "#ff5a5f",
+      "on": true,
+      "entities": [
+        {
+          "id": "AL1",
+          "type": "alarm",
+          "name": "车间温度告警",
+          "position": [0, 0, -50],
+          "level": "warning",
+          "scale": 0.95
+        }
+      ]
+    }
+  ],
+  "kpis": [
+    { "label": "今日产量", "value": 1284, "unit": " 件", "trend": 6.4 },
+    { "label": "设备稼动率", "value": "88", "unit": "%", "trend": -1.6 },
+    { "label": "一次合格率", "value": "97.2", "unit": "%", "trend": 0.4 },
+    { "label": "待发运订单", "value": 58, "unit": " 单" }
+  ],
+  "alarms": [
+    {
+      "entityId": "P1",
+      "level": "warning",
+      "text": "主车间温度 31.2℃，通风机组未联动",
+      "time": "21:14"
+    }
+  ],
+  "timeline": {
+    "enabled": true,
+    "durationSec": 28,
+    "autoplay": true,
+    "frames": [
+      { "t": 0, "activity": 0.45, "label": "交接班" },
+      { "t": 9, "activity": 1.0, "label": "满产" },
+      { "t": 20, "activity": 0.3, "label": "夜班降载" }
+    ]
+  },
+  "clip": {
+    "enabled": true,
+    "axis": "x",
+    "value": 1
+  }
+}

@@ -2,29 +2,39 @@
 name: html-b2b-portal
 display_name: B2B 门户设计
 display_name_en: B2B Portal Design
-description: "设计B2B门户与产业互联网平台（覆盖大宗商品/工业品/农产品等12个垂直行业），输出布局规范、行情组件、3D/视差动效层与响应式HTML原型。当用户要做B2B交易平台、企业采购平台、供应链门户或找货询价页面时使用；需要产出可直接双击打开的完整 HTML 原型时优先用本 Skill。触发词：B2B门户、产业互联网平台、大宗商品交易平台、企业采购平台、供应链门户、找货询价、工业品MRO、行情驾驶舱、B2B html原型。"
-description_zh: 面向产业互联网的 B2B 门户与交易平台设计，输出零构建单文件 HTML 原型，内置 12 个行业视觉定档、行情驾驶舱与 3D 全息地球动效层。
-description_en: Design B2B trading portals and industry-internet platforms as zero-build single-file HTML prototypes, with 12 vertical-industry themes, market dashboards and a 3D holographic globe motion layer.
+description: "设计B2B门户与产业互联网平台（覆盖大宗商品/工业品/农产品等12个垂直行业），输出布局规范、行情组件、3D/视差动效层与响应式HTML原型；也承接一句话业务需求的澄清式功能开发——先澄清提问，再确认页面蓝图（L/P/D/M/R 布局库），最后产出原型或前后端代码。当用户要做B2B交易平台、企业采购平台、供应链门户、找货询价页面，或说「我要开发/新增一个XX功能」「帮我开发客户管理/订单管理」时使用。触发词：B2B门户、产业互联网平台、大宗商品交易平台、企业采购平台、供应链门户、找货询价、工业品MRO、行情驾驶舱、B2B html原型、我要开发、我要做一个功能、帮我开发、新增一个功能、做一个XX管理、开发客户管理、开发订单管理。"
+description_zh: 面向产业互联网的 B2B 门户与交易平台设计，输出零构建单文件 HTML 原型；同时承接一句话业务需求的澄清式功能开发（澄清提问 → 页面蓝图 → 原型或前后端代码）。内置 12 个行业视觉定档、行情驾驶舱与 3D 全息地球动效层。
+description_en: Design B2B trading portals and industry-internet platforms as zero-build single-file HTML prototypes, with 12 vertical-industry themes, market dashboards and a 3D holographic globe motion layer. Also scaffolds business features from a one-line request through clarification and a page blueprint (L/P/D/M/R layout library) to a prototype or full-stack code.
 category: Design Tools
-version: 0.1.0
+version: 0.2.0
 author: hasWhere
-tags: ["B2B", "门户", "电商", "大宗商品", "设计规范", "UI/UX", "HTML模板", "动效", "数据可视化"]
+tags: ["B2B", "门户", "电商", "大宗商品", "设计规范", "UI/UX", "HTML模板", "动效", "数据可视化", "功能开发", "需求澄清", "布局选型"]
 permissions:
   - file_write
   - optional_network_assets
 permission_notes_zh: 本 Skill 会把自带模板复制到用户指定目录并写入 HTML 文件；生成的原型经公共 CDN 加载 Tailwind、Font Awesome 与 Chart.js，需要联网预览，如需离线可替换为本地资源。
 metadata:
-  last_updated: "2026-09-20"
+  last_updated: "2026-11-10"
 ---
 
 # B2B 门户设计 Skill
 
 ## 1. 定位与适用边界
 
-面向**企业用户（采购商 / 供应商）**的 B2B 门户与产业互联网平台设计，输出零构建、可直接浏览器打开的响应式 HTML 单文件原型。
+面向**企业用户（采购商 / 供应商）**的 B2B 门户与产业互联网平台，输出零构建、可直接浏览器打开的响应式 HTML 单文件原型；同时承接**一句话业务需求的澄清式功能开发**（布局选型 → 蓝图 → 原型或前后端代码）。
 
-- **适用**：大宗商品交易平台、工业品 / MRO 企业采购、产业互联网门户、供应链协同平台、产地直供门户、找货 / 询价 / 行情类页面
-- **不适用**：B2C 零售商城、品牌营销官网、纯后台管理系统（应改用对应设计规范）
+- **适用（展示型）**：大宗商品交易平台、工业品 / MRO 企业采购、产业互联网门户、供应链协同平台、产地直供门户、找货 / 询价 / 行情类页面
+- **适用（功能型）**：客户 / 供应商 / 品类等主数据管理、挂牌撮合、竞价交易、订单合同履约、审批流、库存仓储、物流跟踪、报表看板、门户与行情大厅、大屏与地图监控
+- **不适用**：B2C 零售商城、品牌营销官网；与大宗商品业务无关的纯表格后台（改用 `html-prototype-base` 的 02-manage 象限）
+
+### 1.1 先分流：展示型还是功能型
+
+| 用户说法 | 走哪条路径 | 入口 |
+|---|---|---|
+| 门户 / 首页 / 找货 / 详情 / 询价 / 店铺「长什么样」 | **路径 A** 展示型门户原型（5 步） | 本文件 §3 路径 A |
+| 「我要开发 XX 功能」「新增一个 XX 管理」「帮我做一个审批 / 竞价 / 仓储 / 报表」 | **路径 B** 澄清式功能开发（3 阶段） | 本文件 §3 路径 B + `references/feature-scaffold.md` |
+
+两条路径共用行业定档、组件库与质量门禁；路径 B 的布局编号（L/P/D/M/R）不会因为最终产出原型还是代码而变化。
 
 ## 2. 核心设计原则（不可妥协）
 
@@ -57,9 +67,13 @@ metadata:
 3. 涨跌色固定为**涨红跌绿**（中国市场惯例），深色底上用提亮版 `--up-on-dark / --down-on-dark`，不要直接拿浅色底的值。
 4. 动效失效时内容必须完整可读；首屏关键状态类写在自己的 `<style>` 里，不交给 CDN 运行时生成（细则见 spec §5.1）。
 
-## 3. 标准工作流（5 步）
+## 3. 工作流（两条路径）
 
-### Step 1 · 行业定档 → 读行业画像
+### 路径 A · 展示型门户原型（5 步）
+
+页面形态明确（首页 / 找货 / 详情 / 询价 / 店铺）→ 直接按 Step 1-5 走，不要提问。
+
+#### Step 1 · 行业定档 → 读行业画像
 
 打开 `references/industry-profiles.md`，定位对应行业，确定：**主色体系、一级类目树、关键指标字段、计价 / 交易习惯、对标平台、Mock 数据样例**。
 
@@ -67,7 +81,7 @@ metadata:
 - 多行业综合平台：使用 `generic` 中性主题（阿里橙 `#FF6A00`）。
 - 行业不确定时用画像中的"适配信号"（品类关键词）反推，并向用户确认。
 
-### Step 2 · 页面选型 → 读布局规范
+#### Step 2 · 页面选型 → 读布局规范
 
 打开 `references/page-layouts.md` 对应章节：
 
@@ -81,7 +95,7 @@ metadata:
 
 > 首页 / 列表页 / 详情页在 `assets/` 均有整页模板可直接复制改造，不必从零拼装；模板的行业适配点见文件头注释。
 
-### Step 3 · 组件装配 → 读组件库
+#### Step 3 · 组件装配 → 读组件库
 
 打开 `references/component-library.md`，按布局逐区块选取组件并复制 HTML 片段。行情类组件（滚动条 / 行情卡 / 走势图）为大宗商品门户必选；工业品 MRO 门户可弱化行情、强化品牌筛选与协议价。
 
@@ -89,20 +103,45 @@ metadata:
 - 必须整段照抄 §F0（环境探测 + 减动降级），否则机检直接判 ERROR；
 - 粒子网络（F4）与全息地球（F6）**只建议首页各用一次**，同页重复会互相打架并拖垮体积预算；列表页 / 详情页取 F1 / F2 / F5 / F7 即可。
 
-### Step 4 · 数据填充 → 按 Mock Schema 造数
+#### Step 4 · 数据填充 → 按 Mock Schema 造数
 
 打开 `references/html-prototype-spec.md` §4 Mock 数据 Schema：
 - 所有列表数据用 JS 数组 + `render` 函数渲染，**禁止把卡片硬编码成静态 HTML**。
 - 字段名、数值单位、价格区间、涨跌方向必须符合行业画像，术语拿不准时查 `references/glossary.md`。
 - 数据量：首页 8-15 条、列表页 12-24 条、供应商 4-8 家。
 
-### Step 5 · 质量门禁 → 先机检，再人工
+#### Step 5 · 质量门禁 → 先机检，再人工
 
 ```bash
 python scripts/check_prototype.py 交付文件.html
 ```
 
 机检 0 ERROR 后，再逐项过本文件 §7 质量门禁清单。未通过项当场修复，不要把问题留给用户。
+
+### 路径 B · 业务功能开发（澄清 → 蓝图 → 生成）
+
+用户给一句话需求（如"我要开发一个客户管理功能"）时，**不要直接写代码、也不要直接铺 HTML**。完整规则、布局库全表、提问脚本在 `references/feature-scaffold.md`，此处只留主线：
+
+1. **澄清提问**（不可跳过，最多 3 轮，选择题形式）
+   - 第 1 轮业务本质：管理对象 / 核心操作 / 数据关系
+   - 第 2 轮页面形态：按功能关键词从布局库推断 3-4 个候选，**推荐项排第一**，每个选项带"适用场景"；不要全量甩选项
+   - 第 3 轮（仅在需要时）：外部集成（银行资金 / 短信 / 签章 / 物流 / 开票 / 企查查 / 供应链金融）、权限粒度（页面 / 按钮 / 数据）
+2. **蓝图确认**（用户确认后才可动手）：页面结构（标注布局编号 + 文字线框）、字段表、接口清单（Java + REST）、技术约定、产出形态（HTML 原型 / 前后端代码）
+3. **生成与验证**：原型走 `check_prototype.py` 零 ERROR；代码走 build / compile 通过；最后输出交付说明（改了哪些文件、入口路由、如何启动验证）
+
+布局库速记（完整表见 `references/feature-scaffold.md` §1.2）：
+
+| 系列 | 用途 | 成员 |
+|---|---|---|
+| **L1-L10** | 业务功能页 | L1 标准列表 / L2 主从树表 / L3 交易工作台 / L4 行情看板 / L5 汇总+标签页详情 / L6 流程审批 / L7 仓储物流跟踪 / L8 上下表单 / L9 分步表单 / L10 竞价交易室 |
+| **P1-P5** | 门户与大厅 | P1 多楼层门户 / P2 行情大厅 / P3 供需撮合大厅 / P4 资讯门户 / P5 商城式门户 |
+| **D1-D2** | 大屏 | D1 指挥驾驶舱 / D2 实时监控大屏 |
+| **M1-M3** | 地图 | M1 地图主视觉 / M2 地图+列表联动 / M3 轨迹地图 |
+| **R1-R3** | 报表 | R1 多维报表 / R2 统计看板 / R3 自助仪表盘 |
+
+> L10 竞价交易室有 5 个硬要素（阶段进度走动、秒级倒计时、竞价时空图、开场动画、成交结果页），缺一不可，细节见 `references/feature-scaffold.md`。涉及 P1 / L1 / L5 / P3 时优先复用 `references/page-layouts.md` 的现成线框。
+
+---
 
 ## 4. 行业速查表（定档用，详情见 industry-profiles.md）
 
@@ -146,15 +185,16 @@ python scripts/check_prototype.py 交付文件.html
 
 | 文件 | 何时读 |
 |------|--------|
-| `references/industry-profiles.md` | Step 1：确定行业后必读对应小节 |
-| `references/page-layouts.md` | Step 2：确定页面类型后必读对应章节 |
-| `references/component-library.md` | Step 3：装配每个区块时查阅 |
-| `references/html-prototype-spec.md` | Step 4：写代码前必读；含技术栈、编码规范、Mock Schema、交互模式、a11y、性能预算、反模式 |
+| `references/industry-profiles.md` | 路径 A Step 1 / 路径 B 阶段 1：确定行业后必读对应小节 |
+| `references/page-layouts.md` | 路径 A Step 2：确定页面类型后必读对应章节；路径 B 的 P1 / L1 / L5 / P3 复用它 |
+| `references/feature-scaffold.md` | **路径 B 必读**：澄清提问脚本、L/P/D/M/R 全量布局库、功能→布局映射、蓝图模板、硬性规则 |
+| `references/component-library.md` | 路径 A Step 3：装配每个区块时查阅 |
+| `references/html-prototype-spec.md` | 路径 A Step 4：写代码前必读；含技术栈、编码规范、Mock Schema、交互模式、a11y、性能预算、反模式 |
 | `references/glossary.md` | 文案 / 字段命名拿不准时查阅 |
 | `assets/portal-home.template.html` | 生成门户首页时作为基座复制改造（数据驱动、改 CSS 变量即换行业主题） |
 | `assets/product-list.template.html` | 生成列表页时作为基座：改 `filterGroups` 即换行业筛选维度，过滤/排序/分页已内置 |
 | `assets/product-detail.template.html` | 生成详情页时作为基座：改 `PRODUCT.specOptions` 与 `specTable` 即换行业规格，Tabs 已内置 |
-| `scripts/check_prototype.py` | Step 5：交付前机检（可执行断言，把 §7 门禁变成脚本） |
+| `scripts/check_prototype.py` | 交付前机检（可执行断言，把 §7 门禁变成脚本） |
 | `config.json` | 行业色表与元数据的机器可读清单。**权威来源是 SKILL.md 与 `references/`**，config.json 只作外部工具读取用 |
 
 > 目录结构：`SKILL.md` + `references/` + `scripts/` + `assets/`。`assets/` 承载三个整页 HTML 模板，它们本身就是"生成结果长什么样"的最佳参考——想看成品效果直接打开 `assets/portal-home.template.html`，不必另设 examples 目录。
@@ -194,6 +234,13 @@ python scripts/check_prototype.py 交付文件.html
 - [ ] 首屏无横向滚动条；正文与操作文案 ≥12px（角标徽标 10–11px 例外，见 spec §9-10）；按钮 ≥32px 高
 - [ ] 不含真实个人隐私 / 真实企业机密数据，一律用虚构样例
 
+**功能型（路径 B 额外）**
+- [ ] 澄清阶段确实问过，且布局编号已在蓝图中标注
+- [ ] 蓝图经用户确认后才开始生成
+- [ ] 列表页有搜索 / 筛选 / 分页 / 空状态；表单有必填校验与提交反馈；删除等破坏性操作有二次确认
+- [ ] 布局编号对应的必需区块齐全（L5 的汇总卡+标签页、L6 的流程时间线、L7 的状态看板、L10 的 5 要素）
+- [ ] 输出形态与蓝图一致（原型机检零 ERROR / 代码 build 与 compile 通过），并给出交付说明
+
 ## 8. Prompt 触发示例
 
 用户可以这样唤起，也可用自然语言描述需求：
@@ -202,6 +249,11 @@ python scripts/check_prototype.py 交付文件.html
 用 B2B 门户设计 Skill 做一个【行业】的【页面类型】：
 主色用【色值或风格】，参考【对标平台】；
 品类包含【类目】；必须模块【模块清单】；输出完整响应式 HTML。
+```
+
+```
+我要开发一个【功能名】，行业是【行业】，走澄清式功能开发；
+产出形态要【HTML 原型 / 前后端代码】。
 ```
 
 ---

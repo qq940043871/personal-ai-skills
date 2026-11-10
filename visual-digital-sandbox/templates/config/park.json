@@ -1,0 +1,345 @@
+{
+  "meta": {
+    "title": "滨江智造园 数字沙盘",
+    "subtitle": "Riverside Smart Park · Digital Sandbox",
+    "badge": "智慧园区"
+  },
+  "base": {
+    "size": [420, 26, 320],
+    "terrain": 5.0,
+    "terrainSeed": 12,
+    "surface": "park"
+  },
+  "env": {
+    "timeOfDay": "dusk",
+    "fog": 0,
+    "exposure": 1.06,
+    "shadow": true
+  },
+  "camera": {
+    "fov": 36,
+    "position": [313, 252, 353],
+    "target": [22, 0, 6],
+    "minPolar": 8,
+    "maxPolar": 84,
+    "minRadius": 90,
+    "maxRadius": 900,
+    "autoRotate": true,
+    "autoRotateSpeed": 0.1
+  },
+  "presets": [
+    { "id": "overview", "label": "全景", "position": [313, 252, 353], "target": [22, 0, 6] },
+    { "id": "factory", "label": "生产区", "position": [128, 158, 96], "target": [120, 0, -60] },
+    { "id": "living", "label": "生活区", "position": [-30, 132, 250], "target": [-130, 0, 80] },
+    { "id": "top", "label": "俯视", "position": [0, 650, 12], "target": [0, 0, 0] }
+  ],
+  "layers": [
+    {
+      "id": "zone",
+      "label": "规划分区",
+      "color": "#7c8cff",
+      "on": true,
+      "entities": [
+        {
+          "id": "Z1",
+          "type": "zone",
+          "name": "生产制造区",
+          "color": "#35e0ff",
+          "opacity": 0.07,
+          "polygon": [[68, -158], [203, -158], [203, -22], [68, -22]]
+        },
+        {
+          "id": "Z2",
+          "type": "zone",
+          "name": "生活配套区",
+          "color": "#7c8cff",
+          "opacity": 0.06,
+          "polygon": [[-203, 22], [-68, 22], [-68, 158], [-203, 158]]
+        }
+      ]
+    },
+    {
+      "id": "road",
+      "label": "路网",
+      "color": "#8fb2c6",
+      "on": true,
+      "entities": [
+        {
+          "id": "R1",
+          "type": "road",
+          "name": "园区主轴",
+          "width": 16,
+          "points": [[-195, 0.5, -2], [-60, 0.5, 0], [60, 0.5, 0], [195, 0.5, 2]]
+        },
+        {
+          "id": "R2",
+          "type": "road",
+          "name": "西环路",
+          "width": 12,
+          "points": [[-62, 0.5, -155], [-62, 0.5, -40], [-62, 0.5, 60], [-62, 0.5, 155]]
+        },
+        {
+          "id": "R3",
+          "type": "road",
+          "name": "东支路",
+          "width": 10,
+          "points": [[64, 0.5, -150], [64, 0.5, -40], [64, 0.5, 40], [64, 0.5, 140]]
+        }
+      ]
+    },
+    {
+      "id": "building",
+      "label": "建筑",
+      "color": "#35e0ff",
+      "on": true,
+      "entities": [
+        {
+          "id": "RD",
+          "type": "tower",
+          "name": "研发中心",
+          "position": [-150, 0, -100],
+          "size": [26, 54, 24],
+          "status": "normal",
+          "metrics": [
+            { "label": "入驻团队", "value": "18 个", "pct": 78 },
+            { "label": "今日能耗", "value": "2.4 MWh" },
+            { "label": "在岗人数", "value": 326, "pct": 65 }
+          ]
+        },
+        {
+          "id": "HQ",
+          "type": "tower",
+          "name": "总部大楼",
+          "position": [-95, 0, -105],
+          "size": [32, 72, 28],
+          "emissive": "#a8d8ff",
+          "metrics": [
+            { "label": "出租率", "value": "92%", "pct": 92 },
+            { "label": "今日能耗", "value": "3.8 MWh" },
+            { "label": "访客", "value": 42 }
+          ]
+        },
+        {
+          "id": "INC",
+          "type": "tower",
+          "name": "孵化器 A 座",
+          "position": [-16, 0, -110],
+          "size": [24, 40, 22],
+          "metrics": [
+            { "label": "工位使用率", "value": "76%", "pct": 76 },
+            { "label": "在孵企业", "value": 23 }
+          ]
+        },
+        {
+          "id": "SVC",
+          "type": "tower",
+          "name": "综合服务楼",
+          "position": [30, 0, -105],
+          "size": [22, 34, 22],
+          "metrics": [
+            { "label": "今日人流", "value": 1280 },
+            { "label": "食堂就座率", "value": "64%", "pct": 64 }
+          ]
+        },
+        {
+          "id": "APT",
+          "type": "tower",
+          "name": "人才公寓",
+          "position": [-155, 0, 85],
+          "size": [20, 48, 20],
+          "metrics": [
+            { "label": "入住率", "value": "88%", "pct": 88 },
+            { "label": "空置房间", "value": 26 }
+          ]
+        },
+        {
+          "id": "DC",
+          "type": "tower",
+          "name": "数据中心",
+          "position": [-100, 0, 80],
+          "size": [26, 30, 26],
+          "status": "warn",
+          "metrics": [
+            { "label": "PUE", "value": 1.42, "pct": 71 },
+            { "label": "机柜负载", "value": "63%", "pct": 63 },
+            { "label": "进风温度", "value": "24.6 ℃" }
+          ]
+        },
+        {
+          "id": "P1",
+          "type": "plant",
+          "name": "组件车间",
+          "position": [120, 0, -95],
+          "size": [88, 15, 42],
+          "status": "alarm",
+          "metrics": [
+            { "label": "3 号产线温度", "value": "86.4 ℃", "pct": 92 },
+            { "label": "在制品", "value": 1420 },
+            { "label": "OEE", "value": "81%", "pct": 81 }
+          ]
+        },
+        {
+          "id": "P2",
+          "type": "plant",
+          "name": "装配车间",
+          "position": [120, 0, 55],
+          "size": [72, 13, 36],
+          "metrics": [
+            { "label": "当前工单", "value": "WO-2291" },
+            { "label": "良率", "value": "97.2%", "pct": 97 },
+            { "label": "节拍", "value": "42 s" }
+          ]
+        },
+        {
+          "id": "W1",
+          "type": "warehouse",
+          "name": "成品仓",
+          "position": [10, 0, 70],
+          "size": [58, 11, 32],
+          "metrics": [
+            { "label": "库容占用", "value": "68%", "pct": 68 },
+            { "label": "待发订单", "value": 37 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pipe",
+      "label": "管廊",
+      "color": "#ffb23f",
+      "on": true,
+      "entities": [
+        {
+          "id": "PL1",
+          "type": "pipe",
+          "name": "动力管廊",
+          "color": "#5b7484",
+          "radius": 0.9,
+          "flow": true,
+          "points": [[10, 9, 54], [10, 9, 20], [76, 9, 20], [76, 9, -74]]
+        }
+      ]
+    },
+    {
+      "id": "vehicle",
+      "label": "车辆",
+      "color": "#dff2fb",
+      "on": true,
+      "entities": [
+        {
+          "id": "V1",
+          "type": "vehicle",
+          "name": "厂内物流 1",
+          "speed": 26,
+          "phase": 0.2,
+          "path": [[-185, 0, 3], [-60, 0, 0], [20, 0, 0], [185, 0, -2]]
+        },
+        {
+          "id": "V2",
+          "type": "vehicle",
+          "name": "厂内物流 2",
+          "speed": 18,
+          "phase": 0.62,
+          "path": [[-62, 0, -145], [-62, 0, -40], [-62, 0, 55], [-62, 0, 145]]
+        },
+        {
+          "id": "V3",
+          "type": "vehicle",
+          "kind": "car",
+          "name": "巡检车",
+          "speed": 15,
+          "phase": 0.86,
+          "path": [[64, 0, -140], [64, 0, -40], [64, 0, 40], [64, 0, 130]]
+        }
+      ]
+    },
+    {
+      "id": "green",
+      "label": "绿化",
+      "color": "#37e0a6",
+      "on": true,
+      "entities": [
+        {
+          "id": "G1",
+          "type": "tree",
+          "name": "西侧绿带",
+          "label": false,
+          "position": [-170, 0, 135],
+          "count": 22,
+          "spread": [42, 34],
+          "seed": 21
+        },
+        {
+          "id": "G2",
+          "type": "tree",
+          "name": "东侧绿带",
+          "label": false,
+          "position": [175, 0, 118],
+          "count": 16,
+          "spread": [38, 40],
+          "seed": 34
+        }
+      ]
+    },
+    {
+      "id": "alarm",
+      "label": "告警点",
+      "color": "#ff5a5f",
+      "on": true,
+      "entities": [
+        {
+          "id": "AL1",
+          "type": "alarm",
+          "name": "产线超温",
+          "position": [120, 0, -95],
+          "level": "critical",
+          "scale": 1
+        },
+        {
+          "id": "AL2",
+          "type": "alarm",
+          "name": "PUE 偏高",
+          "position": [-100, 0, 80],
+          "level": "warning",
+          "scale": 0.8
+        }
+      ]
+    }
+  ],
+  "kpis": [
+    { "label": "入驻企业", "value": 42, "unit": " 家", "trend": 5.0 },
+    { "label": "今日能耗", "value": "18.6", "unit": " 万kWh", "trend": -2.3 },
+    { "label": "在线设备", "value": 326, "unit": " 台", "trend": 1.2 },
+    { "label": "活跃告警", "value": 2, "unit": " 条" }
+  ],
+  "alarms": [
+    {
+      "entityId": "P1",
+      "level": "critical",
+      "text": "组件车间 3 号产线温度超限 86.4℃",
+      "time": "14:22"
+    },
+    {
+      "entityId": "DC",
+      "level": "warning",
+      "text": "数据中心 PUE 偏高 1.42，建议开启板换",
+      "time": "14:08"
+    }
+  ],
+  "timeline": {
+    "enabled": true,
+    "durationSec": 32,
+    "autoplay": true,
+    "frames": [
+      { "t": 0, "activity": 0.3, "label": "班前" },
+      { "t": 8, "activity": 1.0, "label": "早高峰" },
+      { "t": 17, "activity": 0.82, "label": "生产高峰" },
+      { "t": 25, "activity": 0.24, "label": "夜间降载" }
+    ]
+  },
+  "clip": {
+    "enabled": true,
+    "axis": "x",
+    "value": 1
+  }
+}

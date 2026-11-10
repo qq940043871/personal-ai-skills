@@ -2,17 +2,18 @@
 name: visual-threejs-scene
 display_name: Three.js 数字孪生原型
 display_name_en: Three.js Digital Twin Prototype
-description: "Three.js 场景开发工具箱（配置驱动）：自己搭或改造三维场景——程序化几何库（厂房/货架/堆场/储罐/管线/车辆）、GLTF/GLB 接入校验、标签弹窗、巡检漫游、设备高亮告警、拾取、离线打包。要开箱即用的成品孪生大屏（城市/工厂/港口模板）走 visual-digital-twin。触发词：Three.js、WebGL 场景、程序化几何、GLTF、GLB、巡检漫游、设备高亮、拾取交互、三维场景原型、离线 three。"
-description_zh: Three.js 场景开发工具箱：程序化几何 + GLB 接入校验 + 标签/巡检/告警/拾取 + 离线打包，用于自己搭或改造三维场景；要成品孪生大屏走 visual-digital-twin。
-description_en: Toolkit for authoring or customizing your own Three.js scene — procedural geometry, GLB loading, labels, patrol animation, alarm highlighting, picking, offline bundling. For a ready-made digital-twin dashboard, use visual-digital-twin.
+description: "Three.js 场景开发工具箱（配置驱动）：自己搭或改造三维场景——程序化几何库（厂房/货架/堆场/储罐/管线/车辆）、GLTF/GLB 接入校验、标签弹窗、巡检漫游、设备高亮告警、拾取、离线打包；并含 Blender 实景资产管线（照片/CAD → MCP 建模 → CLI 导出优化 → GLB 体检 → 集成 models[]），无 Blender 自动降级程序化几何。要开箱即用的成品孪生大屏（城市/工厂/港口模板）走 visual-digital-twin。触发词：Three.js、WebGL 场景、程序化几何、GLTF、GLB、巡检漫游、设备高亮、拾取交互、三维场景原型、离线 three、实景还原、真实厂区、按实际建模、CAD、Blender、blender-mcp、GLB 优化、模型资产管线、实体孪生。"
+description_zh: Three.js 场景开发工具箱：程序化几何 + GLB 接入校验 + 标签/巡检/告警/拾取 + 离线打包，用于自己搭或改造三维场景；含 Blender 实景资产管线（MCP 建模 → CLI 导出 → GLB 体检 → 集成 models[]），无 Blender 自动降级；要成品孪生大屏走 visual-digital-twin。
+description_en: Toolkit for authoring or customizing your own Three.js scene — procedural geometry, GLB loading, labels, patrol animation, alarm highlighting, picking, offline bundling, plus a Blender real-scene asset pipeline (MCP modeling → CLI export → GLB validation → models[] integration) with procedural fallback. For a ready-made digital-twin dashboard, use visual-digital-twin.
 category: Design Tools
-version: 0.11.0
+version: 0.12.0
 author: hasWhere
-tags: ["数字孪生", "Three.js", "WebGL", "3D", "单文件HTML", "配置驱动", "Mock数据", "仓储", "厂区", "大屏"]
+tags: ["数字孪生", "Three.js", "WebGL", "3D", "单文件HTML", "配置驱动", "Mock数据", "仓储", "厂区", "大屏", "Blender", "blender-mcp", "GLB", "实景还原"]
 permissions:
   - file_read
   - file_write
-permission_notes_zh: 本 Skill 读取自带骨架 HTML 与用户配置 JSON，在用户指定目录写入原型页面；不调用外部接口、不上传任何数据。页面运行时按需从 unpkg 加载 Three.js 运行时（可离线本地化，见「离线与内网部署」）。
+  - command_exec
+permission_notes_zh: 本 Skill 读取自带骨架 HTML 与用户配置 JSON，在用户指定目录写入原型页面；不调用外部接口、不上传任何数据。页面运行时按需从 unpkg 加载 Three.js 运行时（可离线本地化，见「离线与内网部署」）。GLB 资产管线会调用本机 Blender 可执行文件（--background 批处理）做模型导出与校验，读写用户指定目录，不联网；Blender MCP 需用户自行安装 Blender 及其 MCP 插件。
 ---
 
 # Three.js 数字孪生原型
@@ -386,6 +387,34 @@ skyEnvMap —— 真实模型在白天场景会比程序化资产暗一截（实
 envMap，源图 1k 与 2k 在反射上肉眼无差；但 2k 的 `kloofendal` 是 6.5MB、1k 只有 1.56MB ——
 单文件产物直接省 5MB（v07 29.9MB → v08 25.2MB，还多装了 4 台设备）。
 背景不用 HDRI（见上：俯视会采样到地平线以下的植被），所以 HDRI 只服务于反射，1k 完全够。
+
+### 实景资产管线（Blender MCP → GLB，v0.12 吸收自 visual-real-twin）
+
+客户要求「按我们厂实际的样子来」（照片/CAD/实拍/设备清单）时，走这条编排链把真实世界变成 GLB，再喂回本技能的 `models[]`：
+
+```
+[探测] python scripts/probe_blender.py
+   ├─ 有 Blender ──→ 路线 B：实景还原
+   │     ① Blender MCP 半自动建模（见 references/blender-mcp.md）
+   │     ② 存 .blend
+   │     ③ blender --background --python scripts/export_webgl.py -- ...（减面/贴图/Draco/落地）
+   │     ④ python scripts/validate_glb.py x.glb（面数/体积/贴图/尺度体检）
+   │     ⑤ python scripts/integrate_glb.py x.glb --target three ...（拷入 assets/models/ + 生成 models[] 片段）
+   │     ⑥ python scripts/scaffold.py --config ... --out ... 出屏 + smoke_headless.py 验证
+   └─ 无 Blender ──→ 路线 A：程序化降级
+        直接用本技能内置程序化几何（rack/tank/pipeline/conveyor…）交付，
+        并告知用户：装 Blender + blender-mcp 插件后可升级为实景还原。
+```
+
+**四条铁律**（详见 `references/blender-mcp.md` 与 `references/webgl-budget.md`）：
+1. **MCP 只管建模创意，导出优化一律走 CLI 批处理**（`blender --background --python export_webgl.py`）。不要经 MCP 一步步点导出——盲操作回环慢、参数手调易错。
+2. **米制真实尺寸、原点底部中心**。按实物尺寸（米）建模，落地 `position:[x,0,z]` 直接用，不猜缩放。
+3. **预算不过线不准进屏**：单模型 ≤5 万面、GLB ≤1.5MB（内联）/ ≤5MB（外置）、贴图最长边 ≤2048。`validate_glb.py` 说 FAIL 就回炉（调 `--decimate` / `--max-tex`）。
+4. **建模前先 probe**。Blender 不在 → 直接走程序化几何交付，同时告诉用户升级路径。
+
+**与 `gen_models_blender.py` 的分工**：后者是程序化批量生成标准模型（bl-tank/bl-silo/bl-forklift…，一次脚本出固定 6 种）；实景管线是经 MCP **按真实照片/CAD 交互建模**（hero/mid/bg 分级）。两者共享同一套建模规范（米制/原点/倒角/人体工学不随缩放/绝不依赖选中态），`export_webgl.py` 直接继承这些坑位。
+
+`templates/models-entry.jsonc` 是 `models[]` 片段模板；`integrate_glb.py --target twin` 也可把 GLB 集成进 `visual-digital-twin`。
 
 ### 标签与信息弹窗
 - 标签用 `CSS2DRenderer`：**DOM 标签随三维坐标投影**，可直接绑 `click`，比 sprite 清晰、可换行、可加状态胶囊。

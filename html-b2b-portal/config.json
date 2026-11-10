@@ -1,17 +1,82 @@
 {
   "name": "html-b2b-portal",
-  "version": "0.1.0",
-  "description": "设计B2B门户与产业互联网平台（覆盖大宗商品/工业品/农产品等12个垂直行业），输出布局规范、行情组件、3D/视差动效层与响应式HTML原型",
+  "version": "0.2.0",
+  "description": "设计B2B门户与产业互联网平台（覆盖大宗商品/工业品/农产品等12个垂直行业），输出布局规范、行情组件、3D/视差动效层与响应式HTML原型；也承接一句话业务需求的澄清式功能开发（澄清 → 蓝图 → 原型或前后端代码）",
   "author": "hasWhere",
   "license": "MIT",
-  "tags": ["B2B", "门户", "电商", "大宗商品", "设计规范", "UI/UX", "HTML模板", "动效", "数据可视化"],
-  "workflow": [
-    "行业定档 -> industry-profiles.md",
-    "页面选型 -> page-layouts.md",
-    "组件装配 -> component-library.md（§A-E 基础组件 / §F 动效层）",
-    "数据填充 -> html-prototype-spec.md Mock Schema",
-    "质量门禁 -> scripts/check_prototype.py 机检 + SKILL.md §7 清单"
+  "tags": ["B2B", "门户", "电商", "大宗商品", "设计规范", "UI/UX", "HTML模板", "动效", "数据可视化", "功能开发", "需求澄清", "布局选型"],
+  "modes": [
+    {
+      "id": "A",
+      "name": "展示型门户原型",
+      "when": "门户/首页/找货/详情/询价/店铺等页面形态已明确",
+      "entry": "SKILL.md §3 路径 A（Step 1-5）",
+      "output": "单文件零构建 HTML 原型",
+      "gate": "scripts/check_prototype.py + SKILL.md §7"
+    },
+    {
+      "id": "B",
+      "name": "澄清式功能开发",
+      "when": "「我要开发/新增一个XX功能」等一句话业务需求",
+      "entry": "SKILL.md §3 路径 B + references/feature-scaffold.md",
+      "output": "HTML 原型 或 Vue + Java 前后端代码",
+      "gate": "原型机检零 ERROR 或 build/compile 通过 + 交付说明",
+      "phases": ["澄清提问（≤3 轮，选择题）", "蓝图确认（布局编号 + 字段表 + 接口清单）", "生成与验证"]
+    }
   ],
+  "workflow": [
+    "路径A: 行业定档 -> industry-profiles.md",
+    "路径A: 页面选型 -> page-layouts.md",
+    "路径A: 组件装配 -> component-library.md（§A-E 基础组件 / §F 动效层）",
+    "路径A: 数据填充 -> html-prototype-spec.md Mock Schema",
+    "路径A: 质量门禁 -> scripts/check_prototype.py 机检 + SKILL.md §7 清单",
+    "路径B: 澄清提问 -> references/feature-scaffold.md §1（业务本质 / 布局选型 / 接口集成）",
+    "路径B: 蓝图确认 -> references/feature-scaffold.md §2",
+    "路径B: 生成与验证 -> references/feature-scaffold.md §3"
+  ],
+  "layoutLibrary": {
+    "_note": "路径 B 的布局编号。全量结构、典型场景与提问差异见 references/feature-scaffold.md §1.2。",
+    "business": {
+      "L1": "标准列表",
+      "L2": "主从树表",
+      "L3": "交易工作台",
+      "L4": "行情看板",
+      "L5": "汇总+标签页详情",
+      "L6": "流程审批",
+      "L7": "仓储物流跟踪",
+      "L8": "上下表单",
+      "L9": "手风琴/分步表单",
+      "L10": "竞价交易室（5 要素硬要求：阶段进度走动 / 秒级倒计时 / 竞价时空图 / 开场动画 / 成交结果页）"
+    },
+    "portal": {
+      "P1": "多楼层门户",
+      "P2": "行情大厅",
+      "P3": "供需撮合大厅",
+      "P4": "资讯门户",
+      "P5": "商城式门户"
+    },
+    "screen": {
+      "D1": "指挥驾驶舱",
+      "D2": "实时监控大屏"
+    },
+    "map": {
+      "M1": "地图主视觉",
+      "M2": "地图+列表联动",
+      "M3": "轨迹地图"
+    },
+    "report": {
+      "R1": "多维报表",
+      "R2": "统计看板",
+      "R3": "自助仪表盘"
+    },
+    "reuse": {
+      "P1": "references/page-layouts.md §1 门户首页",
+      "L1": "references/page-layouts.md §2 产品列表页",
+      "L5": "references/page-layouts.md §3 产品详情页",
+      "P3": "references/page-layouts.md §4 RFQ 询价页",
+      "supplier-store": "references/page-layouts.md §5 供应商店铺页"
+    }
+  },
   "industries": [
     {
       "id": "steel",
@@ -134,6 +199,7 @@
   "references": [
     {"path": "references/industry-profiles.md", "loadAt": "Step1", "purpose": "行业画像"},
     {"path": "references/page-layouts.md", "loadAt": "Step2", "purpose": "页面布局"},
+    {"path": "references/feature-scaffold.md", "loadAt": "路径B-阶段1", "purpose": "澄清式功能开发：提问脚本、L/P/D/M/R 布局库、功能→布局映射、蓝图模板、硬性规则"},
     {"path": "references/component-library.md", "loadAt": "Step3", "purpose": "组件片段"},
     {"path": "references/glossary.md", "loadAt": "按需", "purpose": "术语词典"},
     {"path": "references/html-prototype-spec.md", "loadAt": "Step4", "purpose": "工程规范与Mock Schema"}

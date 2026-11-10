@@ -1,6 +1,6 @@
 # 个人 AI 技能库
 
-> 33 个可直接加载的 Agent Skill，覆盖前端原型、架构图与三维大屏、开发工作流、运维排障与本地自动化。
+> 22 个可直接加载的 Agent Skill，覆盖前端原型、架构图与三维大屏、开发工作流、运维排障与本地自动化。
 
 每个顶层目录就是一个独立技能：目录名等于 `SKILL.md` 中的 `name`，检出后即被 Agent 加载，无需安装或构建。
 
@@ -29,10 +29,11 @@ cd ~/.agents/skills && git pull
 | 「画一张微服务架构图，导出 PNG」 | `visual-arch-diagram` |
 | 「画个下单时序图」 | `visual-diagram-suite` |
 | 「做个港口数字孪生大屏」 | `visual-digital-twin` |
-| 「做个运营后台的合同管理页」 | `html-manage-pages` |
+| 「做个运营后台的合同管理页」 | `html-prototype-base`（02-manage 象限） |
+| 「我要开发一个客户管理功能」 | `html-b2b-portal`（路径 B 澄清式功能开发） |
 | 「把这本书整理成学习网站」 | `tool-book-learning` |
-| 「服务 OOM 了，帮我分析这个 heap dump」 | `prod-triage` / `dev-jvm-triage` |
-| 「把这个 H5 游戏打包成 exe 和 APK」 | `h5-app-packaging` |
+| 「服务 OOM 了，帮我分析这个 heap dump」 | `dev-prod-triage` |
+| 「把这个 H5 游戏打包成 exe 和 APK」 | `html-app-packaging` |
 | 「把 skill 上架到技能市场」 | `tool-skill-publish` |
 
 ## 技能总览
@@ -41,11 +42,9 @@ cd ~/.agents/skills && git pull
 
 | 技能 | 用途 |
 |---|---|
-| `dev-avue-design` | Avue v3.8.2（Vue3 + Element-Plus）组件配置与代码生成参考：CRUD 表格、动态表单、树组件、数据展示 |
-| `dev-feature-scaffold` | 一句话需求 → 交互式澄清 → 页面蓝图确认 → 生成前后端功能代码 |
 | `dev-godot-zero-asset-game` | Godot 4.x 零素材 2D 小游戏全流程：数据驱动、无头质量门、Windows / Android 交付 |
-| `dev-jvm-triage` | JVM 现场取证（jstack / GC / 直方图 / 句柄 / 连接）+ 大体积 hprof 流式分析与判读 |
 | `dev-mipad-landscape` | 小米平板横屏 uni-app 适配：rpx 基准重定义、横屏锁定、三栏布局、安全区 |
+| `dev-prod-triage` | 生产问题分层定界（客户端 → Mids → DS → 后端 → 第三方）+ JVM 现场取证与大体积 hprof 流式分析（唯一权威版本） |
 | `dev-uniapp-to-miniprogram` | uni-app（Vue3）→ 原生微信小程序工程，含静态与业务双层自检 |
 | `dev-web-stress-test` | Web 压测与性能验收方法论：协议侦察、JMeter + WebSocket 双口径、容量探顶、验收报告 |
 
@@ -53,13 +52,8 @@ cd ~/.agents/skills && git pull
 
 | 技能 | 用途 |
 |---|---|
-| `html-prototype-base` | 通用基座：用途与菜单布局选择器、主题预设、通用页面模式 |
-| `html-architecture-design` | 01-design 象限：系统设计、架构说明、业务场景、领域建模文档页 |
-| `html-manage-pages` | 02-manage 象限：运营后台增删改查、系统配置、报表（蓝色、表格驱动） |
-| `html-client-pages` | 03-client 象限：企业会员中心（合同、履约、单据、结算、待办等） |
-| `html-mobile-pages` | 04-mobile 象限：手机端触控页面、底部 Tab 导航 |
-| `html-b2b-portal` | B2B 门户 / 产业互联网平台原型：12 个行业视觉定档、行情组件、3D 与视差动效层 |
-| `html-app-workbench` | 类原生 APP 工作台：单文件 HTML、触控友好、内联 SVG、本地数据层 |
+| `html-prototype-base` | HTML 原型总入口：通用基座（用途 / 菜单布局选择器、主题预设、通用页面模式）+ 四象限（01-design 架构设计文档、02-manage 运营后台、03-client 会员中心、04-mobile 手机端） |
+| `html-b2b-portal` | B2B 门户 / 产业互联网平台原型：12 个行业视觉定档、行情组件、3D 与视差动效层；含澄清式功能开发（澄清 → 页面蓝图 → 原型或前后端代码） |
 
 ### 图表与三维 · `visual-`
 
@@ -68,9 +62,8 @@ cd ~/.agents/skills && git pull
 | `visual-arch-diagram` | 层带式技术架构图：单文件 HTML 绘制，2× 高清 PNG 导出，支持旧位图还原 |
 | `visual-diagram-suite` | 画图总入口：时序图、组件依赖图、部署拓扑图、状态机图、管道流程图五类骨架 + 统一导出 |
 | `visual-echarts-dashboard` | ECharts 深色科技风数据大屏：配置驱动、Mock 数据、任意分辨率自适应 |
-| `visual-threejs-scene` | Three.js 场景工具箱：程序化几何、GLB 接入、标签 / 巡检 / 告警 / 拾取、离线打包 |
+| `visual-threejs-scene` | Three.js 场景工具箱：程序化几何、GLB 接入、标签 / 巡检 / 告警 / 拾取、离线打包；含 Blender 实景资产管线（MCP 建模 → GLB 优化体检 → 集成） |
 | `visual-digital-twin` | 写实数字孪生大屏生成器（城市 / 工厂 / 港口 / 炼化），配置即交付，含 2D 降级 |
-| `visual-real-twin` | 实景孪生资产管线：Blender 建模、GLB 优化与体检、接入孪生大屏 |
 
 ### 自动化工具 · `tool-`
 
@@ -80,20 +73,17 @@ cd ~/.agents/skills && git pull
 | `tool-book-learning` | 把 PDF / 扫描件 / 原著整理成单文件 HTML 学习站：章节卡片、概念表、自测、检索 |
 | `tool-b2b-bid-expert` | 「标书军师」：解析招标文件、定位评分办法与废标条款、生成应答表 / 偏离表、合规自检 |
 | `tool-b2b-business-expert` | 「商略」：B2B 客户画像、采购决策链、销售漏斗、定价政策、商务谈判 |
-| `tool-kb-audit-repair` | 知识库质量审查与修复战役：多代理审查 → 分批修复 → 独立终验 → 记忆沉淀 |
 | `tool-yuque-export` | 语雀知识库全量导出为 Markdown 文件树 + 本地化图片 |
 | `tool-wechat-jobs-monitor` | 公众号监听 → 关键词筛选 → 结构化落库 → HTML 日报 → 邮件推送（**仅作者本人私用**） |
-| `tool-daily-checkin` | Windows 桌面应用每日签到自动化：配置一次按钮坐标，之后一句话执行 |
-| `tool-trae-checkin` | Trae CN 每日签到领积分自动化 |
+| `tool-checkin-zcode` | 桌面应用签到自动化（当前配置 ZCode）：配置一次按钮坐标，之后一句话执行 |
+| `tool-check-trae` | Trae CN 每日签到领积分自动化 |
 | `tool-electron-gui-click` | Electron 桌面应用截图定位 + 坐标点击自动化 |
-| `tool-remove-watermark` | 图片右下角水印去除，支持 inpaint / crop 与批量处理 |
 
 ### 端到端流程
 
 | 技能 | 用途 |
 |---|---|
-| `h5-app-packaging` | 纯静态 H5 → Windows exe（Electron）+ Android APK（HBuilderX）套壳打包，强制同步 + SHA-256 校验 |
-| `prod-triage` | 生产问题分层定界（客户端 → Mids → DS → 后端 → 第三方），附 JVM 离线取证分支 |
+| `html-app-packaging` | 纯静态 HTML/H5 → Windows exe（Electron）+ Android APK（HBuilderX）套壳打包，强制同步 + SHA-256 校验 |
 
 ## 目录结构
 
@@ -113,7 +103,7 @@ cd ~/.agents/skills && git pull
 - **触发词即接口**：`description` 里的中文短语决定技能何时被选中，修改等同于改行为。
 - **生成器技能的 `assets/` 是模板**：会被复制进用户工程，而不是原地使用（如 `dev-uniapp-to-miniprogram/assets/*` → 工程的 `tools/`）。
 - **产物落在用户指定目录**，不写回技能目录；通常是一个自包含单文件 HTML。
-- **CDN 策略按家族区分**：`visual-*` 与 `html-app-workbench` 零 CDN、全内联，断网可用；`html-prototype-base` 及各象限刻意使用 Tailwind / Chart.js CDN，零构建；`html-b2b-portal` 允许 CDN 但需优雅降级。
+- **CDN 策略按家族区分**：`visual-*` 零 CDN、全内联，断网可用；`html-prototype-base`（含其四象限）刻意使用 Tailwind / Chart.js CDN，零构建；`html-b2b-portal` 允许 CDN 但需优雅降级。
 - **版本从 `0.1.0` 起**，版本号同时存在于 `SKILL.md`、`config.json`（如有）、包文件名与交付文档，改版需一起更新。
 - **署名默认 `hasWhere`**，除非明确要求更换。
 - **字节保真**：`.gitattributes` 设置 `* -text`，禁止换行符转换；图片、GLB、字体等二进制文件保持原样。
@@ -151,7 +141,9 @@ python html-b2b-portal/scripts/check_prototype.py 原型.html
 
 ## 维护提示
 
-- `prod-triage/scripts/jvm/` 是 `dev-jvm-triage/scripts/` 的逐字节副本，改动需同步两处。
+- JVM 取证工具只有一份：`dev-prod-triage/scripts/jvm/`（`dev-jvm-triage` 已整体并入，勿再新建副本）。
+- `dev-feature-scaffold` 已整体并入 `html-b2b-portal`（路径 B：澄清 → 蓝图 → 原型或前后端代码），布局库 L/P/D/M/R 在 `html-b2b-portal/references/feature-scaffold.md`；勿重建该目录。
 - `visual-arch-diagram` 与 `visual-diagram-suite` 的 `export_png.py` CLI 相同但实现不同，不要互相覆盖。
 - `html-*` 技能描述的是外部原型工程（`01-design/`、`02-manage/`、`03-client/`、`04-mobile/`），这些目录不在本仓库内。
-- 跨技能引用较多（如 `arch-diagram` ↔ `diagram-suite`、`digital-twin` ↔ `threejs-scene` ↔ `real-twin`），重命名技能后需全仓搜索引用。
+- HTML 原型只有一个技能：`html-prototype-base`。四象限已并入其 `references/`（`01-design-architecture.md`、`02-manage-pages.md`、`03-client-pages.md`、`04-mobile-pages.md`），shell 模板与页面模式分别在 `layouts.md`、`page-patterns.md`；不要重建 `html-manage-pages` 等旧目录。
+- `visual-threejs-scene` 已并入 `visual-real-twin`（Blender 实景资产管线），勿重建该目录；跨技能引用较多（如 `arch-diagram` ↔ `diagram-suite`、`digital-twin` ↔ `threejs-scene`），重命名技能后需全仓搜索引用。
